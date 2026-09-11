@@ -48,7 +48,9 @@ async def grid_live(
     - `unknown` in breakdown is excluded from renewablePct numerator
     - All timestamps are UTC; IST conversion happens at the display layer
     """
-    return await resolve(zone_id=zoneId, settings=settings)
+    from app.guardrails import validate_grid_snapshot
+    snap = await resolve(zone_id=zoneId, settings=settings)
+    return validate_grid_snapshot(snap)
 
 
 @router.get(
@@ -66,5 +68,7 @@ async def grid_forecast(
 
     """
     from app.forecast import get_forecaster
+    from app.guardrails import validate_forecast
     forecaster = get_forecaster(zoneId)
-    return forecaster.predict(zoneId, hours)
+    points = forecaster.predict(zoneId, hours)
+    return validate_forecast(points)

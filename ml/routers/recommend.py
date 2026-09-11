@@ -43,5 +43,7 @@ async def recommend(body: RecommendRequest) -> list[StationRecommendation]:
     - `connectorCompatible = false` stations are hidden by default.
 
     """
-    from app.recommend import recommend as engine_recommend
-    return await engine_recommend(body)
+    from app.recommend import smartcharge_plan, recommend as engine_recommend
+    from app.guardrails import validate_recommendations
+    recs = await engine_recommend(body)
+    return validate_recommendations(recs)
