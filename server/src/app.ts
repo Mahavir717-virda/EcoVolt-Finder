@@ -10,6 +10,9 @@ import { requestLogger } from './middleware/request-logger';
 import { baseRateLimiter } from './middleware/rate-limiter';
 import { errorHandler, NotFoundError } from './middleware/error-handler';
 import { healthRouter } from './modules/health/health.router';
+import { authRouter } from './modules/auth/auth.router';
+import { meRouter } from './modules/me/me.router';
+import { vehiclesRouter } from './modules/vehicles/vehicles.router';
 
 export const createApp = (): Express => {
   const app = express();
@@ -17,19 +20,18 @@ export const createApp = (): Express => {
   // Security Middleware
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Allows Swagger UI to load resources smoothly
+      contentSecurityPolicy: false,
     })
   );
 
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps, curl, Postman)
         if (!origin) return callback(null, true);
         if (env.CORS_ORIGINS.includes('*') || env.CORS_ORIGINS.includes(origin)) {
           return callback(null, true);
         }
-        return callback(null, true); // Permissive in dev mode for Expo/React Native
+        return callback(null, true);
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -60,6 +62,9 @@ export const createApp = (): Express => {
 
   // Routes
   app.use('/health', healthRouter);
+  app.use('/auth', authRouter);
+  app.use('/me', meRouter);
+  app.use('/vehicles', vehiclesRouter);
 
   // 404 Handler
   app.use((req, _res, next) => {
