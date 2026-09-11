@@ -15,6 +15,7 @@ import { meRouter } from './modules/me/me.router';
 import { vehiclesRouter } from './modules/vehicles/vehicles.router';
 import { stationsRouter } from './modules/stations/stations.router';
 import { pricingRouter } from './modules/pricing/pricing.router';
+import { bookingsRouter } from './modules/bookings/bookings.router';
 
 export const createApp = (): Express => {
   const app = express();
@@ -69,6 +70,7 @@ export const createApp = (): Express => {
   app.use('/vehicles', vehiclesRouter);
   app.use('/stations', stationsRouter);
   app.use('/pricing', pricingRouter);
+  app.use('/bookings', bookingsRouter);
 
   // 404 Handler
   app.use((req, _res, next) => {
