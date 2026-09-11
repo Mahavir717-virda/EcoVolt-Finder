@@ -1,0 +1,73 @@
+import express, { Express } from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import yaml from 'yamljs';
+import swaggerUi from 'swagger-ui-express';
+import { env } from './config/env';
+import { requestLogger } from './middleware/request-logger';
+import { baseRateLimiter } from './middleware/rate-limiter';
+import { errorHandler, NotFoundError } from './middleware/error-handler';
+import { healthRouter } from './modules/health/health.router';
+
+export const createApp = (): Express => {
+  const app = express();
+
+  // Security Middleware
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Allows Swagger UI to load resources smoothly
+    })
+  );
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, Postman)
+        if (!origin) return callback(null, true);
+        if (env.CORS_ORIGINS.includes('*') || env.CORS_ORIGINS.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(null, true); // Permissive in dev mode for Expo/React Native
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    })
+  );
+
+  // Rate Limiting
+  app.use(baseRateLimiter);
+
+  // Body Parsing
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  // Request Logging
+  app.use(requestLogger);
+
+  // Mount OpenAPI / Swagger UI at /docs directly from /contracts/openapi.node.yaml
+  const openApiPath = path.resolve(__dirname, '../../contracts/openapi.node.yaml');
+  if (fs.existsSync(openApiPath)) {
+    try {
+      const swaggerDocument = yaml.load(openApiPath);
+      app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+    } catch (e) {
+      console.warn('Failed to parse OpenAPI yaml for /docs:', e);
+    }
+  }
+
+  // Routes
+  app.use('/health', healthRouter);
+
+  // 404 Handler
+  app.use((req, _res, next) => {
+    next(new NotFoundError(`Cannot ${req.method} ${req.path}`));
+  });
+
+  // Global Error Handler
+  app.use(errorHandler);
+
+  return app;
+};
