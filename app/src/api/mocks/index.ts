@@ -15,6 +15,7 @@ import sessionActive from './data/session_active.json';
 import bookings from './data/bookings.json';
 import managerStations from './data/manager_stations.json';
 import managerSessions from './data/manager_sessions.json';
+import networkAnalytics from './data/network_analytics.json';
 
 export const mockRegistry: Record<string, unknown> = {
   'GET /grid/live': gridLive,
@@ -38,6 +39,7 @@ export const mockRegistry: Record<string, unknown> = {
   'GET /bookings': bookings,
   'GET /manager/stations': managerStations,
   'GET /manager/sessions': managerSessions,
+  'GET /analytics/network': networkAnalytics,
   'POST /bookings': {
     id: 'book_mock_101',
     stationId: 'station-001',

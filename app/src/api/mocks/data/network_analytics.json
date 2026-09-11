@@ -1,0 +1,79 @@
+{
+  "activeNetworkLoadKw": 1248.5,
+  "totalStations": 42,
+  "onlineConnectors": 118,
+  "totalConnectors": 126,
+  "aggregateRenewablePct": 81.4,
+  "sessionsShiftedPct": 68.2,
+  "totalShiftedSessions": 142,
+  "co2AvoidedTodayKg": 1840.6,
+  "zones": [
+    {
+      "zoneId": "IN-WE",
+      "zoneName": "Western Grid (Gujarat / Maharashtra / Goa)",
+      "renewablePct": 84.5,
+      "carbonFreePct": 86.2,
+      "carbonIntensity": 395,
+      "band": "very_high",
+      "quality": "live",
+      "asOfAgeSec": 14,
+      "breakdown": {
+        "solar": 42,
+        "wind": 28,
+        "hydro": 14.5,
+        "nuclear": 1.7,
+        "coal": 13.8
+      }
+    },
+    {
+      "zoneId": "IN-SO",
+      "zoneName": "Southern Grid (Karnataka / Tamil Nadu / Telangana)",
+      "renewablePct": 78.0,
+      "carbonFreePct": 81.5,
+      "carbonIntensity": 430,
+      "band": "high",
+      "quality": "live",
+      "asOfAgeSec": 45,
+      "breakdown": {
+        "solar": 35,
+        "wind": 30,
+        "hydro": 13,
+        "nuclear": 3.5,
+        "coal": 18.5
+      }
+    },
+    {
+      "zoneId": "IN-NO",
+      "zoneName": "Northern Grid (Delhi / Punjab / Rajasthan / UP)",
+      "renewablePct": 62.0,
+      "carbonFreePct": 64.0,
+      "carbonIntensity": 510,
+      "band": "medium",
+      "quality": "cached",
+      "asOfAgeSec": 280,
+      "breakdown": {
+        "solar": 38,
+        "wind": 10,
+        "hydro": 14,
+        "nuclear": 2.0,
+        "coal": 36.0
+      }
+    },
+    {
+      "zoneId": "IN-EA",
+      "zoneName": "Eastern Grid (Bengal / Bihar / Odisha / Jharkhand)",
+      "renewablePct": 34.0,
+      "carbonFreePct": 34.0,
+      "carbonIntensity": 680,
+      "band": "low",
+      "quality": "mock",
+      "asOfAgeSec": 600,
+      "breakdown": {
+        "solar": 12,
+        "wind": 4,
+        "hydro": 18,
+        "coal": 66.0
+      }
+    }
+  ]
+}
