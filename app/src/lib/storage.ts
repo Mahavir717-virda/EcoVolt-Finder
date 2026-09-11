@@ -54,11 +54,46 @@ export const storage = {
     }
   },
 
+  async getVehicles<T>(): Promise<T | null> {
+    try {
+      const raw = await SecureStore.getItemAsync('ecovolt_vehicles_data');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async setVehicles<T>(data: T): Promise<void> {
+    try {
+      await SecureStore.setItemAsync('ecovolt_vehicles_data', JSON.stringify(data));
+    } catch {
+      // ignore
+    }
+  },
+
+  async getActiveVehicleId(): Promise<string | null> {
+    try {
+      return await SecureStore.getItemAsync('ecovolt_active_vehicle_id');
+    } catch {
+      return null;
+    }
+  },
+
+  async setActiveVehicleId(id: string): Promise<void> {
+    try {
+      await SecureStore.setItemAsync('ecovolt_active_vehicle_id', id);
+    } catch {
+      // ignore
+    }
+  },
+
   async clearAll(): Promise<void> {
     try {
       await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
       await SecureStore.deleteItemAsync(USER_KEY);
+      await SecureStore.deleteItemAsync('ecovolt_vehicles_data');
+      await SecureStore.deleteItemAsync('ecovolt_active_vehicle_id');
     } catch {
       // ignore
     }

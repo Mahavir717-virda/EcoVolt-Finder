@@ -19,13 +19,8 @@ export const ActiveSessionScreen: React.FC = () => (
   />
 );
 
-export const ProfileScreen: React.FC = () => (
-  <PlaceholderScreen
-    title="Driver Profile & Vehicles"
-    subtitle="My EV garage, lifetime ₹ savings & CO₂ avoided"
-    roleContext="driver"
-  />
-);
+export { ProfileScreen } from './ProfileScreen';
+export { VehiclesScreen } from './VehiclesScreen';
 
 export { StationDetailScreen } from './StationDetailScreen';
 
