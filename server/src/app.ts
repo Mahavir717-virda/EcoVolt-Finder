@@ -13,6 +13,7 @@ import { healthRouter } from './modules/health/health.router';
 import { authRouter } from './modules/auth/auth.router';
 import { meRouter } from './modules/me/me.router';
 import { vehiclesRouter } from './modules/vehicles/vehicles.router';
+import { stationsRouter } from './modules/stations/stations.router';
 
 export const createApp = (): Express => {
   const app = express();
@@ -65,6 +66,7 @@ export const createApp = (): Express => {
   app.use('/auth', authRouter);
   app.use('/me', meRouter);
   app.use('/vehicles', vehiclesRouter);
+  app.use('/stations', stationsRouter);
 
   // 404 Handler
   app.use((req, _res, next) => {
