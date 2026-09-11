@@ -29,13 +29,7 @@ export const ProfileScreen: React.FC = () => (
 
 export { StationDetailScreen } from './StationDetailScreen';
 
-export const RouteCompareScreen: React.FC = () => (
-  <PlaceholderScreen
-    title="Route & True Cost Compare"
-    subtitle="Travel cost vs sticker price ranking"
-    roleContext="driver"
-  />
-);
+export { RouteCompareScreen } from './RouteCompareScreen';
 
 export const BookingConfirmScreen: React.FC = () => (
   <PlaceholderScreen
