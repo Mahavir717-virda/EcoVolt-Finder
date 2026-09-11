@@ -13,7 +13,13 @@ import { useQuery } from '@tanstack/react-query';
 import { DriverStackParamList } from '../../navigation/types';
 import { http } from '../../api/http';
 import { GeoPoint, StationRecommendation, StationSummary } from '@contracts/types';
-import { VehicleClass } from '@contracts/enums';
+import {
+  VehicleClass,
+  PowerProvider,
+  ConnectorType,
+  GreennessBand,
+  DataQuality,
+} from '@contracts/enums';
 import {
   Text,
   LinearProgress,
@@ -42,7 +48,16 @@ export const RouteCompareScreen: React.FC = () => {
 
   const [vehicleClass, setVehicleClass] = useState<VehicleClass>(VehicleClass.CAR);
 
-  // 1. Fetch Station Details
+  // 1. Fetch All Stations & Station Details
+  const stationsQuery = useQuery<StationSummary[]>({
+    queryKey: ['stations'],
+    queryFn: async () => {
+      const res = await http.get<StationSummary[]>('/stations');
+      return res;
+    },
+    staleTime: 30000,
+  });
+
   const stationQuery = useQuery<StationSummary>({
     queryKey: ['station', stationId],
     queryFn: async () => {
@@ -63,57 +78,89 @@ export const RouteCompareScreen: React.FC = () => {
   });
 
   const isComputing = stationQuery.isLoading || recQuery.isLoading;
-  const chosenStation = stationQuery.data;
-  const recommendations = recQuery.data || [];
-
-  // Recommended station (default to best ranked station)
-  const recommendedRec = recommendations[0] || {
-    station: chosenStation || {
-      id: 'station-001',
+  const allStations = stationsQuery.data || [];
+  const chosenStation: StationSummary =
+    stationQuery.data ||
+    allStations.find((s) => s.id === stationId) || {
+      id: stationId,
       name: 'Torrent Charging Hub – CG Road',
       location: { lat: 23.0370, lng: 72.5622 },
       operatorName: 'Green Drive Pvt Ltd',
-      provider: 'torrent_power',
-      connectors: [],
-      greenness: { renewablePct: 85, band: 'very_high', quality: 'mock' },
+      provider: PowerProvider.TORRENT,
+      connectors: [{ type: ConnectorType.CCS2, powerKw: 60, available: 2, total: 3 }],
+      greenness: { renewablePct: 85, band: GreennessBand.VERY_HIGH, quality: DataQuality.MOCK },
       priceFrom: 6.2,
-    },
-    distanceKm: 2.4,
-    travelMinutes: 8,
-    energyNeededKwh: 18.0,
-    chargingCost: 111.6,
-    travelCost: 14.4,
-    trueTotalCost: 126.0,
-    vsCheapestSticker: -9.0,
-    reachable: true,
-    connectorCompatible: true,
-    reason: 'Closest station with 85% renewable solar window at noon — ₹9 cheaper than far station once travel is added.',
+    };
+
+  const getStationForRec = (rec?: Partial<StationRecommendation>): StationSummary => {
+    if (rec?.station) return rec.station;
+    const targetId = rec?.stationId || (rec as any)?.station?.id;
+    if (targetId) {
+      const matched = allStations.find((s) => s.id === targetId);
+      if (matched) return matched;
+      if (targetId === stationId) return chosenStation;
+    }
+    return (
+      allStations[0] ||
+      chosenStation || {
+        id: 'station-001',
+        name: 'Torrent Charging Hub – CG Road',
+        location: { lat: 23.0370, lng: 72.5622 },
+        operatorName: 'Green Drive Pvt Ltd',
+        provider: PowerProvider.TORRENT,
+        connectors: [{ type: ConnectorType.CCS2, powerKw: 60, available: 2, total: 3 }],
+        greenness: { renewablePct: 85, band: GreennessBand.VERY_HIGH, quality: DataQuality.MOCK },
+        priceFrom: 6.2,
+      }
+    );
   };
 
+  const rawRecommendations = recQuery.data || [];
+  const hydratedRecommendations = rawRecommendations.map((r) => ({
+    ...r,
+    station: getStationForRec(r),
+  }));
+
+  // Recommended station (default to best ranked station)
+  const recommendedRec: StationRecommendation & { station: StationSummary } =
+    hydratedRecommendations[0] || {
+      station: getStationForRec(),
+      stationId: 'station-001',
+      distanceKm: 2.4,
+      travelMinutes: 8,
+      energyNeededKwh: 18.0,
+      chargingCost: 111.6,
+      travelCost: 14.4,
+      trueTotalCost: 126.0,
+      vsCheapestSticker: -9.0,
+      reachable: true,
+      connectorCompatible: true,
+      reason:
+        'Closest station with 85% renewable solar window at noon — ₹9 cheaper than far station once travel is added.',
+    };
+
   // Chosen station recommendation
-  const chosenRec =
-    recommendations.find((r) => r.station.id === stationId) ||
-    (chosenStation
-      ? {
-          station: chosenStation,
-          distanceKm: 4.1,
-          travelMinutes: 14,
-          energyNeededKwh: 18.0,
-          chargingCost: 104.4,
-          travelCost: 24.6,
-          trueTotalCost: 129.0,
-          vsCheapestSticker: 3.0,
-          reachable: true,
-          connectorCompatible: true,
-          reason: 'Cheaper per kWh (₹5.8/kWh vs ₹6.2) but ₹10 extra travel makes it ₹3 worse overall.',
-        }
-      : recommendedRec);
+  const chosenRec: StationRecommendation & { station: StationSummary } =
+    hydratedRecommendations.find(
+      (r) => r.station?.id === stationId || r.stationId === stationId
+    ) || {
+      station: chosenStation,
+      stationId: chosenStation.id,
+      distanceKm: 4.1,
+      travelMinutes: 14,
+      energyNeededKwh: 18.0,
+      chargingCost: 104.4,
+      travelCost: 24.6,
+      trueTotalCost: 129.0,
+      vsCheapestSticker: 3.0,
+      reachable: true,
+      connectorCompatible: true,
+      reason:
+        'Cheaper per kWh (₹5.8/kWh vs ₹6.2) but ₹10 extra travel makes it ₹3 worse overall.',
+    };
 
   // Generate route polylines
-  const chosenDestination: GeoPoint = chosenStation
-    ? chosenStation.location
-    : { lat: 23.0469, lng: 72.5631 };
-
+  const chosenDestination: GeoPoint = chosenStation.location;
   const recDestination: GeoPoint = recommendedRec.station.location;
 
   const chosenRouteCoords: LatLng[] = generateInterpolatedRoute(

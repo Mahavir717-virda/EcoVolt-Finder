@@ -84,10 +84,13 @@ export const StationDetailScreen: React.FC = () => {
   const recommendations = recQuery.data || [];
 
   // Find matching recommendation for this station
-  const activeRec =
-    recommendations.find((r) => r.station.id === stationId) ||
+  const activeRec: Partial<StationRecommendation> =
+    recommendations.find(
+      (r) => r.station?.id === stationId || r.stationId === stationId
+    ) ||
     recommendations[0] || {
-      station: station!,
+      station: station,
+      stationId: station?.id || stationId,
       distanceKm: 2.4,
       travelMinutes: 8,
       energyNeededKwh: 18.0,

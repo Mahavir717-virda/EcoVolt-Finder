@@ -145,7 +145,8 @@ export interface StationSummary {
  * connectorCompatible = false stations are hidden by default.
  */
 export interface StationRecommendation {
-  station:             StationSummary
+  station?:            StationSummary
+  stationId?:          string
   distanceKm:          number
   travelMinutes:       number
   energyNeededKwh:     number
