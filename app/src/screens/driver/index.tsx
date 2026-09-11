@@ -1,35 +1,20 @@
 import React from 'react';
 import { PlaceholderScreen } from '../placeholder/PlaceholderScreen';
 
+// Core Driver Screens
 export { HomeMapScreen } from './HomeMapScreen';
+export { StationDetailScreen } from './StationDetailScreen';
+export { RouteCompareScreen } from './RouteCompareScreen';
+export { SmartChargeScreen } from './SmartChargeScreen';
+export { ConfirmBookingScreen, ConfirmBookingScreen as BookingConfirmScreen } from './ConfirmBookingScreen';
+export { ProfileScreen } from './ProfileScreen';
+export { VehiclesScreen } from './VehiclesScreen';
 
-export const SmartChargeScreen: React.FC = () => (
-  <PlaceholderScreen
-    title="Smart Schedule"
-    subtitle="Optimal green windows & automated charging schedule"
-    roleContext="driver"
-  />
-);
-
+// Placeholders for M1-C9 & M1-C10
 export const ActiveSessionScreen: React.FC = () => (
   <PlaceholderScreen
     title="Live Charging Session"
     subtitle="Volt pulse, kWh progress, live cost & CO₂ saved"
-    roleContext="driver"
-  />
-);
-
-export { ProfileScreen } from './ProfileScreen';
-export { VehiclesScreen } from './VehiclesScreen';
-
-export { StationDetailScreen } from './StationDetailScreen';
-
-export { RouteCompareScreen } from './RouteCompareScreen';
-
-export const BookingConfirmScreen: React.FC = () => (
-  <PlaceholderScreen
-    title="Confirm Booking"
-    subtitle="Price-lock reservation for your EV slot"
     roleContext="driver"
   />
 );

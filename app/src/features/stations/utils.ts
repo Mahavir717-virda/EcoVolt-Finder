@@ -77,41 +77,53 @@ export function checkStationReachability(
 /**
  * Returns human-readable label for EV connector types.
  */
-export function formatConnectorName(type: ConnectorType): string {
+export function formatConnectorName(type: ConnectorType | string): string {
   switch (type) {
     case ConnectorType.CCS2:
+    case 'ccs2':
       return 'CCS2 Fast DC';
     case ConnectorType.TYPE2_AC:
+    case 'type2_ac':
       return 'Type 2 AC';
     case ConnectorType.BHARAT_DC_001:
+    case 'bharat_dc_001':
       return 'Bharat DC-001';
     case ConnectorType.BHARAT_AC_001:
+    case 'bharat_ac_001':
       return 'Bharat AC-001';
     case ConnectorType.CHADEMO:
+    case 'chademo':
       return 'CHAdeMO';
     case ConnectorType.THREE_PIN:
+    case 'three_pin':
       return '3-Pin 16A';
     default:
-      return type;
+      return String(type);
   }
 }
 
 /**
  * Returns human-readable label for power distribution companies.
  */
-export function formatProviderName(provider: PowerProvider): string {
+export function formatProviderName(provider: PowerProvider | string): string {
   switch (provider) {
     case PowerProvider.TORRENT:
+    case 'torrent_power':
       return 'Torrent Power';
     case PowerProvider.GUVNL_GB:
+    case 'guvnl_gb':
       return 'GUVNL / Gujarat Grid';
     case PowerProvider.ADANI:
+    case 'adani_energy':
       return 'Adani Total Energies';
     case PowerProvider.TATA:
+    case 'tata_power':
       return 'Tata Power EV';
     case PowerProvider.BSES:
+    case 'bses':
       return 'BSES Delhi';
     case PowerProvider.MSEDCL:
+    case 'msedcl':
       return 'MSEDCL Maharashtra';
     default:
       return 'Independent EV Network';

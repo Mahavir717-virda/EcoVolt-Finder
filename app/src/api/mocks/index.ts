@@ -30,6 +30,32 @@ export const mockRegistry: Record<string, unknown> = {
   'GET /me': me,
   'GET /impact/me': driverImpact,
   'GET /vehicles': vehicles,
+  'POST /bookings': {
+    id: 'book_mock_101',
+    stationId: 'station-001',
+    connectorType: 'ccs2',
+    userId: 'usr_driver_101',
+    status: 'reserved',
+    lockedPrice: 6.20,
+    validUntil: new Date(Date.now() + 1800000).toISOString(),
+    windowStart: '2026-09-12T12:00:00+05:30',
+    windowEnd: '2026-09-12T13:30:00+05:30',
+    createdAt: new Date().toISOString(),
+  },
+  'GET /bookings': [
+    {
+      id: 'book_mock_101',
+      stationId: 'station-001',
+      connectorType: 'ccs2',
+      userId: 'usr_driver_101',
+      status: 'reserved',
+      lockedPrice: 6.20,
+      validUntil: new Date(Date.now() + 1800000).toISOString(),
+      windowStart: '2026-09-12T12:00:00+05:30',
+      windowEnd: '2026-09-12T13:30:00+05:30',
+      createdAt: new Date().toISOString(),
+    },
+  ],
 };
 
 export function getMockResponse(method: string, path: string): unknown | null {
