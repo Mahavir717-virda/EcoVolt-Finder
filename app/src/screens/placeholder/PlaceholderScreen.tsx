@@ -5,6 +5,7 @@ import { useAuthStore, Role } from '../../features/auth/authStore';
 import { http } from '../../api/http';
 import { ENV } from '../../api/config';
 import { Spinner } from '../../components/feedback/Spinner';
+import { ThemePreviewScreen } from '../../theme/Preview';
 
 interface PlaceholderScreenProps {
   title: string;
@@ -15,11 +16,25 @@ interface PlaceholderScreenProps {
 export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({
   title,
   subtitle,
-  roleContext,
 }) => {
-  const { user, role, isAuthenticated, setAuth, logout, setRole } = useAuthStore();
+  const { user, role, isAuthenticated, setAuth, logout } = useAuthStore();
   const [demoData, setDemoData] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showThemePreview, setShowThemePreview] = useState(false);
+
+  if (showThemePreview) {
+    return (
+      <View style={{ flex: 1 }}>
+        <TouchableOpacity
+          style={styles.closePreviewBtn}
+          onPress={() => setShowThemePreview(false)}
+        >
+          <Text style={styles.closePreviewBtnText}>← Back to App Placeholder</Text>
+        </TouchableOpacity>
+        <ThemePreviewScreen />
+      </View>
+    );
+  }
 
   const handleDemoFetch = async () => {
     setLoading(true);
@@ -50,11 +65,18 @@ export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.headerCard}>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>M1-C1 Bootstrap</Text>
+          <Text style={styles.badgeText}>Living Grid System Ready</Text>
         </View>
         <Text style={styles.title}>{title}</Text>
         {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       </View>
+
+      <TouchableOpacity
+        style={styles.previewTriggerBtn}
+        onPress={() => setShowThemePreview(true)}
+      >
+        <Text style={styles.previewTriggerBtnText}>🎨 Open Design System & UI Kit Preview</Text>
+      </TouchableOpacity>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Environment & State</Text>
@@ -153,6 +175,32 @@ const styles = StyleSheet.create({
     color: colors.ink2,
     fontFamily: 'Manrope_500Medium',
     marginTop: 4,
+  },
+  previewTriggerBtn: {
+    backgroundColor: colors.brandTint,
+    borderWidth: 1,
+    borderColor: colors.brand,
+    paddingVertical: spacing.md,
+    borderRadius: radii.md,
+    alignItems: 'center',
+  },
+  previewTriggerBtnText: {
+    color: colors.brand,
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Manrope_700Bold',
+  },
+  closePreviewBtn: {
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.base,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  closePreviewBtnText: {
+    color: colors.ink,
+    fontWeight: '700',
+    fontFamily: 'Manrope_700Bold',
   },
   card: {
     backgroundColor: colors.surface,

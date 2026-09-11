@@ -1,7 +1,8 @@
 // ecoVolt-finder — "Living Grid" Design Tokens
+// Authoritative definitions for colors, typography, spacing, radii, elevations
 
 export const colors = {
-  // Canvas & Surfaces
+  // Canvas & Surfaces (light-first app)
   canvas: '#F3F6F2',
   surface: '#FFFFFF',
   surfaceSunken: '#EAF0EA',
@@ -21,7 +22,7 @@ export const colors = {
   volt: '#0FB8C9',
   voltTint: '#DFF5F7',
 
-  // Grid-Dark
+  // Grid-Dark (active charging screen, live hero panel)
   grid900: '#08150F',
   grid800: '#0E2018',
 
@@ -33,13 +34,15 @@ export const colors = {
 };
 
 export const greennessScale = {
-  veryHigh: '#0E8E4F', // >= 80
+  veryHigh: '#0E8E4F', // >= 80 (deep emerald)
   high: '#3DAE5F',     // 65-79
-  medium: '#8FB93B',   // 50-64
-  moderate: '#E0A81E', // 35-49
-  low: '#E2732B',      // 20-34
-  veryLow: '#C8442E',  // < 20
+  medium: '#8FB93B',   // 50-64 (yellow-green)
+  moderate: '#E0A81E', // 35-49 (amber)
+  low: '#E2732B',      // 20-34 (orange)
+  veryLow: '#C8442E',  // < 20 (clay red)
 };
+
+export type GreennessBand = 'very_high' | 'high' | 'medium' | 'moderate' | 'low' | 'very_low';
 
 export function greennessColor(pct: number): string {
   if (pct >= 80) return greennessScale.veryHigh;
@@ -50,12 +53,22 @@ export function greennessColor(pct: number): string {
   return greennessScale.veryLow;
 }
 
-export function greennessBand(pct: number): 'very_high' | 'high' | 'medium' | 'low' | 'very_low' {
+export function greennessBand(pct: number): GreennessBand {
   if (pct >= 80) return 'very_high';
   if (pct >= 65) return 'high';
   if (pct >= 50) return 'medium';
+  if (pct >= 35) return 'moderate';
   if (pct >= 20) return 'low';
   return 'very_low';
+}
+
+export function greennessBandLabel(pct: number): string {
+  if (pct >= 80) return 'Very high renewable';
+  if (pct >= 65) return 'High renewable';
+  if (pct >= 50) return 'Medium renewable';
+  if (pct >= 35) return 'Moderate renewable';
+  if (pct >= 20) return 'Low renewable';
+  return 'Very low renewable';
 }
 
 export const typography = {
