@@ -17,6 +17,8 @@ import { stationsRouter } from './modules/stations/stations.router';
 import { pricingRouter } from './modules/pricing/pricing.router';
 import { bookingsRouter } from './modules/bookings/bookings.router';
 import { sessionsRouter } from './modules/sessions/sessions.router';
+import { recommendationsRouter } from './modules/recommendations/recommendations.router';
+import { forecastRouter } from './modules/forecast/forecast.router';
 
 export const createApp = (): Express => {
   const app = express();
@@ -73,6 +75,8 @@ export const createApp = (): Express => {
   app.use('/pricing', pricingRouter);
   app.use('/bookings', bookingsRouter);
   app.use('/sessions', sessionsRouter);
+  app.use('/recommendations', recommendationsRouter);
+  app.use('/forecast', forecastRouter);
 
   // 404 Handler
   app.use((req, _res, next) => {
