@@ -2,25 +2,16 @@
 routers/routing.py
 ──────────────────
 POST /route/matrix — Distance + travel time matrix from origin to multiple stations.
-
-M3-C1 stub: returns the /contracts/examples/route_matrix.json sample payload.
-Real Google Routes/Matrix client + haversine fallback is implemented in M3-C7.
 """
 from __future__ import annotations
-
-import json
-from pathlib import Path
 
 from fastapi import APIRouter
 
 from app.models import RouteMatrixRequest, RouteMatrixResponse
+from app.routing import route_matrix as client_route_matrix
+from app.config import get_settings
 
 router = APIRouter(prefix="/route", tags=["routing"])
-
-_EXAMPLES = Path(__file__).parent.parent.parent / "contracts" / "examples"
-_ROUTE_MATRIX_EXAMPLE = RouteMatrixResponse.model_validate(
-    json.loads((_EXAMPLES / "route_matrix.json").read_text(encoding="utf-8"))
-)
 
 
 @router.post(
@@ -38,8 +29,10 @@ async def route_matrix(body: RouteMatrixRequest) -> RouteMatrixResponse:
 
     `isEstimated = true` in the response when the haversine fallback was used
     (Google Routes quota exhausted or API error).
-
-    **M3-C1 stub**: returns the sample from /contracts/examples/route_matrix.json.
-    Real routing client is implemented in M3-C7.
     """
-    return _ROUTE_MATRIX_EXAMPLE
+    settings = get_settings()
+    return await client_route_matrix(
+        origin=body.origin,
+        station_coords=body.stationCoords,
+        api_key=settings.google_server_key
+    )

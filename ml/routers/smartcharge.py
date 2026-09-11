@@ -38,7 +38,6 @@ async def smartcharge_plan(body: SmartChargePlanRequest) -> SmartChargePlan:
     - `expectedSavings` is ₹ saved vs charging right now at current grid conditions.
     - `note` is a plain-language explanation shown to the driver in the UI.
 
-    **M3-C1 stub**: returns the sample from /contracts/examples/smartcharge_plan.json.
-    Real optimizer (forecast + LP/greedy scheduling) is implemented in M3-C10.
     """
-    return _SMARTCHARGE_EXAMPLE
+    from app.recommend import smartcharge_plan
+    return smartcharge_plan(body)
