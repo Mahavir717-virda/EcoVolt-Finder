@@ -22,13 +22,7 @@ from app.models import ForecastPoint, GridSnapshot
 
 router = APIRouter(prefix="/grid", tags=["grid"])
 
-# ── Forecast stub: still uses example payload until M3-C5 ─────────────────────
-_EXAMPLES = Path(__file__).parent.parent.parent / "contracts" / "examples"
 
-_GRID_FORECAST_EXAMPLE = [
-    ForecastPoint.model_validate(pt)
-    for pt in json.loads((_EXAMPLES / "grid_forecast.json").read_text(encoding="utf-8"))
-]
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -70,7 +64,7 @@ async def grid_forecast(
     Returns an hourly renewable-% forecast array (IST hour-start timestamps).
     confidence ∈ [0, 1] — low-confidence points are greyed in the UI.
 
-    **M3-C5 stub**: returns the sample payload from /contracts/examples/grid_forecast.json.
-    Real forecasting (feature engineering + model) is implemented in M3-C5.
     """
-    return _GRID_FORECAST_EXAMPLE[:hours]
+    from app.forecast import get_forecaster
+    forecaster = get_forecaster(zoneId)
+    return forecaster.predict(zoneId, hours)
