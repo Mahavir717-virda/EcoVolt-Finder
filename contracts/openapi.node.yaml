@@ -1,0 +1,636 @@
+openapi: "3.1.0"
+info:
+  title: ecoVolt-finder — Node/Express REST API
+  version: "1.0.0"
+  description: |
+    Backend REST API for the ecoVolt-finder app (Member 2 — Node + Express + TypeScript + PostgreSQL).
+    All monetary values are in INR (₹). Energy in kWh. Distance in km. Timestamps in ISO 8601 UTC.
+    The app converts UTC to IST (Asia/Kolkata) for display.
+
+servers:
+  - url: http://localhost:4000
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Enums ──────────────────────────────────────────────────────
+    Role:
+      type: string
+      enum: [driver, manager, admin]
+
+    ConnectorType:
+      type: string
+      enum: [ccs2, chademo, type2_ac, bharat_dc_001, bharat_ac_001, three_pin]
+
+    VehicleClass:
+      type: string
+      enum: [car, bike]
+
+    PowerProvider:
+      type: string
+      enum: [torrent_power, guvnl_gb, adani_energy, tata_power, bses, msedcl, other]
+
+    SessionStatus:
+      type: string
+      enum: [reserved, scheduled, active, completed, cancelled, expired, failed]
+
+    GreennessBand:
+      type: string
+      enum: [very_high, high, medium, low, very_low]
+
+    DataQuality:
+      type: string
+      enum: [live, cached, forecast, mock, stale]
+
+    # ── Core shared shapes ─────────────────────────────────────────
+    GeoPoint:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number }
+        lng: { type: number }
+
+    PriceQuote:
+      type: object
+      required: [stationId, connectorType, baseTariff, providerMarkup, touAdjustment, finalPrice, isEstimate, currency, validUntil]
+      properties:
+        stationId:      { type: string }
+        connectorType:  { $ref: '#/components/schemas/ConnectorType' }
+        baseTariff:     { type: number, description: "Provider tariff ₹/kWh" }
+        providerMarkup: { type: number, description: "Manager markup ₹/kWh (≥0)" }
+        touAdjustment:  { type: number, description: "ToU/green adjustment ₹/kWh, can be negative" }
+        finalPrice:     { type: number, description: "Total ₹/kWh paid" }
+        isEstimate:     { type: boolean }
+        currency:       { type: string, enum: [INR] }
+        validUntil:     { type: string, format: date-time }
+
+    ConnectorInfo:
+      type: object
+      required: [type, powerKw, available, total]
+      properties:
+        type:      { $ref: '#/components/schemas/ConnectorType' }
+        powerKw:   { type: number }
+        available: { type: integer }
+        total:     { type: integer }
+
+    StationSummary:
+      type: object
+      required: [id, name, location, operatorName, provider, connectors, greenness, priceFrom]
+      properties:
+        id:           { type: string }
+        name:         { type: string }
+        location:     { $ref: '#/components/schemas/GeoPoint' }
+        operatorName: { type: string }
+        provider:     { $ref: '#/components/schemas/PowerProvider' }
+        connectors:
+          type: array
+          items: { $ref: '#/components/schemas/ConnectorInfo' }
+        greenness:
+          type: object
+          required: [renewablePct, band, quality]
+          properties:
+            renewablePct: { type: number }
+            band:         { $ref: '#/components/schemas/GreennessBand' }
+            quality:      { $ref: '#/components/schemas/DataQuality' }
+        priceFrom:    { type: number }
+
+    Vehicle:
+      type: object
+      required: [id, userId, vehicleClass, batteryKwh, efficiencyWhKm, connectors, currentChargePct]
+      properties:
+        id:               { type: string }
+        userId:           { type: string }
+        vehicleClass:     { $ref: '#/components/schemas/VehicleClass' }
+        model:            { type: string }
+        batteryKwh:       { type: number }
+        efficiencyWhKm:   { type: number }
+        connectors:
+          type: array
+          items: { $ref: '#/components/schemas/ConnectorType' }
+        currentChargePct: { type: number, minimum: 0, maximum: 100 }
+
+    Booking:
+      type: object
+      required: [id, userId, stationId, connectorType, vehicleId, status, windowStart, windowEnd, lockedPrice]
+      properties:
+        id:            { type: string }
+        userId:        { type: string }
+        stationId:     { type: string }
+        connectorType: { $ref: '#/components/schemas/ConnectorType' }
+        vehicleId:     { type: string }
+        status:        { $ref: '#/components/schemas/SessionStatus' }
+        windowStart:   { type: string, format: date-time }
+        windowEnd:     { type: string, format: date-time }
+        lockedPrice:   { $ref: '#/components/schemas/PriceQuote' }
+        createdAt:     { type: string, format: date-time }
+
+    Session:
+      type: object
+      required: [id, bookingId, stationId, connectorType, vehicleId, userId, status]
+      properties:
+        id:               { type: string }
+        bookingId:        { type: string }
+        stationId:        { type: string }
+        connectorType:    { $ref: '#/components/schemas/ConnectorType' }
+        vehicleId:        { type: string }
+        userId:           { type: string }
+        status:           { $ref: '#/components/schemas/SessionStatus' }
+        startedAt:        { type: string, format: date-time }
+        endedAt:          { type: string, format: date-time }
+        energyKwh:        { type: number }
+        cost:             { type: number, description: "₹ — billed at locked price" }
+        avgRenewablePct:  { type: number }
+        co2AvoidedKg:    { type: number }
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:    { type: string }
+        message: { type: string }
+        details: { type: object }
+
+paths:
+  # ── Auth ────────────────────────────────────────────────────────
+  /auth/signup:
+    post:
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name, role]
+              properties:
+                email:    { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                name:     { type: string }
+                role:     { $ref: '#/components/schemas/Role' }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:  { type: string }
+                  refreshToken: { type: string }
+                  user:
+                    type: object
+                    properties:
+                      id:   { type: string }
+                      name: { type: string }
+                      role: { $ref: '#/components/schemas/Role' }
+        "409": { description: Email already registered }
+
+  /auth/login:
+    post:
+      summary: Login with email + password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:    { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:  { type: string }
+                  refreshToken: { type: string }
+                  user:
+                    type: object
+                    properties:
+                      id:   { type: string }
+                      name: { type: string }
+                      role: { $ref: '#/components/schemas/Role' }
+        "401": { description: Invalid credentials }
+
+  /auth/refresh:
+    post:
+      summary: Exchange refresh token for a new access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+        "401": { description: Invalid or expired refresh token }
+
+  # ── Me ──────────────────────────────────────────────────────────
+  /me:
+    get:
+      summary: Get current user profile
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:   { type: string }
+                  name: { type: string }
+                  role: { $ref: '#/components/schemas/Role' }
+                  email: { type: string }
+    patch:
+      summary: Update current user profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+      responses:
+        "200": { description: OK }
+
+  # ── Vehicles ────────────────────────────────────────────────────
+  /vehicles:
+    get:
+      summary: List vehicles for the current user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Vehicle' }
+    post:
+      summary: Add a vehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicleClass, batteryKwh, efficiencyWhKm, connectors, currentChargePct]
+              properties:
+                vehicleClass:     { $ref: '#/components/schemas/VehicleClass' }
+                model:            { type: string }
+                batteryKwh:       { type: number, minimum: 1 }
+                efficiencyWhKm:   { type: number, minimum: 1 }
+                connectors:
+                  type: array
+                  items: { $ref: '#/components/schemas/ConnectorType' }
+                currentChargePct: { type: number, minimum: 0, maximum: 100 }
+      responses:
+        "201": { description: Created }
+
+  /vehicles/{id}:
+    patch:
+      summary: Update a vehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model:            { type: string }
+                batteryKwh:       { type: number }
+                efficiencyWhKm:   { type: number }
+                connectors:
+                  type: array
+                  items: { $ref: '#/components/schemas/ConnectorType' }
+                currentChargePct: { type: number }
+      responses:
+        "200": { description: OK }
+        "404": { description: Not found }
+    delete:
+      summary: Delete a vehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Deleted }
+
+  # ── Stations ────────────────────────────────────────────────────
+  /stations:
+    get:
+      summary: Search nearby stations
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema: { type: number }
+        - name: lng
+          in: query
+          required: true
+          schema: { type: number }
+        - name: radiusKm
+          in: query
+          schema: { type: number, default: 10 }
+        - name: connector
+          in: query
+          schema: { $ref: '#/components/schemas/ConnectorType' }
+        - name: class
+          in: query
+          schema: { $ref: '#/components/schemas/VehicleClass' }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [true_cost, greenest, nearest]
+            default: nearest
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/StationSummary' }
+    post:
+      summary: Create a station (manager only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, location, provider]
+              properties:
+                name:     { type: string }
+                location: { $ref: '#/components/schemas/GeoPoint' }
+                provider: { $ref: '#/components/schemas/PowerProvider' }
+      responses:
+        "201": { description: Created }
+        "403": { description: Manager role required }
+
+  /stations/{id}:
+    get:
+      summary: Get full station detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK }
+        "404": { description: Not found }
+    patch:
+      summary: Update a station (manager, owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200": { description: OK }
+        "403": { description: Not the station owner }
+
+  # ── Pricing ─────────────────────────────────────────────────────
+  /pricing/quote:
+    get:
+      summary: Get a real-time price quote for a connector
+      parameters:
+        - name: stationId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: connector
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/ConnectorType' }
+        - name: kwh
+          in: query
+          required: true
+          schema: { type: number, minimum: 0.1 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PriceQuote' }
+
+  # ── Bookings ────────────────────────────────────────────────────
+  /bookings:
+    get:
+      summary: List bookings for the current user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Booking' }
+    post:
+      summary: Create a booking (reserves a connector + locks the price)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stationId, connectorType, vehicleId, windowStart, windowEnd, priceQuoteId]
+              properties:
+                stationId:      { type: string }
+                connectorType:  { $ref: '#/components/schemas/ConnectorType' }
+                vehicleId:      { type: string }
+                windowStart:    { type: string, format: date-time }
+                windowEnd:      { type: string, format: date-time }
+                priceQuoteId:   { type: string }
+      responses:
+        "201": { description: Booking created }
+        "409": { description: Connector not available for this window }
+
+  /bookings/{id}/cancel:
+    patch:
+      summary: Cancel a booking (within grace window)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Cancelled and slot released }
+        "400": { description: Outside cancellation window }
+
+  # ── Sessions ────────────────────────────────────────────────────
+  /sessions/{id}:
+    get:
+      summary: Get session detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+
+  /sessions/{id}/start:
+    post:
+      summary: Start a charging session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Session started }
+        "409": { description: Session already started or booking not found }
+
+  /sessions/{id}/stop:
+    post:
+      summary: Stop a session and compute the bill
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                energyKwh: { type: number, description: "kWh delivered (from meter or manager input)" }
+      responses:
+        "200":
+          description: Session summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+
+  # ── Recommendations (proxied from ML service) ───────────────────
+  /recommendations:
+    get:
+      summary: Get ranked station recommendations for the driver's origin + vehicle
+      parameters:
+        - name: originLat
+          in: query
+          required: true
+          schema: { type: number }
+        - name: originLng
+          in: query
+          required: true
+          schema: { type: number }
+        - name: vehicleId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: kwh
+          in: query
+          required: true
+          schema: { type: number }
+      responses:
+        "200":
+          description: Ranked recommendations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  description: StationRecommendation (see /contracts/types.ts)
+
+  # ── Forecast (proxied from ML service) ──────────────────────────
+  /forecast:
+    get:
+      summary: Get 24-hour renewable forecast for a zone or station
+      parameters:
+        - name: zoneId
+          in: query
+          schema: { type: string }
+        - name: stationId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK — array of ForecastPoint
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ── Impact / Analytics ──────────────────────────────────────────
+  /impact/me:
+    get:
+      summary: Get the current driver's lifetime impact stats
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalSessions:   { type: integer }
+                  totalKwh:        { type: number }
+                  totalSpent:      { type: number }
+                  savedVsSticker:  { type: number }
+                  co2AvoidedKg:   { type: number }
+                  avgRenewablePct: { type: number }
+
+  /analytics/station/{id}:
+    get:
+      summary: Station analytics (manager, owner-scoped)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK }
+        "403": { description: Not the station owner }
+
+  /analytics/network:
+    get:
+      summary: Network-wide analytics (admin only)
+      responses:
+        "200": { description: OK }
+        "403": { description: Admin role required }

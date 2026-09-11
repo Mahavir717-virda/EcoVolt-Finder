@@ -1,0 +1,11 @@
+{
+  "stationId": "station-001",
+  "connectorType": "ccs2",
+  "baseTariff": 5.50,
+  "providerMarkup": 0.50,
+  "touAdjustment": 0.20,
+  "finalPrice": 6.20,
+  "isEstimate": true,
+  "currency": "INR",
+  "validUntil": "2026-09-12T06:30:00Z"
+}

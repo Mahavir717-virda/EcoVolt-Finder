@@ -1,0 +1,342 @@
+openapi: "3.1.0"
+info:
+  title: ecoVolt-finder — ML / Data / Maps FastAPI Service
+  version: "1.0.0"
+  description: |
+    Python FastAPI microservice for grid data ingestion, renewable classification,
+    forecasting, routing, travel-cost modelling, and recommendation ranking.
+    Consumed by the Node backend (Member 2) over HTTP. Key never ships to the app.
+    
+    All times stored/returned in UTC. Conversion to IST happens at the display layer.
+    GRID_MODE env var: live | mock | hybrid  (controls data source behaviour).
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  # ── Health ──────────────────────────────────────────────────────
+  /health:
+    get:
+      summary: Service health check
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:   { type: string, example: ok }
+                  gridMode: { type: string, example: hybrid }
+                  version:  { type: string }
+
+  # ── Grid / Greenness ────────────────────────────────────────────
+  /grid/live:
+    get:
+      summary: Live GridSnapshot for a zone
+      parameters:
+        - name: zoneId
+          in: query
+          required: true
+          schema: { type: string, example: "IN-WE" }
+      responses:
+        "200":
+          description: GridSnapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GridSnapshot' }
+
+  /grid/forecast:
+    get:
+      summary: 24-hour renewable % forecast for a zone
+      parameters:
+        - name: zoneId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: hours
+          in: query
+          schema: { type: integer, default: 24, minimum: 1, maximum: 72 }
+      responses:
+        "200":
+          description: Array of ForecastPoint (IST hour-start timestamps)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ForecastPoint' }
+
+  # ── Classification ──────────────────────────────────────────────
+  /classify:
+    post:
+      summary: Classify a raw fuel-mix breakdown into renewable/carbon-free metrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [breakdown]
+              properties:
+                breakdown:
+                  type: object
+                  additionalProperties: { type: number }
+                  description: |
+                    Keys: solar, wind, hydro, nuclear, coal, gas, oil, biomass, geothermal, unknown.
+                    Values: MW or proportional (will be normalised internally).
+                  example:
+                    solar: 4200
+                    wind: 2800
+                    hydro: 1500
+                    nuclear: 800
+                    coal: 6000
+                    gas: 1200
+                    unknown: 300
+      responses:
+        "200":
+          description: Classification result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [renewablePct, carbonFreePct, band, unclassifiedPct]
+                properties:
+                  renewablePct:     { type: number, description: "0–100, solar+wind+hydro+biomass+geo" }
+                  carbonFreePct:    { type: number, description: "0–100, renewable + nuclear" }
+                  band:             { $ref: '#/components/schemas/GreennessBand' }
+                  unclassifiedPct:  { type: number, description: "% of generation in 'unknown/other' — flagged, never guessed" }
+
+  # ── Window Estimator ─────────────────────────────────────────────
+  /estimate/windows:
+    post:
+      summary: Per-hour cost + greenness window estimates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [zoneId, tariff]
+              properties:
+                zoneId:      { type: string }
+                tariff:      { type: number, description: "Base ₹/kWh for the ToU calculation" }
+                hours:       { type: integer, default: 24 }
+                durationH:   { type: number, description: "Charge duration hours — used to compute best_window" }
+      responses:
+        "200":
+          description: Window estimates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [windows, bestWindow]
+                properties:
+                  windows:
+                    type: array
+                    items: { $ref: '#/components/schemas/WindowEstimate' }
+                  bestWindow:
+                    $ref: '#/components/schemas/WindowEstimate'
+
+  # ── Routing ──────────────────────────────────────────────────────
+  /route/matrix:
+    post:
+      summary: Distance + travel time matrix from one origin to multiple stations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [origin, stationCoords]
+              properties:
+                origin:
+                  $ref: '#/components/schemas/GeoPoint'
+                stationCoords:
+                  type: array
+                  items: { $ref: '#/components/schemas/GeoPoint' }
+                  maxItems: 25
+                  description: "Pre-filtered to nearest K by haversine upstream — keeps API quota low"
+      responses:
+        "200":
+          description: Distance/time per station
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [distanceKm, travelMinutes, isEstimated]
+                      properties:
+                        distanceKm:     { type: number }
+                        travelMinutes:  { type: number }
+                        isEstimated:    { type: boolean, description: "true when haversine fallback was used" }
+
+  # ── Recommendation ───────────────────────────────────────────────
+  /recommend:
+    post:
+      summary: Rank candidate stations by true total cost (charging + travel)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [origin, vehicle, kwh, candidateStations]
+              properties:
+                origin:
+                  $ref: '#/components/schemas/GeoPoint'
+                vehicle:
+                  type: object
+                  required: [vehicleClass, batteryKwh, efficiencyWhKm, connectors, currentChargePct]
+                  properties:
+                    vehicleClass:     { type: string, enum: [car, bike] }
+                    batteryKwh:       { type: number }
+                    efficiencyWhKm:   { type: number }
+                    connectors:
+                      type: array
+                      items: { type: string }
+                    currentChargePct: { type: number }
+                kwh:
+                  type: number
+                  description: Energy needed for this session
+                candidateStations:
+                  type: array
+                  description: "Pre-filtered to nearest K — not the whole network"
+                  items:
+                    type: object
+                    required: [id, location, connectors, finalPricePerKwh, provider]
+                    properties:
+                      id:               { type: string }
+                      location:         { $ref: '#/components/schemas/GeoPoint' }
+                      connectors:
+                        type: array
+                        items: { type: string }
+                      finalPricePerKwh: { type: number }
+                      provider:         { type: string }
+      responses:
+        "200":
+          description: Ranked recommendations (sorted by trueTotalCost ascending)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/StationRecommendation' }
+
+  # ── Smart-Charge Optimizer ───────────────────────────────────────
+  /smartcharge/plan:
+    post:
+      summary: Find the optimal charging start window
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [zoneId, stationId, chargeRateKw, energyNeededKwh, deadlineLocal]
+              properties:
+                zoneId:          { type: string }
+                stationId:       { type: string }
+                chargeRateKw:    { type: number }
+                energyNeededKwh: { type: number }
+                deadlineLocal:   { type: string, format: date-time, description: "IST deadline — must be done by" }
+                urgent:          { type: boolean, default: false, description: "If true, return immediate plan" }
+                tariff:          { type: number }
+      responses:
+        "200":
+          description: Smart-charge plan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SmartChargePlan' }
+
+components:
+  schemas:
+    GeoPoint:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number }
+        lng: { type: number }
+
+    GreennessBand:
+      type: string
+      enum: [very_high, high, medium, low, very_low]
+
+    DataQuality:
+      type: string
+      enum: [live, cached, forecast, mock, stale]
+
+    GridSnapshot:
+      type: object
+      required: [zoneId, at, renewablePct, carbonFreePct, carbonIntensity, band, breakdown, quality, asOfAgeSec]
+      properties:
+        zoneId:          { type: string }
+        at:              { type: string, format: date-time, description: "UTC" }
+        renewablePct:    { type: number, minimum: 0, maximum: 100 }
+        carbonFreePct:   { type: number, minimum: 0, maximum: 100 }
+        carbonIntensity: { type: number, description: "gCO2eq/kWh" }
+        band:            { $ref: '#/components/schemas/GreennessBand' }
+        breakdown:
+          type: object
+          additionalProperties: { type: number }
+        quality:         { $ref: '#/components/schemas/DataQuality' }
+        asOfAgeSec:      { type: integer }
+
+    ForecastPoint:
+      type: object
+      required: [hourStartLocal, renewablePct, carbonIntensity, confidence]
+      properties:
+        hourStartLocal:  { type: string, description: "IST ISO-8601" }
+        renewablePct:    { type: number }
+        carbonIntensity: { type: number }
+        confidence:      { type: number, minimum: 0, maximum: 1 }
+
+    WindowEstimate:
+      type: object
+      required: [hourStartLocal, renewablePct, estimatedPricePerKwh, confidence, isEstimate]
+      properties:
+        hourStartLocal:        { type: string }
+        renewablePct:          { type: number }
+        estimatedPricePerKwh:  { type: number }
+        confidence:            { type: number, minimum: 0, maximum: 1 }
+        isEstimate:            { type: boolean }
+
+    StationRecommendation:
+      type: object
+      required: [stationId, distanceKm, travelMinutes, energyNeededKwh, chargingCost, travelCost, trueTotalCost, vsCheapestSticker, reachable, connectorCompatible, reason]
+      properties:
+        stationId:           { type: string }
+        distanceKm:          { type: number }
+        travelMinutes:       { type: number }
+        energyNeededKwh:     { type: number }
+        chargingCost:        { type: number }
+        travelCost:          { type: number }
+        trueTotalCost:       { type: number }
+        vsCheapestSticker:   { type: number }
+        reachable:           { type: boolean }
+        connectorCompatible: { type: boolean }
+        recommendedWindow:
+          type: object
+          properties:
+            startLocal:   { type: string }
+            endLocal:     { type: string }
+            renewablePct: { type: number }
+            confidence:   { type: number }
+        reason:              { type: string }
+
+    SmartChargePlan:
+      type: object
+      required: [startLocal, endLocal, expectedRenewablePct, expectedSavings, confidence, isImmediate]
+      properties:
+        startLocal:           { type: string, description: "IST ISO-8601" }
+        endLocal:             { type: string }
+        expectedRenewablePct: { type: number }
+        expectedSavings:      { type: number, description: "₹ saved vs charging now" }
+        confidence:           { type: number }
+        isImmediate:          { type: boolean, description: "true when urgent flag was set or no better window found" }
+        note:                 { type: string, description: "Human explanation e.g. 'deadline too tight for optimal window'" }

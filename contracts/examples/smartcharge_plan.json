@@ -1,0 +1,9 @@
+{
+  "startLocal": "2026-09-12T12:00:00+05:30",
+  "endLocal": "2026-09-12T13:30:00+05:30",
+  "expectedRenewablePct": 85,
+  "expectedSavings": 34.0,
+  "confidence": 0.74,
+  "isImmediate": false,
+  "note": "Solar peak window — 85% renewable, saves ₹34 vs charging now. Charging completes 1h 30m before your 3pm deadline."
+}

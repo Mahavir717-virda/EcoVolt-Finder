@@ -1,0 +1,21 @@
+{
+  "windows": [
+    { "hourStartLocal": "2026-09-12T06:00:00+05:30", "renewablePct": 58, "estimatedPricePerKwh": 7.8, "confidence": 0.82, "isEstimate": true },
+    { "hourStartLocal": "2026-09-12T07:00:00+05:30", "renewablePct": 63, "estimatedPricePerKwh": 7.5, "confidence": 0.80, "isEstimate": true },
+    { "hourStartLocal": "2026-09-12T08:00:00+05:30", "renewablePct": 68, "estimatedPricePerKwh": 7.1, "confidence": 0.79, "isEstimate": true },
+    { "hourStartLocal": "2026-09-12T09:00:00+05:30", "renewablePct": 74, "estimatedPricePerKwh": 6.8, "confidence": 0.78, "isEstimate": true },
+    { "hourStartLocal": "2026-09-12T10:00:00+05:30", "renewablePct": 78, "estimatedPricePerKwh": 6.5, "confidence": 0.76, "isEstimate": true },
+    { "hourStartLocal": "2026-09-12T11:00:00+05:30", "renewablePct": 82, "estimatedPricePerKwh": 6.2, "confidence": 0.75, "isEstimate": true },
+    { "hourStartLocal": "2026-09-12T12:00:00+05:30", "renewablePct": 85, "estimatedPricePerKwh": 5.9, "confidence": 0.74, "isEstimate": true },
+    { "hourStartLocal": "2026-09-12T13:00:00+05:30", "renewablePct": 83, "estimatedPricePerKwh": 6.1, "confidence": 0.73, "isEstimate": true },
+    { "hourStartLocal": "2026-09-12T18:00:00+05:30", "renewablePct": 52, "estimatedPricePerKwh": 8.2, "confidence": 0.67, "isEstimate": true },
+    { "hourStartLocal": "2026-09-12T22:00:00+05:30", "renewablePct": 36, "estimatedPricePerKwh": 9.1, "confidence": 0.61, "isEstimate": true }
+  ],
+  "bestWindow": {
+    "hourStartLocal": "2026-09-12T12:00:00+05:30",
+    "renewablePct": 85,
+    "estimatedPricePerKwh": 5.9,
+    "confidence": 0.74,
+    "isEstimate": true
+  }
+}
