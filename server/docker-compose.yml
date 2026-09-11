@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecovolt_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ecovolt
+      POSTGRES_PASSWORD: ecovolt_password
+      POSTGRES_DB: ecovolt_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ecovolt_pgdata:/var/lib/postgresql/data
+
+volumes:
+  ecovolt_pgdata:
