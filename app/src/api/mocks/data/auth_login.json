@@ -1,0 +1,11 @@
+{
+  "user": {
+    "id": "usr_driver_101",
+    "email": "deep.driver@ecovolt.app",
+    "name": "Deep Pathak",
+    "role": "driver",
+    "createdAt": "2026-09-01T08:00:00Z"
+  },
+  "accessToken": "mock_jwt_access_token_driver_101",
+  "refreshToken": "mock_jwt_refresh_token_driver_101"
+}

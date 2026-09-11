@@ -1,0 +1,12 @@
+[
+  {
+    "id": "veh_nexon_1",
+    "userId": "usr_driver_101",
+    "vehicleClass": "car",
+    "model": "Tata Nexon EV Max",
+    "batteryKwh": 40.5,
+    "efficiencyWhKm": 140,
+    "connectors": ["ccs2", "type2_ac"],
+    "currentChargePct": 42
+  }
+]

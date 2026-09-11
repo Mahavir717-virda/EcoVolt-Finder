@@ -1,0 +1,20 @@
+{
+  "zoneId": "IN-WE",
+  "at": "2026-09-12T04:30:00Z",
+  "renewablePct": 72,
+  "carbonFreePct": 74,
+  "carbonIntensity": 410,
+  "band": "high",
+  "breakdown": {
+    "solar": 4800,
+    "wind": 3200,
+    "hydro": 1600,
+    "nuclear": 420,
+    "coal": 5800,
+    "gas": 900,
+    "biomass": 280,
+    "unknown": 200
+  },
+  "quality": "mock",
+  "asOfAgeSec": 45
+}

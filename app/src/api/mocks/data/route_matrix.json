@@ -1,0 +1,8 @@
+{
+  "results": [
+    { "distanceKm": 2.4, "travelMinutes": 8, "isEstimated": false },
+    { "distanceKm": 4.1, "travelMinutes": 14, "isEstimated": false },
+    { "distanceKm": 6.8, "travelMinutes": 22, "isEstimated": false },
+    { "distanceKm": 9.3, "travelMinutes": 31, "isEstimated": false }
+  ]
+}

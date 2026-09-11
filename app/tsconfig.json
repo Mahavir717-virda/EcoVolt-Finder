@@ -5,15 +5,17 @@
     "baseUrl": ".",
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["src/*"],
-      "@contracts/*": ["../contracts/*"]
+      "@/*": [
+        "src/*"
+      ],
+      "@contracts/*": [
+        "../contracts/*"
+      ]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts",
     "../contracts/**/*.ts",
     "../contracts/**/*.json"
   ]

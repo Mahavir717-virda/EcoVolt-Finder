@@ -1,0 +1,46 @@
+{
+  "id": "station-001",
+  "name": "Torrent Charging Hub – CG Road",
+  "location": { "lat": 23.0370, "lng": 72.5622 },
+  "address": "Nr. Pantaloons, CG Road, Ahmedabad, Gujarat 380006",
+  "operatorName": "Green Drive Pvt Ltd",
+  "operatorPhone": "+91-79-4000-1234",
+  "provider": "torrent_power",
+  "zoneId": "IN-WE",
+  "connectors": [
+    { "type": "ccs2", "powerKw": 60, "available": 2, "total": 3 },
+    { "type": "type2_ac", "powerKw": 22, "available": 1, "total": 2 }
+  ],
+  "greenness": {
+    "renewablePct": 72,
+    "carbonFreePct": 74,
+    "carbonIntensity": 410,
+    "band": "high",
+    "quality": "mock",
+    "asOfAgeSec": 120
+  },
+  "pricing": [
+    {
+      "connectorType": "ccs2",
+      "baseTariff": 5.50,
+      "providerMarkup": 0.50,
+      "touAdjustment": 0.20,
+      "finalPrice": 6.20,
+      "isEstimate": true,
+      "currency": "INR",
+      "validUntil": "2026-09-12T06:00:00Z"
+    },
+    {
+      "connectorType": "type2_ac",
+      "baseTariff": 5.50,
+      "providerMarkup": 0.30,
+      "touAdjustment": 0.20,
+      "finalPrice": 6.00,
+      "isEstimate": true,
+      "currency": "INR",
+      "validUntil": "2026-09-12T06:00:00Z"
+    }
+  ],
+  "amenities": ["parking", "restrooms", "cafe"],
+  "openHours": "24/7"
+}

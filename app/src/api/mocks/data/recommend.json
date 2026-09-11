@@ -1,0 +1,53 @@
+[
+  {
+    "stationId": "station-001",
+    "distanceKm": 2.4,
+    "travelMinutes": 8,
+    "energyNeededKwh": 18.0,
+    "chargingCost": 111.6,
+    "travelCost": 14.4,
+    "trueTotalCost": 126.0,
+    "vsCheapestSticker": -9.0,
+    "reachable": true,
+    "connectorCompatible": true,
+    "recommendedWindow": {
+      "startLocal": "2026-09-12T12:00:00+05:30",
+      "endLocal": "2026-09-12T13:30:00+05:30",
+      "renewablePct": 85,
+      "confidence": 0.74
+    },
+    "reason": "Closest station with 85% renewable solar window at noon — ₹9 cheaper than Station B once travel is added."
+  },
+  {
+    "stationId": "station-002",
+    "distanceKm": 4.1,
+    "travelMinutes": 14,
+    "energyNeededKwh": 18.0,
+    "chargingCost": 104.4,
+    "travelCost": 24.6,
+    "trueTotalCost": 129.0,
+    "vsCheapestSticker": 3.0,
+    "reachable": true,
+    "connectorCompatible": true,
+    "recommendedWindow": {
+      "startLocal": "2026-09-12T11:00:00+05:30",
+      "endLocal": "2026-09-12T12:30:00+05:30",
+      "renewablePct": 82,
+      "confidence": 0.75
+    },
+    "reason": "Cheaper per kWh (₹5.8/kWh vs ₹6.2) but ₹10 extra travel makes it ₹3 worse overall."
+  },
+  {
+    "stationId": "station-003",
+    "distanceKm": 9.3,
+    "travelMinutes": 31,
+    "energyNeededKwh": 18.0,
+    "chargingCost": 97.2,
+    "travelCost": 55.8,
+    "trueTotalCost": 153.0,
+    "vsCheapestSticker": 27.0,
+    "reachable": false,
+    "connectorCompatible": true,
+    "reason": "Not reachable with current battery — would need 12.4 kWh to get there, only 8 kWh available."
+  }
+]

@@ -1,13 +1,7 @@
 import React from 'react';
 import { PlaceholderScreen } from '../placeholder/PlaceholderScreen';
 
-export const HomeMapScreen: React.FC = () => (
-  <PlaceholderScreen
-    title="Driver Map & Discovery"
-    subtitle="Live greenness pins, nearby stations, smart filters"
-    roleContext="driver"
-  />
-);
+export { HomeMapScreen } from './HomeMapScreen';
 
 export const SmartChargeScreen: React.FC = () => (
   <PlaceholderScreen

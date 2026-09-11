@@ -1,16 +1,16 @@
 // Mock Registry for ecoVolt-finder
-import gridLive from '../../../../contracts/examples/grid_live.json';
-import gridForecast from '../../../../contracts/examples/grid_forecast.json';
-import stations from '../../../../contracts/examples/stations.json';
-import stationDetail from '../../../../contracts/examples/station_detail.json';
-import pricingQuote from '../../../../contracts/examples/pricing_quote.json';
-import recommend from '../../../../contracts/examples/recommend.json';
-import smartchargePlan from '../../../../contracts/examples/smartcharge_plan.json';
-import routeMatrix from '../../../../contracts/examples/route_matrix.json';
-import authLogin from '../../../../contracts/examples/auth_login.json';
-import me from '../../../../contracts/examples/me.json';
-import driverImpact from '../../../../contracts/examples/driver_impact.json';
-import vehicles from '../../../../contracts/examples/vehicles.json';
+import gridLive from './data/grid_live.json';
+import gridForecast from './data/grid_forecast.json';
+import stations from './data/stations.json';
+import stationDetail from './data/station_detail.json';
+import pricingQuote from './data/pricing_quote.json';
+import recommend from './data/recommend.json';
+import smartchargePlan from './data/smartcharge_plan.json';
+import routeMatrix from './data/route_matrix.json';
+import authLogin from './data/auth_login.json';
+import me from './data/me.json';
+import driverImpact from './data/driver_impact.json';
+import vehicles from './data/vehicles.json';
 
 export const mockRegistry: Record<string, unknown> = {
   'GET /grid/live': gridLive,
@@ -44,8 +44,8 @@ export function getMockResponse(method: string, path: string): unknown | null {
   if (method === 'GET' && normalizedPath.startsWith('/stations/')) {
     return stationDetail;
   }
-  if (method === 'GET' && normalizedPath.startsWith('/vehicles/')) {
-    return vehicles[0];
+  if (method === 'GET' && (normalizedPath.startsWith('/vehicles/') || normalizedPath === '/vehicles')) {
+    return vehicles;
   }
 
   return null;
