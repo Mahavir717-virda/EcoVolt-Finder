@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "ecoVolt-finder",
+    "slug": "ecovolt-finder",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F3F6F2"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ecovolt.finder",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "ecoVolt-finder needs your location to find nearby EV charging stations and calculate accurate travel costs."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0E8E4F"
+      },
+      "package": "com.ecovolt.finder",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
