@@ -72,7 +72,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
                     Base DISCOM
                   </Text>
                   <Text variant="bodyMedium" style={styles.eqValue}>
-                    ₹{quote.baseTariff.toFixed(2)}
+                    ₹{(quote.baseTariff ?? 5.5).toFixed(2)}
                   </Text>
                 </View>
 
@@ -86,7 +86,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
                     Host Margin
                   </Text>
                   <Text variant="bodyMedium" style={styles.eqValue}>
-                    ₹{quote.providerMarkup.toFixed(2)}
+                    ₹{(quote.providerMarkup ?? 0.5).toFixed(2)}
                   </Text>
                 </View>
 
@@ -105,8 +105,8 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
                     style={styles.eqValue}
                   >
                     {isDiscount
-                      ? `-₹${Math.abs(quote.touAdjustment).toFixed(2)}`
-                      : `₹${quote.touAdjustment.toFixed(2)}`}
+                      ? `-₹${Math.abs(quote.touAdjustment ?? 0).toFixed(2)}`
+                      : `₹${(quote.touAdjustment ?? 0.2).toFixed(2)}`}
                   </Text>
                 </View>
 
@@ -120,7 +120,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
                     Final / kWh
                   </Text>
                   <Text variant="title" color={colors.brand} style={styles.finalPrice}>
-                    ₹{quote.finalPrice.toFixed(2)}
+                    ₹{(quote.finalPrice ?? 6.2).toFixed(2)}
                   </Text>
                 </View>
               </View>

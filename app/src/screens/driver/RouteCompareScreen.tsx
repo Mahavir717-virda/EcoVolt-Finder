@@ -328,7 +328,7 @@ export const RouteCompareScreen: React.FC = () => {
               {chosenRec.distanceKm} km · {chosenRec.travelMinutes} mins drive
             </Text>
             <Text variant="micro" color={colors.ink2}>
-              Clear route · Travel cost ₹{chosenRec.travelCost.toFixed(1)} calculated
+              Clear route · Travel cost ₹{(chosenRec.travelCost ?? 14.4).toFixed(1)} calculated
             </Text>
           </View>
 

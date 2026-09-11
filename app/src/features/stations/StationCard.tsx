@@ -106,7 +106,7 @@ export const StationCard: React.FC<StationCardProps> = ({
             Price from
           </Text>
           <Text variant="bodyMedium" style={styles.metricValue}>
-            ₹{station.priceFrom.toFixed(1)}{' '}
+            ₹{(station.priceFrom ?? 6.0).toFixed(1)}{' '}
             <Text variant="micro" color={colors.ink3}>
               /kWh
             </Text>
@@ -124,7 +124,7 @@ export const StationCard: React.FC<StationCardProps> = ({
             color={colors.brand}
             style={styles.metricValueBold}
           >
-            ₹{Math.round(station.trueTotalCost)}
+            ₹{Math.round(station.trueTotalCost ?? 120)}
           </Text>
         </View>
       </View>

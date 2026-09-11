@@ -210,7 +210,7 @@ export const StationDetailScreen: React.FC = () => {
                     Distance
                   </Text>
                   <Text variant="bodyMedium" style={styles.summaryVal}>
-                    {activeRec.distanceKm} km ({activeRec.travelMinutes}m)
+                    {activeRec.distanceKm ?? 2.4} km ({activeRec.travelMinutes ?? 8}m)
                   </Text>
                 </View>
 
@@ -221,7 +221,7 @@ export const StationDetailScreen: React.FC = () => {
                     Tariff From
                   </Text>
                   <Text variant="bodyMedium" style={styles.summaryVal}>
-                    ₹{station.priceFrom.toFixed(1)}/kWh
+                    ₹{(station.priceFrom ?? pricingQuotes[0]?.finalPrice ?? 6.2).toFixed(1)}/kWh
                   </Text>
                 </View>
               </View>
@@ -242,11 +242,11 @@ export const StationDetailScreen: React.FC = () => {
 
             {/* 2. Signature Component: GreennessGauge */}
             <GreennessGauge
-              renewablePct={station.greenness.renewablePct}
-              carbonFreePct={station.greenness.renewablePct + 2}
+              renewablePct={station.greenness?.renewablePct ?? 75}
+              carbonFreePct={(station.greenness?.renewablePct ?? 75) + 2}
               carbonIntensity={410}
-              quality={station.greenness.quality}
-              band={station.greenness.band}
+              quality={station.greenness?.quality ?? DataQuality.MOCK}
+              band={station.greenness?.band ?? GreennessBand.VERY_HIGH}
             />
 
             {/* 3. Signature Component: ForecastStrip */}

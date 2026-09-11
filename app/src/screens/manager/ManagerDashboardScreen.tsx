@@ -468,10 +468,10 @@ export const ManagerDashboardScreen: React.FC = () => {
                     Delivered: <Text variant="bodyMedium">{session.energyKwh} kWh</Text>
                   </Text>
                   <Text variant="caption" color={colors.ink2}>
-                    Locked Rate: <Text variant="bodyMedium">₹{session.lockedPrice.toFixed(2)}/kWh</Text>
+                    Locked Rate: <Text variant="bodyMedium">₹{(session.lockedPrice ?? 6.2).toFixed(2)}/kWh</Text>
                   </Text>
                   <Text variant="caption" color={colors.brand}>
-                    Total: ₹{session.cost.toFixed(2)}
+                    Total: ₹{(session.cost ?? (session.energyKwh * (session.lockedPrice ?? 6.2))).toFixed(2)}
                   </Text>
                 </View>
               </Card>

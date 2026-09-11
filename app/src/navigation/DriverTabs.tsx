@@ -17,6 +17,9 @@ import {
 } from '../screens/driver';
 import { colors } from '../theme/tokens';
 
+import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
+
 const Tab = createBottomTabNavigator<DriverTabParamList>();
 const Stack = createNativeStackNavigator<DriverStackParamList>();
 
@@ -31,16 +34,80 @@ const DriverTabNavigator: React.FC = () => {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
+          height: Platform.OS === 'ios' ? 88 : 64,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
+          paddingTop: 8,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
         },
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.ink3,
-        tabBarLabelStyle: { fontFamily: 'Manrope_600SemiBold', fontSize: 11 },
+        tabBarLabelStyle: {
+          fontFamily: 'Manrope_600SemiBold',
+          fontSize: 11,
+          marginTop: 2,
+        },
       }}
     >
-      <Tab.Screen name="Explore" component={HomeMapScreen} options={{ title: 'Map' }} />
-      <Tab.Screen name="SmartCharge" component={SmartChargeScreen} options={{ title: 'Smart Schedule' }} />
-      <Tab.Screen name="Activity" component={ActiveSessionScreen} options={{ title: 'Session' }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
+      <Tab.Screen
+        name="Explore"
+        component={HomeMapScreen}
+        options={{
+          title: 'Map',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? 'map' : 'map-outline'}
+              size={size || 22}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="SmartCharge"
+        component={SmartChargeScreen}
+        options={{
+          title: 'Smart Schedule',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? 'flash' : 'flash-outline'}
+              size={size || 22}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Activity"
+        component={ActiveSessionScreen}
+        options={{
+          title: 'Session',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? 'battery-charging' : 'battery-charging-outline'}
+              size={size || 22}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? 'person' : 'person-outline'}
+              size={size || 22}
+              color={color}
+            />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 };
