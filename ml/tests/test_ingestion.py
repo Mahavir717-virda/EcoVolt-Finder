@@ -17,7 +17,7 @@ import pytest
 
 from app.config import Settings
 from app.ingestion.base import IngestionError
-from app.ingestion.greenness import band_from_pct, compute_pcts
+from app.classify import band_from_pct, compute_metrics
 from app.ingestion.mock_generator import MockGenerator
 from app.ingestion.resolver import _cache, clear_cache, resolve
 
@@ -27,39 +27,39 @@ from app.ingestion.resolver import _cache, clear_cache, resolve
 class TestComputePcts:
     def test_renewable_excludes_nuclear(self):
         breakdown = {"solar": 100, "nuclear": 50, "coal": 50}
-        renewable, carbon_free = compute_pcts(breakdown)
-        assert renewable < carbon_free  # nuclear bumps carbonFree but not renewable
+        metrics = compute_metrics(breakdown)
+        assert metrics["renewablePct"] < metrics["carbonFreePct"]  # nuclear bumps carbonFree but not renewable
 
     def test_unknown_excluded_from_numerator_and_denominator(self):
         """unknown must not inflate renewable OR the total."""
         breakdown_with = {"solar": 100, "coal": 100, "unknown": 1000}
         breakdown_without = {"solar": 100, "coal": 100}
-        r_with, cf_with = compute_pcts(breakdown_with)
-        r_without, cf_without = compute_pcts(breakdown_without)
+        metrics_with = compute_metrics(breakdown_with)
+        metrics_without = compute_metrics(breakdown_without)
         # unknown should NOT dilute the % — it's excluded from total too
-        assert abs(r_with - r_without) < 0.01, (
-            f"unknown changed renewablePct: {r_with:.2f} vs {r_without:.2f}"
+        assert abs(metrics_with["renewablePct"] - metrics_without["renewablePct"]) < 0.01, (
+            f"unknown changed renewablePct: {metrics_with['renewablePct']:.2f} vs {metrics_without['renewablePct']:.2f}"
         )
 
     def test_zero_breakdown_returns_zeros(self):
-        r, cf = compute_pcts({})
-        assert r == 0.0 and cf == 0.0
+        metrics = compute_metrics({})
+        assert metrics["renewablePct"] == 0.0 and metrics["carbonFreePct"] == 0.0
 
     def test_all_solar_100pct(self):
         breakdown = {"solar": 500}
-        r, _ = compute_pcts(breakdown)
-        assert abs(r - 100.0) < 0.01
+        metrics = compute_metrics(breakdown)
+        assert abs(metrics["renewablePct"] - 100.0) < 0.01
 
     def test_all_coal_0pct(self):
         breakdown = {"coal": 500}
-        r, cf = compute_pcts(breakdown)
-        assert r == 0.0 and cf == 0.0
+        metrics = compute_metrics(breakdown)
+        assert metrics["renewablePct"] == 0.0 and metrics["carbonFreePct"] == 0.0
 
     def test_pcts_bounded_0_to_100(self):
         breakdown = {"solar": 9999, "wind": 9999, "nuclear": 9999}
-        r, cf = compute_pcts(breakdown)
-        assert 0 <= r <= 100
-        assert 0 <= cf <= 100
+        metrics = compute_metrics(breakdown)
+        assert 0 <= metrics["renewablePct"] <= 100
+        assert 0 <= metrics["carbonFreePct"] <= 100
 
 
 class TestBandFromPct:
@@ -126,9 +126,9 @@ class TestMockGenerator:
         snap = self.gen.generate("IN")
         bd_with = {**snap.breakdown, "unknown": 99999}
         bd_without = {k: v for k, v in snap.breakdown.items() if k != "unknown"}
-        r_with, _ = compute_pcts(bd_with)
-        r_without, _ = compute_pcts(bd_without)
-        assert abs(r_with - r_without) < 0.01
+        metrics_with = compute_metrics(bd_with)
+        metrics_without = compute_metrics(bd_without)
+        assert abs(metrics_with["renewablePct"] - metrics_without["renewablePct"]) < 0.01
 
     def test_solar_higher_at_noon(self):
         """IN-WE (solar-heavy zone) should have more solar at noon IST."""

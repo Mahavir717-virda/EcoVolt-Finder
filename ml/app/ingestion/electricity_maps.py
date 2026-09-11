@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 import httpx
 
 from app.ingestion.base import GridSource, IngestionError
-from app.ingestion.greenness import band_from_pct, compute_pcts
+from app.classify import band_from_pct, compute_metrics
 from app.models import GridSnapshot
 
 # ── Zone mapping ──────────────────────────────────────────────────────────────
@@ -140,7 +140,9 @@ class ElectricityMapsClient:
             carbon_intensity = float(raw["carbonIntensity"] or 0)
 
         # Compute renewable/carbonFree percentages
-        renewable_pct, carbon_free_pct = compute_pcts(breakdown)
+        metrics = compute_metrics(breakdown)
+        renewable_pct = metrics["renewablePct"]
+        carbon_free_pct = metrics["carbonFreePct"]
         band = band_from_pct(renewable_pct)
 
         return GridSnapshot(

@@ -1,22 +1,36 @@
 """
 app/classify/__init__.py
 ────────────────────────
-STUB — Renewable classification + zone mapping module.
-
-Implements the fuel-mix taxonomy:
-  renewable  = solar + wind + hydro + biomass + geothermal
-  carbonFree = renewable + nuclear
-  unknown    = flagged but excluded from numerators (never guessed)
-
-GreennessBand thresholds:
-  ≥80 → very_high | 65-79 → high | 50-64 → medium | 20-34 → low | <20 → very_low
-
-Fully implemented in M3-C3.
+Renewable classification + zone mapping module.
 """
 from __future__ import annotations
 
-# M3-C3 will expose:
-#   def classify_breakdown(breakdown: dict[str, float]) -> ClassifyResponse
-#   def renewable_pct(breakdown: dict[str, float]) -> float
-#   def carbon_free_pct(breakdown: dict[str, float]) -> float
-#   def band_from_pct(pct: float) -> GreennessBand
+from app.classify.metrics import (
+    band_from_pct,
+    carbon_free_percentage,
+    compute_metrics,
+    renewable_percentage,
+)
+from app.classify.taxonomy import (
+    CARBON_FREE_EXTRA,
+    FOSSIL,
+    HYDRO_IS_RENEWABLE,
+    RENEWABLE_BASE,
+    get_carbon_free_keys,
+    get_renewable_keys,
+)
+from app.classify.zones import get_zone_for_station
+
+__all__ = [
+    "compute_metrics",
+    "renewable_percentage",
+    "carbon_free_percentage",
+    "band_from_pct",
+    "get_zone_for_station",
+    "get_renewable_keys",
+    "get_carbon_free_keys",
+    "HYDRO_IS_RENEWABLE",
+    "RENEWABLE_BASE",
+    "CARBON_FREE_EXTRA",
+    "FOSSIL",
+]

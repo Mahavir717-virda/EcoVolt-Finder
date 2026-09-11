@@ -29,7 +29,7 @@ import random
 from datetime import datetime, timezone
 
 from app.ingestion.base import IngestionError
-from app.ingestion.greenness import band_from_pct, compute_pcts
+from app.classify import band_from_pct, compute_metrics
 from app.models import GridSnapshot
 
 IST_OFFSET_H = 5.5   # UTC + 5:30
@@ -156,7 +156,9 @@ class MockGenerator:
             "unknown":  max(0.0, unknown_mw),
         }
 
-        renewable_pct, carbon_free_pct = compute_pcts(breakdown)
+        metrics = compute_metrics(breakdown)
+        renewable_pct = metrics["renewablePct"]
+        carbon_free_pct = metrics["carbonFreePct"]
         band = band_from_pct(renewable_pct)
 
         # Carbon intensity: linearly interpolate between dirty (coal peak) and clean (solar peak)

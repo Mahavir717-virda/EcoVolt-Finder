@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from app.ingestion.base import GridSource, IngestionError
 from app.ingestion.electricity_maps import ElectricityMapsClient
-from app.ingestion.greenness import band_from_pct, compute_pcts
+
 from app.ingestion.india_atlas import IndiaAtlasClient
 from app.ingestion.mock_generator import MockGenerator
 from app.ingestion.resolver import clear_cache, resolve
@@ -28,6 +28,4 @@ __all__ = [
     "ElectricityMapsClient",
     "IndiaAtlasClient",
     "MockGenerator",
-    "compute_pcts",
-    "band_from_pct",
 ]
