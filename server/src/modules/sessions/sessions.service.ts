@@ -6,6 +6,7 @@ import {
   BadRequestError,
 } from '../../middleware/error-handler';
 import { StopSessionInput } from './sessions.schema';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export class SessionsService {
   /**
@@ -206,6 +207,18 @@ export class SessionsService {
       where: { id: session.bookingId },
       data: { status: SessionStatus.completed },
     });
+
+    // Fire Notification hook
+    try {
+      await NotificationsService.notifySessionComplete(
+        userId,
+        energyKwh,
+        totalCost,
+        co2AvoidedKg
+      );
+    } catch (e) {
+      console.warn('Failed to dispatch session complete notification:', e);
+    }
 
     return completedSession;
   }
