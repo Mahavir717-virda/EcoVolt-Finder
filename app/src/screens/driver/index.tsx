@@ -10,14 +10,7 @@ export { ConfirmBookingScreen, ConfirmBookingScreen as BookingConfirmScreen } fr
 export { ProfileScreen } from './ProfileScreen';
 export { VehiclesScreen } from './VehiclesScreen';
 
-// Placeholders for M1-C9 & M1-C10
-export const ActiveSessionScreen: React.FC = () => (
-  <PlaceholderScreen
-    title="Live Charging Session"
-    subtitle="Volt pulse, kWh progress, live cost & CO₂ saved"
-    roleContext="driver"
-  />
-);
+export { ActiveSessionScreen } from './ActiveSessionScreen';
 
 export const SessionSummaryScreen: React.FC = () => (
   <PlaceholderScreen

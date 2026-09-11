@@ -12,6 +12,8 @@ import me from './data/me.json';
 import driverImpact from './data/driver_impact.json';
 import vehicles from './data/vehicles.json';
 
+import sessionActive from './data/session_active.json';
+
 export const mockRegistry: Record<string, unknown> = {
   'GET /grid/live': gridLive,
   'GET /grid/forecast': gridForecast,
@@ -30,6 +32,7 @@ export const mockRegistry: Record<string, unknown> = {
   'GET /me': me,
   'GET /impact/me': driverImpact,
   'GET /vehicles': vehicles,
+  'GET /sessions/active': sessionActive,
   'POST /bookings': {
     id: 'book_mock_101',
     stationId: 'station-001',
@@ -72,6 +75,16 @@ export function getMockResponse(method: string, path: string): unknown | null {
   }
   if (method === 'GET' && (normalizedPath.startsWith('/vehicles/') || normalizedPath === '/vehicles')) {
     return vehicles;
+  }
+  if (method === 'GET' && (normalizedPath.startsWith('/sessions/') || normalizedPath === '/sessions')) {
+    return sessionActive;
+  }
+  if (method === 'POST' && normalizedPath.includes('/sessions/') && normalizedPath.endsWith('/stop')) {
+    return {
+      ...sessionActive,
+      status: 'completed',
+      endedAt: new Date().toISOString(),
+    };
   }
 
   return null;

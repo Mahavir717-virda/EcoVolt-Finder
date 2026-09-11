@@ -1,0 +1,27 @@
+{
+  "id": "sess_live_101",
+  "bookingId": "book_mock_101",
+  "stationId": "station-001",
+  "stationName": "Torrent Charging Hub – CG Road",
+  "connectorType": "ccs2",
+  "vehicleId": "veh_nexon_1",
+  "userId": "usr_driver_101",
+  "status": "active",
+  "startedAt": "2026-09-12T12:05:00+05:30",
+  "startChargePct": 42,
+  "currentChargePct": 64,
+  "targetChargePct": 80,
+  "powerKw": 52.4,
+  "energyKwh": 14.8,
+  "lockedPrice": 6.20,
+  "cost": 91.76,
+  "avgRenewablePct": 84,
+  "co2AvoidedKg": 10.2,
+  "connectorOffline": false,
+  "gridGreenness": {
+    "renewablePct": 85,
+    "band": "very_high",
+    "quality": "live",
+    "zoneId": "IN-WE"
+  }
+}
