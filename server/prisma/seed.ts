@@ -1,4 +1,5 @@
 import { PrismaClient, Role, VehicleClass, ConnectorType, PowerProvider, SessionStatus } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -47,13 +48,14 @@ async function main() {
 
   // 3. Seed Users (Driver, Manager, Admin)
   console.log('👥 Seeding Users...');
+  const defaultHash = await bcrypt.hash('Password123!', 12);
+
   const driverUser = await prisma.user.create({
     data: {
       email: 'driver@ecovolt.in',
       name: 'Aarav Patel',
       role: Role.driver,
-      // Sample hash (for demo: "Password123!")
-      passwordHash: '$2a$12$e8Y6.P7k2h6EsmFfFw2yLeR5N6j8eG4NvhxJ1iS.1iV9dE.GvGzre',
+      passwordHash: defaultHash,
     },
   });
 
@@ -62,7 +64,7 @@ async function main() {
       email: 'manager@ecovolt.in',
       name: 'Priya Sharma',
       role: Role.manager,
-      passwordHash: '$2a$12$e8Y6.P7k2h6EsmFfFw2yLeR5N6j8eG4NvhxJ1iS.1iV9dE.GvGzre',
+      passwordHash: defaultHash,
     },
   });
 
@@ -71,7 +73,7 @@ async function main() {
       email: 'admin@ecovolt.in',
       name: 'Admin System',
       role: Role.admin,
-      passwordHash: '$2a$12$e8Y6.P7k2h6EsmFfFw2yLeR5N6j8eG4NvhxJ1iS.1iV9dE.GvGzre',
+      passwordHash: defaultHash,
     },
   });
 
