@@ -1,0 +1,302 @@
+// Prisma schema for ecoVolt-finder
+// Matches /contracts/types.ts and /contracts/enums.ts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────
+enum Role {
+  driver
+  manager
+  admin
+}
+
+enum ConnectorType {
+  ccs2
+  chademo
+  type2_ac
+  bharat_dc_001
+  bharat_ac_001
+  three_pin
+}
+
+enum VehicleClass {
+  car
+  bike
+}
+
+enum PowerProvider {
+  torrent_power
+  guvnl_gb
+  adani_energy
+  tata_power
+  bses
+  msedcl
+  other
+}
+
+enum SessionStatus {
+  reserved
+  scheduled
+  active
+  completed
+  cancelled
+  expired
+  failed
+}
+
+enum GreennessBand {
+  very_high
+  high
+  medium
+  low
+  very_low
+}
+
+enum DataQuality {
+  live
+  cached
+  forecast
+  mock
+  stale
+}
+
+// ─── Models ───────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         Role       @default(driver)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  vehicles     Vehicle[]
+  operators    Operator[]
+  bookings     Booking[]
+  sessions     Session[]
+  reviews      Review[]
+
+  @@map("users")
+}
+
+model Vehicle {
+  id               String          @id @default(uuid())
+  userId           String
+  vehicleClass     VehicleClass
+  model            String?
+  batteryKwh       Float
+  efficiencyWhKm   Float
+  connectors       ConnectorType[]
+  currentChargePct Float           @default(50.0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings         Booking[]
+  sessions         Session[]
+
+  @@index([userId])
+  @@map("vehicles")
+}
+
+model GridZone {
+  id          String         @id // e.g. "IN-WE", "IN-NO", "IN-SO"
+  name        String
+  state       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  stations    Station[]
+  tariffs     Tariff[]
+  forecasts   ForecastCache[]
+
+  @@map("grid_zones")
+}
+
+model Operator {
+  id           String     @id @default(uuid())
+  userId       String
+  name         String
+  contactEmail String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  stations     Station[]
+
+  @@index([userId])
+  @@map("operators")
+}
+
+model Station {
+  id           String         @id @default(uuid())
+  operatorId   String
+  zoneId       String
+  name         String
+  lat          Float
+  lng          Float
+  address      String
+  provider     PowerProvider
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  operator     Operator       @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  zone         GridZone       @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+  connectors   Connector[]
+  pricingRules PricingRule[]
+  bookings     Booking[]
+  sessions     Session[]
+  reviews      Review[]
+
+  @@index([lat, lng])
+  @@index([operatorId])
+  @@index([zoneId])
+  @@map("stations")
+}
+
+model Connector {
+  id             String          @id @default(uuid())
+  stationId      String
+  type           ConnectorType
+  powerKw        Float
+  totalCount     Int             @default(1)
+  availableCount Int             @default(1)
+  status         String          @default("available") // available, occupied, maintenance
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  station        Station         @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  pricingRules   PricingRule[]
+  bookings       Booking[]
+  sessions       Session[]
+
+  @@index([stationId])
+  @@map("connectors")
+}
+
+model Tariff {
+  id            String        @id @default(uuid())
+  provider      PowerProvider
+  zoneId        String
+  baseRate      Float         // ₹/kWh
+  touSlabs      Json?         // Time of use rate variations
+  effectiveFrom DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  zone          GridZone      @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, zoneId])
+  @@map("tariffs")
+}
+
+model PricingRule {
+  id                    String      @id @default(uuid())
+  stationId             String
+  connectorId           String?
+  providerMarkup        Float       @default(0.0) // ₹/kWh (manager margin >= 0)
+  enableDynamicDiscount Boolean     @default(true)
+  discountMaxKwh        Float       @default(3.0) // Max green discount ₹/kWh
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  station               Station     @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  connector             Connector?  @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+
+  @@index([stationId])
+  @@map("pricing_rules")
+}
+
+model Booking {
+  id            String         @id @default(uuid())
+  userId        String
+  stationId     String
+  connectorId   String
+  connectorType ConnectorType
+  vehicleId     String
+  status        SessionStatus  @default(reserved)
+  windowStart   DateTime
+  windowEnd     DateTime
+  lockedPrice   Json           // Snapshot of PriceQuote: { baseTariff, providerMarkup, touAdjustment, finalPrice, isEstimate, validUntil }
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  station       Station        @relation(fields: [stationId], references: [id], onDelete: Restrict)
+  connector     Connector      @relation(fields: [connectorId], references: [id], onDelete: Restrict)
+  vehicle       Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  session       Session?
+
+  @@index([userId])
+  @@index([stationId])
+  @@index([status])
+  @@map("bookings")
+}
+
+model Session {
+  id              String         @id @default(uuid())
+  bookingId       String         @unique
+  stationId       String
+  connectorId     String
+  connectorType   ConnectorType
+  vehicleId       String
+  userId          String
+  status          SessionStatus  @default(active)
+  startedAt       DateTime?      @default(now())
+  endedAt         DateTime?
+  energyKwh       Float?         @default(0.0)
+  cost            Float?         @default(0.0) // Billed at locked price
+  avgRenewablePct Float?
+  co2AvoidedKg    Float?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  booking         Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  station         Station        @relation(fields: [stationId], references: [id], onDelete: Restrict)
+  connector       Connector      @relation(fields: [connectorId], references: [id], onDelete: Restrict)
+  vehicle         Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([stationId])
+  @@map("sessions")
+}
+
+model ForecastCache {
+  id              String        @id @default(uuid())
+  zoneId          String
+  hourStartLocal  DateTime
+  renewablePct    Float
+  carbonIntensity Float
+  confidence      Float         @default(1.0)
+  fetchedAt       DateTime      @default(now())
+
+  zone            GridZone      @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@index([zoneId, hourStartLocal])
+  @@map("forecast_cache")
+}
+
+model Review {
+  id        String    @id @default(uuid())
+  userId    String
+  stationId String
+  rating    Int       // 1-5
+  comment   String?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  station   Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId])
+  @@map("reviews")
+}
