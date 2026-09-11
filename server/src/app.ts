@@ -19,6 +19,7 @@ import { bookingsRouter } from './modules/bookings/bookings.router';
 import { sessionsRouter } from './modules/sessions/sessions.router';
 import { recommendationsRouter } from './modules/recommendations/recommendations.router';
 import { forecastRouter } from './modules/forecast/forecast.router';
+import { impactRouter, analyticsRouter } from './modules/analytics/analytics.router';
 
 export const createApp = (): Express => {
   const app = express();
@@ -77,6 +78,8 @@ export const createApp = (): Express => {
   app.use('/sessions', sessionsRouter);
   app.use('/recommendations', recommendationsRouter);
   app.use('/forecast', forecastRouter);
+  app.use('/impact', impactRouter);
+  app.use('/analytics', analyticsRouter);
 
   // 404 Handler
   app.use((req, _res, next) => {
