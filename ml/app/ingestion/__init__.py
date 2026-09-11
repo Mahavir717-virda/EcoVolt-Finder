@@ -1,18 +1,33 @@
 """
 app/ingestion/__init__.py
 ─────────────────────────
-STUB — Grid data ingestion module.
+Public API for the ingestion module (M3-C2).
 
-Implements the resolver pattern that routes requests based on GRID_MODE:
-  live   → Electricity Maps API (or India Energy Atlas fallback)
-  mock   → MockGenerator (seeded deterministic)
-  hybrid → live → cached → mock
+Usage:
+    from app.ingestion import resolve
+    snapshot = await resolve(zone_id="IN-WE", settings=settings)
 
-Fully implemented in M3-C2.
+The resolver handles GRID_MODE routing, caching, and quality tagging.
+Callers always receive a valid GridSnapshot — never None, never an exception
+(except HTTPException(503) in live mode on API failure).
 """
 from __future__ import annotations
 
-# M3-C2 will expose:
-#   async def resolve(zone_id: str, settings) -> GridSnapshot
-#   class MockGenerator
-#   class ElectricityMapsClient
+from app.ingestion.base import GridSource, IngestionError
+from app.ingestion.electricity_maps import ElectricityMapsClient
+from app.ingestion.greenness import band_from_pct, compute_pcts
+from app.ingestion.india_atlas import IndiaAtlasClient
+from app.ingestion.mock_generator import MockGenerator
+from app.ingestion.resolver import clear_cache, resolve
+
+__all__ = [
+    "resolve",
+    "clear_cache",
+    "GridSource",
+    "IngestionError",
+    "ElectricityMapsClient",
+    "IndiaAtlasClient",
+    "MockGenerator",
+    "compute_pcts",
+    "band_from_pct",
+]
