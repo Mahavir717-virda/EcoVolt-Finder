@@ -13,6 +13,8 @@ import driverImpact from './data/driver_impact.json';
 import vehicles from './data/vehicles.json';
 import sessionActive from './data/session_active.json';
 import bookings from './data/bookings.json';
+import managerStations from './data/manager_stations.json';
+import managerSessions from './data/manager_sessions.json';
 
 export const mockRegistry: Record<string, unknown> = {
   'GET /grid/live': gridLive,
@@ -34,6 +36,8 @@ export const mockRegistry: Record<string, unknown> = {
   'GET /vehicles': vehicles,
   'GET /sessions/active': sessionActive,
   'GET /bookings': bookings,
+  'GET /manager/stations': managerStations,
+  'GET /manager/sessions': managerSessions,
   'POST /bookings': {
     id: 'book_mock_101',
     stationId: 'station-001',
@@ -77,6 +81,31 @@ export function getMockResponse(method: string, path: string): unknown | null {
     return {
       success: true,
       message: 'Booking cancelled successfully within grace window. Slot released.',
+    };
+  }
+  if (normalizedPath.startsWith('/manager/stations') || normalizedPath.startsWith('/stations?manager')) {
+    return managerStations;
+  }
+  if (normalizedPath.startsWith('/manager/pricing') || normalizedPath.startsWith('/pricing/station/')) {
+    return {
+      stationId: 'station-001',
+      baseTariff: 5.50,
+      providerMarkup: 0.50,
+      dynamicGreenDiscount: true,
+      maxGreenDiscount: 0.80,
+      currency: 'INR',
+    };
+  }
+  if (method === 'POST' && normalizedPath === '/manager/stations') {
+    return {
+      id: `station-${Date.now()}`,
+      status: 'created',
+    };
+  }
+  if (method === 'PATCH' && normalizedPath.includes('/connectors/') && normalizedPath.includes('/status')) {
+    return {
+      success: true,
+      message: 'Connector status updated.',
     };
   }
 

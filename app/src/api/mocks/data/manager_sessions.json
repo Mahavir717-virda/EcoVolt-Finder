@@ -1,0 +1,32 @@
+[
+  {
+    "id": "sess_live_101",
+    "stationId": "station-001",
+    "connectorType": "ccs2",
+    "connectorId": "conn_1",
+    "vehicleModel": "Tata Nexon EV Max",
+    "userId": "usr_driver_101",
+    "driverName": "Deep Pathak",
+    "powerKw": 52.4,
+    "energyKwh": 14.8,
+    "cost": 91.76,
+    "durationMinutes": 18,
+    "status": "charging",
+    "lockedPrice": 6.20
+  },
+  {
+    "id": "sess_live_102",
+    "stationId": "station-001",
+    "connectorType": "type2_ac",
+    "connectorId": "conn_3",
+    "vehicleModel": "MG ZS EV",
+    "userId": "usr_driver_104",
+    "driverName": "Priya Sharma",
+    "powerKw": 22.0,
+    "energyKwh": 8.4,
+    "cost": 50.40,
+    "durationMinutes": 24,
+    "status": "charging",
+    "lockedPrice": 6.00
+  }
+]

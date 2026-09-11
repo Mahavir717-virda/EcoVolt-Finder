@@ -1,0 +1,59 @@
+[
+  {
+    "id": "station-001",
+    "managerId": "usr_manager_101",
+    "name": "Torrent Charging Hub – CG Road",
+    "address": "Nr. Pantaloons, CG Road, Ahmedabad, Gujarat 380006",
+    "location": { "lat": 23.0370, "lng": 72.5622 },
+    "operatorName": "Green Drive Pvt Ltd",
+    "operatorPhone": "+91-79-4000-1234",
+    "provider": "torrent_power",
+    "zoneId": "IN-WE",
+    "currentDemandKw": 112.4,
+    "maxTransformerKw": 150.0,
+    "demandRisk": "moderate",
+    "revenueToday": 8420.0,
+    "energyDeliveredTodayKwh": 1360.5,
+    "renewableSharePct": 82,
+    "connectors": [
+      { "type": "ccs2", "powerKw": 60, "available": 1, "total": 2, "status": "online" },
+      { "type": "type2_ac", "powerKw": 22, "available": 1, "total": 2, "status": "online" },
+      { "type": "bharat_dc_001", "powerKw": 15, "available": 0, "total": 1, "status": "offline" }
+    ],
+    "pricing": {
+      "baseTariff": 5.50,
+      "providerMarkup": 0.50,
+      "dynamicGreenDiscount": true,
+      "maxGreenDiscount": 0.80,
+      "currency": "INR"
+    }
+  },
+  {
+    "id": "station-002",
+    "managerId": "usr_manager_101",
+    "name": "Tata Power EZ Charge – SG Highway",
+    "address": "SG Highway, Opp. Iscon Temple, Ahmedabad 380054",
+    "location": { "lat": 23.0289, "lng": 72.5065 },
+    "operatorName": "Green Drive Pvt Ltd",
+    "operatorPhone": "+91-79-4000-1234",
+    "provider": "tata_power",
+    "zoneId": "IN-WE",
+    "currentDemandKw": 48.0,
+    "maxTransformerKw": 120.0,
+    "demandRisk": "low",
+    "revenueToday": 4180.0,
+    "energyDeliveredTodayKwh": 720.0,
+    "renewableSharePct": 76,
+    "connectors": [
+      { "type": "ccs2", "powerKw": 60, "available": 2, "total": 2, "status": "online" },
+      { "type": "type2_ac", "powerKw": 22, "available": 1, "total": 1, "status": "online" }
+    ],
+    "pricing": {
+      "baseTariff": 5.60,
+      "providerMarkup": 0.40,
+      "dynamicGreenDiscount": true,
+      "maxGreenDiscount": 0.60,
+      "currency": "INR"
+    }
+  }
+]
