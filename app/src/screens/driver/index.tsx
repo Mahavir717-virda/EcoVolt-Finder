@@ -27,13 +27,7 @@ export const ProfileScreen: React.FC = () => (
   />
 );
 
-export const StationDetailScreen: React.FC = () => (
-  <PlaceholderScreen
-    title="Station Detail"
-    subtitle="GreennessGauge, ForecastStrip, PriceBreakdown, TrueCostCard"
-    roleContext="driver"
-  />
-);
+export { StationDetailScreen } from './StationDetailScreen';
 
 export const RouteCompareScreen: React.FC = () => (
   <PlaceholderScreen
