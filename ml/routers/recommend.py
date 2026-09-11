@@ -42,7 +42,6 @@ async def recommend(body: RecommendRequest) -> list[StationRecommendation]:
     - `reachable = false` stations are shown greyed.
     - `connectorCompatible = false` stations are hidden by default.
 
-    **M3-C1 stub**: returns the sample from /contracts/examples/recommend.json.
-    Real engine (travel-cost model + ranking) is implemented in M3-C8/C9.
     """
-    return _RECOMMEND_EXAMPLE
+    from app.recommend import recommend as engine_recommend
+    return await engine_recommend(body)
