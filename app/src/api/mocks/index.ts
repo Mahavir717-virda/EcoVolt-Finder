@@ -11,8 +11,8 @@ import authLogin from './data/auth_login.json';
 import me from './data/me.json';
 import driverImpact from './data/driver_impact.json';
 import vehicles from './data/vehicles.json';
-
 import sessionActive from './data/session_active.json';
+import bookings from './data/bookings.json';
 
 export const mockRegistry: Record<string, unknown> = {
   'GET /grid/live': gridLive,
@@ -33,6 +33,7 @@ export const mockRegistry: Record<string, unknown> = {
   'GET /impact/me': driverImpact,
   'GET /vehicles': vehicles,
   'GET /sessions/active': sessionActive,
+  'GET /bookings': bookings,
   'POST /bookings': {
     id: 'book_mock_101',
     stationId: 'station-001',
@@ -45,20 +46,6 @@ export const mockRegistry: Record<string, unknown> = {
     windowEnd: '2026-09-12T13:30:00+05:30',
     createdAt: new Date().toISOString(),
   },
-  'GET /bookings': [
-    {
-      id: 'book_mock_101',
-      stationId: 'station-001',
-      connectorType: 'ccs2',
-      userId: 'usr_driver_101',
-      status: 'reserved',
-      lockedPrice: 6.20,
-      validUntil: new Date(Date.now() + 1800000).toISOString(),
-      windowStart: '2026-09-12T12:00:00+05:30',
-      windowEnd: '2026-09-12T13:30:00+05:30',
-      createdAt: new Date().toISOString(),
-    },
-  ],
 };
 
 export function getMockResponse(method: string, path: string): unknown | null {
@@ -84,6 +71,12 @@ export function getMockResponse(method: string, path: string): unknown | null {
       ...sessionActive,
       status: 'completed',
       endedAt: new Date().toISOString(),
+    };
+  }
+  if ((method === 'PATCH' || method === 'POST') && normalizedPath.includes('/bookings/') && normalizedPath.endsWith('/cancel')) {
+    return {
+      success: true,
+      message: 'Booking cancelled successfully within grace window. Slot released.',
     };
   }
 

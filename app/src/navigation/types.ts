@@ -21,6 +21,8 @@ export type DriverStackParamList = {
   RouteCompare: { stationId: string; originLat?: number; originLng?: number };
   BookingConfirm: { stationId: string; connectorType?: string };
   SessionSummary: { sessionId: string };
+  Bookings: undefined;
+  Impact: undefined;
 };
 
 export type ManagerStackParamList = {

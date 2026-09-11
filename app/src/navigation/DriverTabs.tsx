@@ -11,6 +11,8 @@ import {
   RouteCompareScreen,
   BookingConfirmScreen,
   SessionSummaryScreen,
+  BookingsScreen,
+  ImpactScreen,
 } from '../screens/driver';
 import { colors } from '../theme/tokens';
 
@@ -71,6 +73,16 @@ export const DriverNavigator: React.FC = () => {
         name="BookingConfirm"
         component={BookingConfirmScreen}
         options={{ title: 'Confirm Booking' }}
+      />
+      <Stack.Screen
+        name="Bookings"
+        component={BookingsScreen}
+        options={{ title: 'Bookings & History' }}
+      />
+      <Stack.Screen
+        name="Impact"
+        component={ImpactScreen}
+        options={{ title: 'Green Impact' }}
       />
       <Stack.Screen
         name="SessionSummary"

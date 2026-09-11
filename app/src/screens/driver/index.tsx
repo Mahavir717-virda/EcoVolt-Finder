@@ -11,6 +11,8 @@ export { ProfileScreen } from './ProfileScreen';
 export { VehiclesScreen } from './VehiclesScreen';
 
 export { ActiveSessionScreen } from './ActiveSessionScreen';
+export { BookingsScreen, BookingsScreen as BookingsListScreen } from './BookingsScreen';
+export { ImpactScreen } from './ImpactScreen';
 
 export const SessionSummaryScreen: React.FC = () => (
   <PlaceholderScreen

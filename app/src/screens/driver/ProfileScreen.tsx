@@ -7,7 +7,10 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
+import { DriverStackParamList } from '../../navigation/types';
 import { http } from '../../api/http';
 import { DriverImpact, Vehicle } from '@contracts/types';
 import { useAuthStore } from '../../features/auth/authStore';
@@ -29,6 +32,7 @@ import { colors, radii, shadows, spacing } from '../../theme/tokens';
 
 export const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<DriverStackParamList>>();
   const { user, logout } = useAuthStore();
 
   // Vehicles store
@@ -146,11 +150,15 @@ export const ProfileScreen: React.FC = () => {
         </View>
 
         {/* 2. Lifetime Green Impact Summary */}
-        <View style={styles.impactCard}>
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() => navigation.navigate('Impact')}
+          style={styles.impactCard}
+        >
           <View style={styles.impactHeader}>
             <View style={styles.impactTitleCol}>
               <Text variant="title" style={styles.impactTitle}>
-                Lifetime Green Impact
+                Lifetime Green Impact →
               </Text>
               <Text variant="micro" color={colors.ink3}>
                 Calculated vs standard fossil grid emissions
@@ -199,7 +207,27 @@ export const ProfileScreen: React.FC = () => {
               </Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
+
+        {/* 2b. Bookings & Reservation History Shortcut */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() => navigation.navigate('Bookings')}
+          style={styles.bookingsNavCard}
+        >
+          <View style={styles.bookingsNavLeft}>
+            <Text style={styles.bookingsNavIcon}>📅</Text>
+            <View>
+              <Text variant="title">My Bookings & History</Text>
+              <Text variant="caption" color={colors.ink2}>
+                View scheduled slots, active sessions & past receipts
+              </Text>
+            </View>
+          </View>
+          <Text variant="title" color={colors.brand}>
+            →
+          </Text>
+        </TouchableOpacity>
 
         {/* 3. My EV Garage Header */}
         <View style={styles.garageHeader}>
@@ -384,5 +412,25 @@ const styles = StyleSheet.create({
   },
   logoutBtn: {
     width: '100%',
+  },
+  bookingsNavCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    padding: spacing.base,
+    borderWidth: 1,
+    borderColor: colors.line,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    ...shadows.e1,
+  },
+  bookingsNavLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+  },
+  bookingsNavIcon: {
+    fontSize: 24,
   },
 });
