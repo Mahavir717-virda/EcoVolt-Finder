@@ -13,6 +13,7 @@ import {
   SessionSummaryScreen,
   BookingsScreen,
   ImpactScreen,
+  VehiclesScreen,
 } from '../screens/driver';
 import { colors } from '../theme/tokens';
 
@@ -83,6 +84,11 @@ export const DriverNavigator: React.FC = () => {
         name="Impact"
         component={ImpactScreen}
         options={{ title: 'Green Impact' }}
+      />
+      <Stack.Screen
+        name="Vehicles"
+        component={VehiclesScreen}
+        options={{ title: 'My EV Garage' }}
       />
       <Stack.Screen
         name="SessionSummary"

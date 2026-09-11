@@ -23,6 +23,7 @@ export type DriverStackParamList = {
   SessionSummary: { sessionId: string };
   Bookings: undefined;
   Impact: undefined;
+  Vehicles: undefined;
 };
 
 export type ManagerStackParamList = {
