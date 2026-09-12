@@ -1,10 +1,11 @@
 /**
  * Stations Service
- * Handles station fetching, searching, and geo-filtering via EcoVolt API
+ * Handles station fetching, searching, and geo-filtering via EcoVolt API.
+ * No mock fallbacks — all data comes from the real DB.
  */
 
 import { Station, Charger } from '@/types/database.types';
-import { apiRequest, MockFallbacks } from './api';
+import { apiRequest } from './api';
 import {
   adaptEcoVoltStation,
   adaptEcoVoltChargers,
@@ -23,69 +24,42 @@ export interface StationFilters {
 }
 
 export async function getStations(filters?: StationFilters): Promise<Station[]> {
-  try {
-    const rawList = await apiRequest<any[]>(
-      '/stations',
-      { method: 'GET' },
-      MockFallbacks.stations
-    );
+  const rawList = await apiRequest<any[]>('/stations', { method: 'GET' });
 
-    let stations: Station[] = (rawList || []).map(adaptEcoVoltStation);
+  let stations: Station[] = (rawList || []).map(adaptEcoVoltStation);
 
-    if (filters) {
-      if (filters.availableOnly) {
-        stations = stations.filter((s) => s.available_chargers > 0);
-      }
-      if (filters.minGreenness !== undefined && filters.minGreenness > 0) {
-        stations = stations.filter((s) => (s.greenness_score || 0) >= filters.minGreenness!);
-      }
-      if (filters.searchQuery) {
-        const q = filters.searchQuery.toLowerCase();
-        stations = stations.filter(
-          (s) =>
-            s.name.toLowerCase().includes(q) ||
-            s.address.toLowerCase().includes(q) ||
-            s.city.toLowerCase().includes(q)
-        );
-      }
+  if (filters) {
+    if (filters.availableOnly) {
+      stations = stations.filter((s) => s.available_chargers > 0);
     }
-
-    return stations;
-  } catch (err) {
-    console.error('Failed to get stations:', err);
-    return (MockFallbacks.stations || []).map(adaptEcoVoltStation);
+    if (filters.minGreenness !== undefined && filters.minGreenness > 0) {
+      stations = stations.filter((s) => (s.greenness_score || 0) >= filters.minGreenness!);
+    }
+    if (filters.searchQuery) {
+      const q = filters.searchQuery.toLowerCase();
+      stations = stations.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.address.toLowerCase().includes(q) ||
+          s.city.toLowerCase().includes(q)
+      );
+    }
   }
+
+  return stations;
 }
 
 export async function getStationById(id: string): Promise<StationWithChargers | null> {
-  try {
-    const fallbackRaw = (MockFallbacks.stations || []).find(
-      (s: any) => String(s.id) === String(id) || String(s.stationId) === String(id)
-    ) || MockFallbacks.stations[0];
+  const raw = await apiRequest<any>(`/stations/${id}`, { method: 'GET' });
+  if (!raw) return null;
 
-    const raw = await apiRequest<any>(
-      `/stations/${id}`,
-      { method: 'GET' },
-      fallbackRaw
-    );
+  const station = adaptEcoVoltStation(raw);
+  const chargers: Charger[] = adaptEcoVoltChargers(raw);
 
-    if (!raw) return null;
-
-    const station = adaptEcoVoltStation(raw);
-    const chargers: Charger[] = adaptEcoVoltChargers(raw);
-
-    return {
-      ...station,
-      chargers,
-    };
-  } catch (err) {
-    console.error(`Failed to get station ${id}:`, err);
-    const fallbackRaw = MockFallbacks.stations[0];
-    return {
-      ...adaptEcoVoltStation(fallbackRaw),
-      chargers: adaptEcoVoltChargers(fallbackRaw),
-    };
-  }
+  return {
+    ...station,
+    chargers,
+  };
 }
 
 export interface NearbyStationsOptions {
@@ -119,32 +93,46 @@ export async function getNearbyStations(
     radius = maybeRadius ?? 25;
   }
 
-  const allStations = await getStations(filters);
-  const withDistance: StationWithDistance[] = allStations.map((station) => {
-    const dist = calculateDistance(
-      { latitude: lat, longitude: lng },
-      { latitude: station.latitude, longitude: station.longitude }
+  // Use the server-side nearby endpoint when possible
+  try {
+    const rawList = await apiRequest<any[]>(
+      `/stations?lat=${lat}&lng=${lng}&radiusKm=${radius}${limit ? `&limit=${limit}` : ''}${filters?.connectorType ? `&connector=${filters.connectorType}` : ''}`,
+      { method: 'GET' }
     );
-    return {
+
+    const stations: Station[] = (rawList || []).map(adaptEcoVoltStation);
+    return stations.map((station) => ({
       ...station,
-      distance: dist,
-    };
-  });
+      distance: calculateDistance(
+        { latitude: lat, longitude: lng },
+        { latitude: station.latitude, longitude: station.longitude }
+      ),
+    }));
+  } catch {
+    // Fallback to client-side filtering if server doesn't support query params
+    const allStations = await getStations(filters);
+    const withDistance: StationWithDistance[] = allStations.map((station) => ({
+      ...station,
+      distance: calculateDistance(
+        { latitude: lat, longitude: lng },
+        { latitude: station.latitude, longitude: station.longitude }
+      ),
+    }));
 
-  let results = withDistance
-    .filter((s) => s.distance <= radius)
-    .sort((a, b) => a.distance - b.distance);
+    let results = withDistance
+      .filter((s) => s.distance <= radius)
+      .sort((a, b) => a.distance - b.distance);
 
-  // If no station falls strictly within the radius, return the closest stations
-  if (results.length === 0 && withDistance.length > 0) {
-    results = [...withDistance].sort((a, b) => a.distance - b.distance);
+    if (results.length === 0 && withDistance.length > 0) {
+      results = [...withDistance].sort((a, b) => a.distance - b.distance);
+    }
+
+    if (limit) {
+      results = results.slice(0, limit);
+    }
+
+    return results;
   }
-
-  if (limit) {
-    results = results.slice(0, limit);
-  }
-
-  return results;
 }
 
 export async function searchStations(query: string): Promise<Station[]> {

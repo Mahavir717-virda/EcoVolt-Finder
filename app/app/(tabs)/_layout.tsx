@@ -1,14 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { colors } from '@/constants/colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // While checking token on mount, show a centered spinner
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white }}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+      </View>
+    );
+  }
+
+  // Not authenticated — redirect to login screen
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   return (
     <Tabs
@@ -81,7 +98,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Hide explore from tabs - we'll remove it */}
+      {/* Hide explore from tabs */}
       <Tabs.Screen
         name="explore"
         options={{
@@ -91,3 +108,4 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+

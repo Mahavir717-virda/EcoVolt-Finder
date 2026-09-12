@@ -1,10 +1,12 @@
 /**
  * useAuth Hook
- * Manages authentication state and provides auth methods for EcoVolt
+ * Manages real authentication state via EcoVolt Express API.
+ * No hardcoded users — starts unauthenticated and checks token on mount.
  */
 
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { signIn, signUp, signOut, getCurrentProfile } from '@/lib/auth';
+import { getAuthToken } from '@/services/api';
 import { Profile } from '@/types/database.types';
 
 export interface User {
@@ -39,27 +41,62 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
-    user: { id: 'usr_driver_101', email: 'deep@ecovolt.io' },
+    user: null,
     profile: null,
-    session: {
-      user: { id: 'usr_driver_101', email: 'deep@ecovolt.io' },
-      access_token: 'mock_token',
-    },
-    isLoading: false,
-    isAuthenticated: true,
+    session: null,
+    isLoading: true,    // Start loading so we check token before rendering screens
+    isAuthenticated: false,
   });
 
+  /**
+   * Check if a token exists and fetch the profile from the server.
+   * Called on mount and after sign in / sign up.
+   */
   const fetchProfile = useCallback(async () => {
+    setState(prev => ({ ...prev, isLoading: true }));
+
     try {
-      const { data: profile } = await getCurrentProfile();
-      setState(prev => ({
-        ...prev,
-        profile,
-        isLoading: false,
-        isAuthenticated: true,
-      }));
+      // Only try to fetch profile if we have a stored token
+      const token = await getAuthToken();
+      if (!token) {
+        setState({
+          user: null,
+          profile: null,
+          session: null,
+          isLoading: false,
+          isAuthenticated: false,
+        });
+        return;
+      }
+
+      const { data: profile, error } = await getCurrentProfile();
+
+      if (profile && !error) {
+        const user: User = {
+          id: profile.id,
+          email: profile.email,
+          user_metadata: { full_name: profile.full_name },
+        };
+
+        setState({
+          user,
+          profile,
+          session: { user, access_token: token },
+          isLoading: false,
+          isAuthenticated: true,
+        });
+      } else {
+        // Token is invalid/expired — clear state
+        setState({
+          user: null,
+          profile: null,
+          session: null,
+          isLoading: false,
+          isAuthenticated: false,
+        });
+      }
     } catch {
-      setState(prev => ({ ...prev, isLoading: false }));
+      setState(prev => ({ ...prev, isLoading: false, isAuthenticated: false }));
     }
   }, []);
 

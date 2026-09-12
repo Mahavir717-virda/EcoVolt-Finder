@@ -1,5 +1,6 @@
 /**
- * EcoVolt Authentication Helpers (Replacing direct Supabase with EcoVolt Express API)
+ * EcoVolt Authentication Helpers
+ * All auth flows go through the EcoVolt Express API — no mocks, no fallbacks.
  */
 
 import { Profile } from '@/types/database.types';
@@ -9,7 +10,6 @@ import {
   clearAuthToken,
   getStoredUser,
   setStoredUser,
-  MockFallbacks,
 } from '@/services/api';
 
 export interface AuthError {
@@ -22,88 +22,85 @@ export interface AuthResult<T = void> {
   error: AuthError | null;
 }
 
-const DEFAULT_PROFILE: Profile = {
-  id: 'usr_driver_101',
-  full_name: 'Deep Pathak',
-  email: 'deep@ecovolt.io',
-  phone: '+91 98765 43210',
-  plan_type: 'premium',
-  avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
-
+/**
+ * Sign in with email + password.
+ * Server returns { accessToken, refreshToken, user }.
+ */
 export async function signIn(
   email: string,
   password: string
 ): Promise<AuthResult> {
   try {
-    const res = await apiRequest<any>(
-      '/auth/login',
-      {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      },
-      {
-        token: 'mock_jwt_token_ecovolt',
-        user: { ...DEFAULT_PROFILE, email },
-      }
-    );
+    const res = await apiRequest<any>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
 
-    if (res?.token) {
-      await setAuthToken(res.token);
+    if (res?.accessToken) {
+      await setAuthToken(res.accessToken);
     }
 
-    const profile: Profile = {
-      ...DEFAULT_PROFILE,
-      id: res?.user?.id || DEFAULT_PROFILE.id,
-      email: res?.user?.email || email,
-      full_name: res?.user?.name || res?.user?.fullName || DEFAULT_PROFILE.full_name,
-    };
-    await setStoredUser(profile);
+    // Build and cache a Profile from the returned user object
+    if (res?.user) {
+      const profile: Profile = {
+        id: res.user.id,
+        full_name: res.user.name || res.user.fullName || email.split('@')[0],
+        email: res.user.email || email,
+        phone: res.user.phone || '',
+        plan_type: (res.user.planType || res.user.plan_type || 'basic') as Profile['plan_type'],
+        avatar_url: res.user.avatarUrl || res.user.avatar_url || null,
+        created_at: res.user.createdAt || new Date().toISOString(),
+        updated_at: res.user.updatedAt || new Date().toISOString(),
+      };
+      await setStoredUser(profile);
+    }
 
     return { data: null, error: null };
   } catch (err: any) {
-    return { data: null, error: { message: err.message || 'Login failed' } };
+    return { data: null, error: { message: err.message || 'Login failed. Please check your credentials.' } };
   }
 }
 
+/**
+ * Register a new user account.
+ * Server returns { accessToken, refreshToken, user }.
+ */
 export async function signUp(
   email: string,
   password: string,
   fullName: string
 ): Promise<AuthResult<Profile>> {
   try {
-    const res = await apiRequest<any>(
-      '/auth/register',
-      {
-        method: 'POST',
-        body: JSON.stringify({ email, password, name: fullName }),
-      },
-      {
-        token: 'mock_jwt_token_ecovolt',
-        user: { ...DEFAULT_PROFILE, email, full_name: fullName },
-      }
-    );
+    const res = await apiRequest<any>('/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, name: fullName }),
+    });
 
-    if (res?.token) {
-      await setAuthToken(res.token);
+    if (res?.accessToken) {
+      await setAuthToken(res.accessToken);
     }
 
     const profile: Profile = {
-      ...DEFAULT_PROFILE,
-      id: res?.user?.id || `usr_${Date.now()}`,
-      email,
+      id: res?.user?.id || '',
       full_name: fullName,
+      email,
+      phone: '',
+      plan_type: 'basic',
+      avatar_url: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
     await setStoredUser(profile);
 
     return { data: profile, error: null };
   } catch (err: any) {
-    return { data: null, error: { message: err.message || 'Signup failed' } };
+    return { data: null, error: { message: err.message || 'Sign up failed. Please try again.' } };
   }
 }
 
+/**
+ * Sign out — clear stored token and user data.
+ */
 export async function signOut(): Promise<AuthResult> {
   try {
     await clearAuthToken();
@@ -113,34 +110,62 @@ export async function signOut(): Promise<AuthResult> {
   }
 }
 
-export async function resetPassword(email: string): Promise<AuthResult> {
-  return { data: null, error: null };
-}
-
+/**
+ * Get the current authenticated user's profile.
+ * First checks SecureStore cache, then hits GET /me.
+ */
 export async function getCurrentProfile(): Promise<AuthResult<Profile>> {
   try {
-    const cached = await getStoredUser();
-    if (cached) {
-      return { data: cached, error: null };
+    // Try live fetch from server first (always gets fresh data)
+    const raw = await apiRequest<any>('/me', { method: 'GET' });
+
+    if (raw) {
+      const profile: Profile = {
+        id: raw.id,
+        full_name: raw.name || raw.fullName || raw.full_name || '',
+        email: raw.email || '',
+        phone: raw.phone || '',
+        plan_type: (raw.planType || raw.plan_type || 'basic') as Profile['plan_type'],
+        avatar_url: raw.avatarUrl || raw.avatar_url || null,
+        created_at: raw.createdAt || new Date().toISOString(),
+        updated_at: raw.updatedAt || new Date().toISOString(),
+      };
+      // Cache locally
+      await setStoredUser(profile);
+      return { data: profile, error: null };
     }
-    return { data: DEFAULT_PROFILE, error: null };
-  } catch {
-    return { data: DEFAULT_PROFILE, error: null };
+
+    return { data: null, error: { message: 'Could not fetch profile' } };
+  } catch (err: any) {
+    // If the token is missing/expired, fall through to null so auth redirects to login
+    return { data: null, error: { message: err.message || 'Not authenticated' } };
   }
 }
 
+/**
+ * Update profile fields.
+ */
 export async function updateProfile(
   updates: Partial<Pick<Profile, 'full_name'>>
 ): Promise<AuthResult<Profile>> {
   try {
-    const current = (await getCurrentProfile()).data || DEFAULT_PROFILE;
-    const updated: Profile = {
-      ...current,
-      ...updates,
-      updated_at: new Date().toISOString(),
+    const updated = await apiRequest<any>('/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ name: updates.full_name }),
+    });
+
+    const profile: Profile = {
+      id: updated.id,
+      full_name: updated.name || updated.fullName || updated.full_name || '',
+      email: updated.email || '',
+      phone: updated.phone || '',
+      plan_type: (updated.planType || updated.plan_type || 'basic') as Profile['plan_type'],
+      avatar_url: updated.avatarUrl || updated.avatar_url || null,
+      created_at: updated.createdAt || new Date().toISOString(),
+      updated_at: updated.updatedAt || new Date().toISOString(),
     };
-    await setStoredUser(updated);
-    return { data: updated, error: null };
+    await setStoredUser(profile);
+    return { data: profile, error: null };
   } catch (err: any) {
     return { data: null, error: { message: err.message || 'Update failed' } };
   }

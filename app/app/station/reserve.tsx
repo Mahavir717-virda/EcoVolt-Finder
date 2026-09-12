@@ -4,6 +4,7 @@ import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { useCharger } from '@/hooks/useChargers';
 import { useCreateReservation } from '@/hooks/useReservations';
+import { getUserVehicles } from '@/services/users.service';
 import {
     addMinutes,
     formatDate,
@@ -46,6 +47,18 @@ export default function ReserveScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(30);
+  const [vehicleId, setVehicleId] = useState<string | null>(null);
+  
+  // Load user's first vehicle on mount
+  React.useEffect(() => {
+    if (user?.id) {
+      getUserVehicles(user.id).then((vehicles) => {
+        if (vehicles.length > 0) {
+          setVehicleId(vehicles[0].id);
+        }
+      }).catch(() => {});
+    }
+  }, [user?.id]);
   
   const chargerType = charger ? CHARGER_TYPES[charger.charger_type] : null;
   const connectorType = charger ? CONNECTOR_TYPES[charger.connector_type] : null;
@@ -99,13 +112,22 @@ export default function ReserveScreen() {
       return;
     }
 
-    if (!chargerId || !charger) {
-      Alert.alert('Error', 'Charger not found. Please try again.');
+    if (!stationId || !chargerId || !charger) {
+      Alert.alert('Error', 'Station or charger not found. Please try again.');
       return;
     }
 
     if (!user?.id) {
       Alert.alert('Error', 'Please sign in to make a reservation.');
+      return;
+    }
+
+    if (!vehicleId) {
+      Alert.alert(
+        'No Vehicle Found',
+        'Please add a vehicle to your profile before making a reservation.',
+        [{ text: 'Go to Profile', onPress: () => router.push('/(tabs)/profile') }, { text: 'Cancel' }]
+      );
       return;
     }
 
@@ -117,8 +139,14 @@ export default function ReserveScreen() {
       
       const endTime = addMinutes(startTime, selectedDuration);
 
-      // Create the reservation in Supabase
-      const reservation = await createReservation(chargerId, startTime, endTime);
+      // Create the reservation — passes real stationId, connectorType, vehicleId
+      const reservation = await createReservation(
+        stationId,
+        charger.connector_type,
+        vehicleId,
+        startTime,
+        endTime
+      );
 
       if (reservation) {
         Alert.alert(
@@ -136,7 +164,6 @@ export default function ReserveScreen() {
           ]
         );
       } else {
-        // Reservation failed - could be conflict, charger unavailable, etc.
         Alert.alert('Reservation Failed', 'The time slot may already be taken or the charger is unavailable. Please try a different time.');
       }
     } catch (error: any) {

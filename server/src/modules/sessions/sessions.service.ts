@@ -183,7 +183,34 @@ export class SessionsService {
     const totalCost = Math.round(energyKwh * finalPricePerKwh * 100) / 100;
 
     // 3. Compute Renewable Share & Avoided CO2
-    const avgRenewablePct = 76.5; // Average renewable share during session window
+    // Look up actual renewable % from ForecastCache for the session zone & window
+    let avgRenewablePct = 65.0; // fallback: Indian grid average
+    try {
+      const stationWithZone = await prisma.station.findUnique({
+        where: { id: session.stationId },
+        select: { zoneId: true },
+      });
+
+      if (stationWithZone) {
+        const forecast = await prisma.forecastCache.findFirst({
+          where: {
+            zoneId: stationWithZone.zoneId,
+            hourStartLocal: {
+              gte: startedAt,
+              lte: endedAt,
+            },
+          },
+          orderBy: { hourStartLocal: 'desc' },
+        });
+
+        if (forecast) {
+          avgRenewablePct = forecast.renewablePct;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch forecast for session zone, using fallback:', e);
+    }
+
     const gridBaselineIntensity = 710.0; // Indian grid average gCO2eq/kWh
     const achievedIntensity = gridBaselineIntensity * (1 - avgRenewablePct / 100);
     const co2AvoidedKg =

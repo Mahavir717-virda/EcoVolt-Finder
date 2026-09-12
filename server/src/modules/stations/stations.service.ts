@@ -113,8 +113,7 @@ export class StationsService {
     });
 
     // Compute distance and filter within radius
-    const evaluated = stations
-      .map((station) => {
+    const evaluatedRaw = await Promise.all(stations.map(async (station) => {
         const distanceKm = this.calculateDistance(lat, lng, station.lat, station.lng);
 
         // Compute priceFrom
@@ -123,8 +122,16 @@ export class StationsService {
         const markup = station.pricingRules[0]?.providerMarkup ?? 2.5;
         const priceFrom = Math.round((baseRate + markup) * 10) / 10;
 
-        // Mock/live renewable % for the zone
-        const renewablePct = station.zoneId === 'IN-WE' ? 72 : 55;
+        // Fetch renewable % from ForecastCache for the station's zone (current hour)
+        const now = new Date();
+        const forecast = await prisma.forecastCache.findFirst({
+          where: {
+            zoneId: station.zoneId,
+            hourStartLocal: { lte: now },
+          },
+          orderBy: { hourStartLocal: 'desc' },
+        });
+        const renewablePct = forecast ? forecast.renewablePct : (station.zoneId === 'IN-WE' ? 72 : 55);
 
         const summary: StationSummaryResponse = {
           id: station.id,
@@ -144,15 +151,16 @@ export class StationsService {
           greenness: {
             renewablePct,
             band: this.getGreennessBand(renewablePct),
-            quality: DataQuality.LIVE,
+            quality: forecast ? DataQuality.LIVE : DataQuality.CACHED,
           },
           priceFrom,
           distanceKm,
         };
 
         return summary;
-      })
-      .filter((s) => s.distanceKm! <= radiusKm);
+      }));
+    const evaluated = evaluatedRaw.filter((s) => s.distanceKm! <= radiusKm);
+
 
     // Sort results
     if (sort === 'greenest') {
@@ -192,14 +200,26 @@ export class StationsService {
     const baseRate = tariff ? tariff.baseRate : 13.0;
     const markup = station.pricingRules[0]?.providerMarkup ?? 2.5;
 
+    // Fetch renewable % from ForecastCache for the station's zone (current hour)
+    const now = new Date();
+    const forecast = await prisma.forecastCache.findFirst({
+      where: {
+        zoneId: station.zoneId,
+        hourStartLocal: { lte: now },
+      },
+      orderBy: { hourStartLocal: 'desc' },
+    });
+    const renewablePct = forecast ? forecast.renewablePct : 65;
+    const band = this.getGreennessBand(renewablePct);
+
     return {
       ...station,
       priceFrom: Math.round((baseRate + markup) * 10) / 10,
       greenness: {
         zoneId: station.zoneId,
-        renewablePct: 72,
-        band: GreennessBand.HIGH,
-        quality: DataQuality.LIVE,
+        renewablePct,
+        band,
+        quality: forecast ? DataQuality.LIVE : DataQuality.CACHED,
       },
     };
   }

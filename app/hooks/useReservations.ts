@@ -93,7 +93,9 @@ export function useCreateReservation() {
   const [error, setError] = useState<string | null>(null);
 
   const create = useCallback(async (
-    chargerId: string,
+    stationId: string,
+    connectorType: string,
+    vehicleId: string,
     startTime: Date,
     endTime: Date
   ): Promise<Reservation | null> => {
@@ -107,8 +109,9 @@ export function useCreateReservation() {
     try {
       const reservation = await createReservation({
         userId: user.id,
-        stationId: 'station-001',
-        chargerId,
+        stationId,
+        connectorType,
+        vehicleId,
         startTime: startTime instanceof Date ? startTime.toISOString() : String(startTime),
         endTime: endTime instanceof Date ? endTime.toISOString() : String(endTime),
       });
