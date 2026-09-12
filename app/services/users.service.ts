@@ -77,13 +77,6 @@ export async function updateUserProfile(
   return profile;
 }
 
-export async function updatePlanType(
-  _userId: string,
-  _planType: PlanType
-): Promise<Profile | null> {
-  // Plan type changes are managed server-side — return current profile
-  return getUserProfile(_userId);
-}
 
 // ─── Favorites ────────────────────────────────────────────────────────────────
 

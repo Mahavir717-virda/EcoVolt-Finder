@@ -7,7 +7,6 @@ import { EmptyState } from '@/components/common';
 import { Button } from '@/components/ui';
 import { CHARGER_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
-import { PLANS } from '@/constants/plans';
 import { useAuth } from '@/hooks/useAuth';
 import { useCancelReservation, useReservations } from '@/hooks/useReservations';
 import { spacing } from '@/styles/spacing';
@@ -71,8 +70,6 @@ export default function ReservationsScreen() {
   const { reservations, loading, refresh } = useReservations();
   const { cancel, loading: cancelLoading } = useCancelReservation();
 
-  const isPremium = profile?.plan_type === 'premium';
-  
   // Separate active and past reservations
   const { activeReservations, pastReservations } = useMemo(() => {
     const now = new Date();
@@ -101,10 +98,6 @@ export default function ReservationsScreen() {
     await refresh();
     setRefreshing(false);
   }, [refresh]);
-
-  const handleUpgrade = () => {
-    router.push('/modal/upgrade');
-  };
 
   const handleCancel = useCallback(async (reservation: Reservation) => {
     Alert.alert(
@@ -151,47 +144,6 @@ export default function ReservationsScreen() {
       },
     });
   }, [router]);
-
-  if (!isPremium) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Reservations</Text>
-        </View>
-        <View style={styles.upgradeContainer}>
-          <View style={styles.upgradeCard}>
-            <View style={styles.upgradeIconContainer}>
-              <Ionicons name="lock-closed" size={48} color={colors.primary[500]} />
-            </View>
-            <Text style={styles.upgradeTitle}>Unlock Reservations</Text>
-            <Text style={styles.upgradeDescription}>
-              Upgrade to Premium to reserve charging slots in advance and never wait in line again.
-            </Text>
-            <View style={styles.upgradeFeatures}>
-              <View style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                <Text style={styles.featureText}>Reserve up to 2 active slots</Text>
-              </View>
-              <View style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                <Text style={styles.featureText}>Get reservation reminders</Text>
-              </View>
-              <View style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                <Text style={styles.featureText}>Full price comparison</Text>
-              </View>
-            </View>
-            <Button
-              title={`Upgrade for ₹${PLANS.premium.monthlyPrice}/month`}
-              onPress={handleUpgrade}
-              fullWidth
-              size="lg"
-            />
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -505,59 +457,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-  },
-  // Upgrade UI
-  upgradeContainer: {
-    flex: 1,
-    padding: spacing.screenPadding,
-    justifyContent: 'center',
-  },
-  upgradeCard: {
-    backgroundColor: colors.white,
-    borderRadius: spacing.radius.xl,
-    padding: spacing.lg,
-    alignItems: 'center',
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  upgradeIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.primary[50],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  upgradeTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.neutral[900],
-    marginBottom: spacing.sm,
-  },
-  upgradeDescription: {
-    fontSize: 16,
-    color: colors.neutral[500],
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: spacing.lg,
-  },
-  upgradeFeatures: {
-    width: '100%',
-    marginBottom: spacing.lg,
-    gap: spacing.sm,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  featureText: {
-    fontSize: 14,
-    color: colors.neutral[700],
   },
   loadingContainer: {
     padding: spacing.xl,

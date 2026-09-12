@@ -26,7 +26,6 @@ export const ROUTES = {
 
   // Modal routes
   MODAL: {
-    UPGRADE: '/modal/upgrade',
     FILTERS: '/modal/filters',
   },
 } as const;
