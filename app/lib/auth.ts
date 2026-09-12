@@ -213,19 +213,23 @@ export async function getCurrentProfile(): Promise<AuthResult<Profile>> {
  * Update profile fields.
  */
 export async function updateProfile(
-  updates: Partial<Pick<Profile, 'full_name'>>
+  updates: Partial<Pick<Profile, 'full_name' | 'email' | 'phone'>>
 ): Promise<AuthResult<Profile>> {
   try {
     const updated = await apiRequest<any>('/me', {
       method: 'PATCH',
-      body: JSON.stringify({ name: updates.full_name }),
+      body: JSON.stringify({
+        ...(updates.full_name ? { name: updates.full_name } : {}),
+        ...(updates.email ? { email: updates.email } : {}),
+        ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+      }),
     });
 
     const profile: Profile = {
       id: updated.id,
-      full_name: updated.name || updated.fullName || updated.full_name || '',
-      email: updated.email || '',
-      phone: updated.phone || '',
+      full_name: updated.name || updated.fullName || updated.full_name || updates.full_name || '',
+      email: updated.email || updates.email || '',
+      phone: updated.phone || updates.phone || '',
       plan_type: (updated.planType || updated.plan_type || 'basic') as Profile['plan_type'],
       avatar_url: updated.avatarUrl || updated.avatar_url || null,
       created_at: updated.createdAt || new Date().toISOString(),
@@ -237,3 +241,4 @@ export async function updateProfile(
     return { data: null, error: { message: err.message || 'Update failed' } };
   }
 }
+

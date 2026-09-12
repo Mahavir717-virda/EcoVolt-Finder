@@ -36,12 +36,27 @@ export default function ExploreScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  // First apply global filters, then search query, then dynamic distance and sorting
+  // Compute dynamic distance, apply global filters, text search, and sort
   const filteredStations = useMemo(() => {
-    // Step 1: apply global filters (charger type, connector, price, available-only)
-    const afterFilters = applyFiltersToStations(stations as any[], filters) as (typeof stations[0] & { distance?: number })[];
+    // Step 1: compute dynamic GPS distance for all stations
+    const withDistance = (stations || []).map((station) => {
+      let distance: number | undefined = station.distance;
+      if (userCoords?.latitude && userCoords?.longitude && station.latitude && station.longitude) {
+        distance = calculateDistance(
+          { latitude: userCoords.latitude, longitude: userCoords.longitude },
+          { latitude: station.latitude, longitude: station.longitude }
+        );
+      }
+      return {
+        ...station,
+        distance,
+      };
+    });
 
-    // Step 2: apply text search on top
+    // Step 2: apply global filters (distance threshold, charger types, connectors, price, amenities, available)
+    const afterFilters = applyFiltersToStations(withDistance as any[], filters) as (typeof stations[0] & { distance?: number })[];
+
+    // Step 3: apply text search on top
     let result = afterFilters;
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -52,20 +67,8 @@ export default function ExploreScreen() {
       );
     }
 
-    // Step 3: compute dynamic distance and sort nearest first
-    return result.map((station) => {
-      let distance: number | undefined = station.distance;
-      if (userCoords.latitude && userCoords.longitude && station.latitude && station.longitude) {
-        distance = calculateDistance(
-          { latitude: userCoords.latitude, longitude: userCoords.longitude },
-          { latitude: station.latitude, longitude: station.longitude }
-        );
-      }
-      return {
-        ...station,
-        distance,
-      };
-    }).sort((a, b) => {
+    // Step 4: sort nearest first
+    return result.sort((a, b) => {
       if (a.distance !== undefined && b.distance !== undefined) {
         return a.distance - b.distance;
       }
@@ -95,7 +98,7 @@ export default function ExploreScreen() {
     return (
       <StationCard
         station={station}
-        distance={distance}
+        distance={station.distance}
         isSaved={isFavorited(station.id)}
         onSave={() => toggleFavorite(station.id)}
         onPress={() => handleStationPress(station.id)}

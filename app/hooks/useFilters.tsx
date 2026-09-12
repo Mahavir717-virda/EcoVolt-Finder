@@ -9,7 +9,7 @@ export interface FilterState {
   chargerTypes: string[];
   connectorTypes: string[];
   amenities: string[];
-  maxDistance: number;
+  maxDistance: number | null;
   priceRange: { min: number; max: number } | null;
   availableOnly: boolean;
 }
@@ -18,7 +18,7 @@ export const DEFAULT_FILTERS: FilterState = {
   chargerTypes: [],
   connectorTypes: [],
   amenities: [],
-  maxDistance: 15,
+  maxDistance: null,
   priceRange: null,
   availableOnly: false,
 };
@@ -49,7 +49,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     filters.amenities.length +
     (filters.priceRange ? 1 : 0) +
     (filters.availableOnly ? 1 : 0) +
-    (filters.maxDistance !== DEFAULT_FILTERS.maxDistance ? 1 : 0);
+    (filters.maxDistance != null && filters.maxDistance < 100 ? 1 : 0);
 
   return (
     <FilterContext.Provider value={{ filters, setFilters, resetFilters, activeFiltersCount }}>
@@ -69,47 +69,102 @@ export function useFilters(): FilterContextValue {
  * Returns only stations that pass all active filter criteria.
  */
 export function applyFiltersToStations<T extends {
+  id?: string;
   available_chargers?: number | null;
   total_chargers?: number | null;
+  price_from?: number | null;
+  amenities?: string[] | null;
+  distance?: number | null;
   chargers?: Array<{
     charger_type?: string | null;
-    connectors?: Array<{ connector_type?: string | null }>;
+    connector_type?: string | null;
     price_per_kwh?: number | null;
+    power_kw?: number | null;
+  }>;
+  connectors?: Array<{
+    type?: string | null;
+    powerKw?: number | null;
   }>;
 }>(stations: T[], filters: FilterState): T[] {
   return stations.filter((station) => {
-    // Available only
+    // 1. Available chargers only
     if (filters.availableOnly && (station.available_chargers ?? 0) <= 0) {
       return false;
     }
 
-    // Charger type filter
-    if (filters.chargerTypes.length > 0) {
-      const stationTypes = (station.chargers ?? []).map((c) => c.charger_type?.toUpperCase());
-      const hasMatch = filters.chargerTypes.some((ft) =>
-        stationTypes.includes(ft.toUpperCase())
-      );
-      if (!hasMatch) return false;
+    // 2. Maximum Distance filter
+    if (filters.maxDistance != null && filters.maxDistance > 0 && filters.maxDistance < 100) {
+      if (station.distance !== undefined && station.distance !== null) {
+        if (station.distance > filters.maxDistance) {
+          return false;
+        }
+      }
     }
 
-    // Connector type filter
-    if (filters.connectorTypes.length > 0) {
-      const stationConnectors = (station.chargers ?? []).flatMap((c) =>
-        (c.connectors ?? []).map((cn) => cn.connector_type?.toUpperCase())
-      );
-      const hasMatch = filters.connectorTypes.some((fc) =>
-        stationConnectors.includes(fc.toUpperCase())
-      );
-      if (!hasMatch) return false;
+    // 3. Charger type multi-selection filter
+    if (filters.chargerTypes && filters.chargerTypes.length > 0) {
+      const selectedTypes = filters.chargerTypes.map((t) => t.toLowerCase());
+      const stationChargers = station.chargers || [];
+      const stationConnectors = station.connectors || [];
+
+      const hasChargerMatch = stationChargers.some((c) => {
+        const type = String(c.charger_type || '').toLowerCase();
+        return selectedTypes.includes(type);
+      });
+
+      const hasConnectorPowerMatch = stationConnectors.some((cn) => {
+        const power = Number(cn.powerKw || 0);
+        if (selectedTypes.includes('tesla_supercharger') && power >= 150) return true;
+        if (selectedTypes.includes('dc_fast') && power >= 25 && power < 150) return true;
+        if (selectedTypes.includes('level_2') && power >= 3 && power < 25) return true;
+        if (selectedTypes.includes('level_1') && power > 0 && power < 3) return true;
+        return false;
+      });
+
+      if (!hasChargerMatch && !hasConnectorPowerMatch) {
+        return false;
+      }
     }
 
-    // Price range filter
+    // 4. Connector type multi-selection filter
+    if (filters.connectorTypes && filters.connectorTypes.length > 0) {
+      const selectedConnectors = filters.connectorTypes.map((c) => c.toLowerCase());
+      const stationChargers = station.chargers || [];
+      const stationConnectors = station.connectors || [];
+
+      const chargerConnectors = stationChargers.map((c) => String(c.connector_type || '').toLowerCase());
+      const rawConnectors = stationConnectors.map((cn) => {
+        const t = String(cn.type || '').toLowerCase();
+        if (t === 'ccs2' || t === 'bharat_dc_001') return 'ccs';
+        if (t === 'type2_ac' || t === 'bharat_ac_001') return 'type2';
+        if (t === 'three_pin') return 'j1772';
+        return t;
+      });
+
+      const allConnectors = [...chargerConnectors, ...rawConnectors];
+      const hasConnectorMatch = selectedConnectors.some((sc) => allConnectors.includes(sc));
+      if (!hasConnectorMatch) {
+        return false;
+      }
+    }
+
+    // 5. Price range filter
     if (filters.priceRange) {
       const { min, max } = filters.priceRange;
-      const prices = (station.chargers ?? []).map((c) => c.price_per_kwh ?? 0);
-      if (prices.length > 0) {
-        const lowestPrice = Math.min(...prices);
-        if (lowestPrice < min || lowestPrice > max) return false;
+      const price = station.price_from ?? 12.5;
+      if (price < min || price > max) {
+        return false;
+      }
+    }
+
+    // 6. Amenities multi-selection filter
+    if (filters.amenities && filters.amenities.length > 0) {
+      const stationAmenities = (station.amenities || []).map((a) => a.toLowerCase());
+      const hasAllAmenities = filters.amenities.every((fa) =>
+        stationAmenities.some((sa) => sa.includes(fa.toLowerCase()) || fa.toLowerCase().includes(sa))
+      );
+      if (!hasAllAmenities) {
+        return false;
       }
     }
 

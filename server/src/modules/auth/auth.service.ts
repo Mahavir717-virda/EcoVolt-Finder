@@ -108,6 +108,7 @@ export class AuthService {
       user: {
         id: user.id,
         name: user.name,
+        email: user.email,
         role: user.role,
       },
     };
@@ -201,11 +202,30 @@ export class AuthService {
   /**
    * Update user profile
    */
-  public static async updateUserProfile(userId: string, data: { name?: string }) {
+  public static async updateUserProfile(
+    userId: string,
+    data: { name?: string; email?: string; phone?: string; role?: Role }
+  ) {
+    if (data.email) {
+      const existing = await prisma.user.findFirst({
+        where: {
+          email: data.email.toLowerCase(),
+          NOT: { id: userId },
+        },
+      });
+      if (existing) {
+        throw new ConflictError('Email is already registered with another account', {
+          email: data.email,
+        });
+      }
+    }
+
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
         ...(data.name ? { name: data.name } : {}),
+        ...(data.email ? { email: data.email.toLowerCase() } : {}),
+        ...(data.role ? { role: data.role as Role } : {}),
       },
       select: {
         id: true,

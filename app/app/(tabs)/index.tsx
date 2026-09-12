@@ -88,13 +88,12 @@ export default function HomeScreen() {
     enabled: true,
   });
 
-  // Use nearby stations if available, otherwise all stations, then apply global filters and dynamic distance
+  // Use all stations or nearby stations, enrich with live GPS distance, then apply all filters
   const stations = useMemo(() => {
-    let sourceStations = (nearbyStations && nearbyStations.length > 0) ? nearbyStations : allStations;
-    const filtered = applyFiltersToStations(sourceStations as any[], filters) as (typeof allStations[0] & { distance?: number })[];
+    const sourceStations = (allStations && allStations.length > 0) ? allStations : (nearbyStations || []);
 
-    // Compute dynamic Haversine distance for every station from live GPS userCoords
-    return filtered.map((st) => {
+    // 1. Compute dynamic Haversine distance for every station from live GPS userCoords
+    const withDistance = sourceStations.map((st) => {
       let dist: number | undefined = st.distance;
       if (userCoords?.latitude && userCoords?.longitude && st.latitude && st.longitude) {
         dist = calculateDistance(
@@ -106,13 +105,19 @@ export default function HomeScreen() {
         ...st,
         distance: dist,
       };
-    }).sort((a, b) => {
+    });
+
+    // 2. Apply global filters (distance threshold, charger types, connector types, price, availability, amenities)
+    const filtered = applyFiltersToStations(withDistance as any[], filters) as (typeof allStations[0] & { distance?: number })[];
+
+    // 3. Sort nearest first
+    return filtered.sort((a, b) => {
       if (a.distance !== undefined && b.distance !== undefined) {
         return a.distance - b.distance;
       }
       return 0;
     });
-  }, [nearbyStations, allStations, filters, userCoords]);
+  }, [allStations, nearbyStations, filters, userCoords]);
 
   // Calculate stats
   const stats = useMemo(() => {

@@ -107,13 +107,35 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>
-              {profile?.full_name?.charAt(0).toUpperCase() || 'U'}
-            </Text>
+          <TouchableOpacity
+            style={styles.avatarWrapper}
+            onPress={() => router.push('/modal/edit-profile')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.avatarContainer}>
+              <Text style={styles.avatarText}>
+                {profile?.full_name?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
+            <View style={styles.editBadge}>
+              <Ionicons name="pencil" size={13} color={colors.white} />
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.userNameRow}>
+            <Text style={styles.userName}>{profile?.full_name || 'User'}</Text>
+            <TouchableOpacity
+              style={styles.editProfileChip}
+              onPress={() => router.push('/modal/edit-profile')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.editProfileChipText}>Edit</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.userName}>{profile?.full_name || 'User'}</Text>
-          <Text style={styles.userEmail}>{profile?.email}</Text>
+          <Text style={styles.userEmail}>{profile?.email || 'driver@ecovolt.in'}</Text>
+          {profile?.phone ? (
+            <Text style={styles.userPhone}>{profile.phone}</Text>
+          ) : null}
         </View>
 
         {/* Dynamic Green Stats */}
@@ -265,7 +287,10 @@ export default function ProfileScreen() {
             <MenuItem
               icon="person-outline"
               label="Edit Profile"
-              onPress={() => {}}
+              value="Personal Info"
+              onPress={() => {
+                router.push('/modal/edit-profile');
+              }}
             />
             <MenuItem
               icon="car-outline"
@@ -278,8 +303,10 @@ export default function ProfileScreen() {
             <MenuItem
               icon="card-outline"
               label="Payment Methods"
-              value="UPI / Card"
-              onPress={() => {}}
+              value="UPI / Wallet"
+              onPress={() => {
+                router.push('/modal/payment-methods');
+              }}
             />
             <MenuItem
               icon="receipt-outline"
@@ -296,41 +323,57 @@ export default function ProfileScreen() {
           <View style={styles.menuCard}>
             <MenuItem
               icon="notifications-outline"
-              label="Notifications"
-              onPress={() => {}}
+              label="Notifications & Alerts"
+              value="Enabled"
+              onPress={() => {
+                router.push('/modal/notifications-settings');
+              }}
             />
             <MenuItem
               icon="moon-outline"
-              label="Appearance"
-              value="System"
-              onPress={() => {}}
+              label="Appearance & Theme"
+              value="Dark / Light"
+              onPress={() => {
+                router.push('/modal/appearance');
+              }}
             />
             <MenuItem
               icon="language-outline"
               label="Language"
               value="English"
-              onPress={() => {}}
+              onPress={() => {
+                router.push('/modal/language');
+              }}
             />
           </View>
         </View>
 
         <View style={styles.menuSection}>
-          <Text style={styles.menuSectionTitle}>Support</Text>
+          <Text style={styles.menuSectionTitle}>Support & Legal</Text>
           <View style={styles.menuCard}>
             <MenuItem
               icon="help-circle-outline"
-              label="Help Center"
-              onPress={() => {}}
+              label="Help Center & FAQ"
+              value="Guides & Tips"
+              onPress={() => {
+                router.push('/modal/help-center');
+              }}
             />
             <MenuItem
               icon="chatbubble-outline"
-              label="Contact Us"
-              onPress={() => {}}
+              label="Contact Us & 24/7 Hotline"
+              value="Support"
+              onPress={() => {
+                router.push('/modal/contact-us');
+              }}
             />
             <MenuItem
               icon="document-text-outline"
-              label="Terms & Privacy"
-              onPress={() => {}}
+              label="Terms & Privacy Policy"
+              value="Legal"
+              onPress={() => {
+                router.push('/modal/terms-privacy');
+              }}
             />
           </View>
         </View>
@@ -367,6 +410,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral[200],
   },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: spacing.md,
+  },
   avatarContainer: {
     width: 80,
     height: 80,
@@ -374,21 +421,54 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.primary[700],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.white,
   },
   avatarText: {
     fontSize: 32,
     fontWeight: '700',
     color: colors.white,
   },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   userName: {
     fontSize: 22,
     fontWeight: '700',
     color: colors.neutral[900],
   },
+  editProfileChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: colors.primary[50],
+  },
+  editProfileChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary[600],
+  },
   userEmail: {
     fontSize: 14,
     color: colors.neutral[500],
+    marginTop: 2,
+  },
+  userPhone: {
+    fontSize: 13,
+    color: colors.neutral[400],
     marginTop: 2,
   },
 

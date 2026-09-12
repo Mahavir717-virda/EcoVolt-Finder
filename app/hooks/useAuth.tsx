@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { signIn, signUp, signOut, getCurrentProfile, signInWithGoogle } from '@/lib/auth';
+import { signIn, signUp, signOut, getCurrentProfile, signInWithGoogle, updateProfile } from '@/lib/auth';
 import { getAuthToken, getStoredUser } from '@/services/api';
 import { Profile } from '@/types/database.types';
 
@@ -41,6 +41,7 @@ interface AuthContextType extends AuthState {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateUserProfile: (updates: { full_name?: string; email?: string; phone?: string }) => Promise<{ error: string | null }>;
 }
 
 const UNAUTHENTICATED_STATE: AuthState = {
@@ -223,6 +224,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const handleUpdateUserProfile = useCallback(
+    async (updates: { full_name?: string; email?: string; phone?: string }) => {
+      try {
+        const result = await updateProfile(updates);
+        if (result.error) {
+          return { error: result.error.message };
+        }
+        if (result.data) {
+          const updatedProfile = result.data;
+          setState((prev) => ({
+            ...prev,
+            profile: updatedProfile,
+            user: prev.user
+              ? {
+                  ...prev.user,
+                  email: updatedProfile.email ?? prev.user.email,
+                  user_metadata: {
+                    ...prev.user.user_metadata,
+                    full_name: updatedProfile.full_name || prev.user.user_metadata?.full_name,
+                  },
+                }
+              : prev.user,
+          }));
+        }
+        return { error: null };
+      } catch (err: any) {
+        return { error: err?.message || 'Failed to update profile' };
+      }
+    },
+    []
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -232,6 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp: handleSignUp,
         signOut: handleSignOut,
         refreshProfile,
+        updateUserProfile: handleUpdateUserProfile,
       }}
     >
       {children}

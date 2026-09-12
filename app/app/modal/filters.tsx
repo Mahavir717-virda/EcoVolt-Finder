@@ -38,6 +38,7 @@ const DISTANCE_OPTIONS = [
   { value: 15, label: '15 km' },
   { value: 25, label: '25 km' },
   { value: 50, label: '50 km' },
+  { value: 100, label: '100+ km' },
 ];
 
 // Price range options (per kWh) - INR
@@ -88,7 +89,10 @@ export default function FiltersModal() {
   }, []);
 
   const handleDistanceChange = useCallback((distance: number) => {
-    setFilters(prev => ({ ...prev, maxDistance: distance }));
+    setFilters(prev => ({
+      ...prev,
+      maxDistance: prev.maxDistance === distance ? null : distance,
+    }));
   }, []);
 
   const handlePriceRangeChange = useCallback((range: { min: number; max: number } | null) => {
@@ -118,7 +122,7 @@ export default function FiltersModal() {
     filters.amenities.length +
     (filters.priceRange ? 1 : 0) +
     (filters.availableOnly ? 1 : 0) +
-    (filters.maxDistance !== 15 ? 1 : 0);
+    (filters.maxDistance != null && filters.maxDistance < 100 ? 1 : 0);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

@@ -28,7 +28,29 @@ function getChargerTypeForConnector(connector: ConnectorType): ChargerType {
   }
 }
 
-function getConnectorList(station: Station): ConnectorType[] {
+function getConnectorList(station: Station & { connectors?: any[]; chargers?: any[] }): ConnectorType[] {
+  // Check connectors array
+  if (station.connectors && station.connectors.length > 0) {
+    const fromConnectors = station.connectors.map((c: any) => {
+      const t = String(c.type || '').toLowerCase();
+      if (t === 'ccs2' || t === 'bharat_dc_001') return 'ccs';
+      if (t === 'type2_ac' || t === 'bharat_ac_001') return 'type2';
+      if (t === 'three_pin') return 'j1772';
+      return t as ConnectorType;
+    }).filter((k) => KNOWN_CONNECTORS.includes(k));
+    if (fromConnectors.length > 0) {
+      return [...new Set(fromConnectors)].slice(0, 3) as ConnectorType[];
+    }
+  }
+
+  // Check chargers array
+  if (station.chargers && station.chargers.length > 0) {
+    const fromChargers = station.chargers.map((c: any) => c.connector_type as ConnectorType).filter((k) => KNOWN_CONNECTORS.includes(k));
+    if (fromChargers.length > 0) {
+      return [...new Set(fromChargers)].slice(0, 3) as ConnectorType[];
+    }
+  }
+
   const amenities = station.amenities ?? [];
   const found = amenities
     .map((a) => a.toLowerCase().replace(/[^a-z0-9]/g, '') as ConnectorType)

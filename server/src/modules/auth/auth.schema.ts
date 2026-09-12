@@ -18,6 +18,9 @@ export const refreshSchema = z.object({
 
 export const updateMeSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters long').optional(),
+  email: z.string().trim().email('Invalid email address').optional(),
+  phone: z.string().trim().optional(),
+  role: z.enum(['driver', 'manager', 'admin']).optional(),
 });
 
 export const googleAuthSchema = z

@@ -17,10 +17,22 @@ export interface ReservationWithDetails extends Reservation {
   station: Station;
 }
 
-export function adaptEcoVoltStation(raw: any): Station {
+export function adaptEcoVoltStation(raw: any): Station & {
+  chargers?: Charger[];
+  connectors?: any[];
+  distance?: number;
+} {
   const connectors = raw.connectors || [];
-  const totalChargers = connectors.reduce((acc: number, c: any) => acc + (c.total || 1), 0) || raw.total_chargers || raw.totalChargers || 4;
-  const availableChargers = connectors.reduce((acc: number, c: any) => acc + (c.available ?? 1), 0) || raw.available_chargers || raw.availableChargers || 2;
+  const totalChargers =
+    connectors.reduce((acc: number, c: any) => acc + (c.total || c.totalCount || 1), 0) ||
+    raw.total_chargers ||
+    raw.totalChargers ||
+    4;
+  const availableChargers =
+    connectors.reduce((acc: number, c: any) => acc + (c.available ?? c.availableCount ?? 1), 0) ||
+    raw.available_chargers ||
+    raw.availableChargers ||
+    2;
   const greenPct = raw.greenness?.renewablePct ?? raw.greennessPct ?? raw.greenness_score ?? 85;
 
   const idStr = String(raw.id || raw.stationId || 'station-001');
@@ -33,6 +45,8 @@ export function adaptEcoVoltStation(raw: any): Station {
     'station-006': 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&auto=format&fit=crop&q=80',
   };
 
+  const chargers = adaptEcoVoltChargers(raw);
+
   return {
     id: idStr,
     name: raw.name || raw.stationName || 'EcoVolt Green Hub',
@@ -43,14 +57,17 @@ export function adaptEcoVoltStation(raw: any): Station {
     total_chargers: totalChargers,
     available_chargers: availableChargers,
     rating: raw.rating ?? 4.8,
-    amenities: raw.amenities || ['wifi', 'restrooms', 'cafe', 'solar_canopy'],
+    amenities: raw.amenities || ['wifi', 'restrooms', 'cafe', 'parking', '24h'],
     image_url: raw.image_url || raw.imageUrl || stationImageFallbacks[idStr] || stationImageFallbacks['station-001'],
     is_active: raw.is_active ?? true,
     greenness_score: greenPct,
     co2_saved_kg: raw.co2_saved_kg ?? raw.co2AvoidedKg ?? 15.2,
-    price_from: raw.priceFrom ?? 12.5,
+    price_from: raw.priceFrom ?? raw.price_from ?? 12.5,
     created_at: raw.createdAt || raw.created_at || new Date().toISOString(),
     updated_at: raw.updatedAt || raw.updated_at || new Date().toISOString(),
+    chargers,
+    connectors: raw.connectors || [],
+    distance: raw.distanceKm ?? raw.distance,
   };
 }
 
