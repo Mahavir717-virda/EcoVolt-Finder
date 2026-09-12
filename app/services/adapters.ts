@@ -23,8 +23,18 @@ export function adaptEcoVoltStation(raw: any): Station {
   const availableChargers = connectors.reduce((acc: number, c: any) => acc + (c.available ?? 1), 0) || raw.available_chargers || raw.availableChargers || 2;
   const greenPct = raw.greenness?.renewablePct ?? raw.greennessPct ?? raw.greenness_score ?? 85;
 
+  const idStr = String(raw.id || raw.stationId || 'station-001');
+  const stationImageFallbacks: Record<string, string> = {
+    'station-001': 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&auto=format&fit=crop&q=80',
+    'station-002': 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=1200&auto=format&fit=crop&q=80',
+    'station-003': 'https://images.unsplash.com/photo-1558441719-2345b85ab814?w=1200&auto=format&fit=crop&q=80',
+    'station-004': 'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1200&auto=format&fit=crop&q=80',
+    'station-005': 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=1200&auto=format&fit=crop&q=80',
+    'station-006': 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&auto=format&fit=crop&q=80',
+  };
+
   return {
-    id: String(raw.id || raw.stationId || 'station-001'),
+    id: idStr,
     name: raw.name || raw.stationName || 'EcoVolt Green Hub',
     latitude: raw.location?.lat ?? raw.latitude ?? 23.0370,
     longitude: raw.location?.lng ?? raw.longitude ?? 72.5622,
@@ -34,7 +44,7 @@ export function adaptEcoVoltStation(raw: any): Station {
     available_chargers: availableChargers,
     rating: raw.rating ?? 4.8,
     amenities: raw.amenities || ['wifi', 'restrooms', 'cafe', 'solar_canopy'],
-    image_url: raw.image_url || raw.imageUrl || 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=800&auto=format&fit=crop&q=60',
+    image_url: raw.image_url || raw.imageUrl || stationImageFallbacks[idStr] || stationImageFallbacks['station-001'],
     is_active: raw.is_active ?? true,
     greenness_score: greenPct,
     co2_saved_kg: raw.co2_saved_kg ?? raw.co2AvoidedKg ?? 15.2,

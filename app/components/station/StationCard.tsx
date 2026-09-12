@@ -6,6 +6,8 @@ import { router } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { getStationImageSource } from '@/constants/stationImages';
+
 interface StationCardProps {
   station: Station;
   distance?: number; // in km
@@ -74,21 +76,19 @@ export function StationCard({
     );
   }
 
+  const imageSource = station.image_url && station.image_url.startsWith('http')
+    ? { uri: station.image_url }
+    : getStationImageSource(station.id || station.name);
+
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
       <Card style={styles.card}>
         {/* Station Image */}
-        {station.image_url ? (
-          <Image
-            source={{ uri: station.image_url }}
-            style={styles.image}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Ionicons name="flash" size={32} color={colors.neutral[400]} />
-          </View>
-        )}
+        <Image
+          source={imageSource}
+          style={styles.image}
+          resizeMode="cover"
+        />
 
         {/* Favorite Button */}
         {onFavorite && (

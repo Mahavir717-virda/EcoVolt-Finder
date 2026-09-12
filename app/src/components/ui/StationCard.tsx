@@ -16,6 +16,8 @@ import { ConnectorChip } from '../primitives/ConnectorChip';
 import { Button } from '../primitives/Button';
 import { ScalePressable } from '../primitives/Pressable';
 
+import { getStationImageSource } from '../../constants/stationImages';
+
 export interface ConnectorInfo {
   type: string;   // e.g. 'CCS2', 'Type-2', 'CHAdeMO'
   icon: string;   // emoji or identifier
@@ -64,6 +66,8 @@ export const StationCard: React.FC<StationCardProps> = ({
   onBookmark,
   style,
 }) => {
+  const resolvedThumb = thumbnailSource ?? getStationImageSource(id || name);
+
   return (
     <ScalePressable
       onPress={onPress}
@@ -73,17 +77,11 @@ export const StationCard: React.FC<StationCardProps> = ({
       <View style={styles.topRow}>
         {/* Thumbnail with bookmark overlay */}
         <View style={styles.thumbWrapper}>
-          {thumbnailSource != null ? (
-            <Image
-              source={thumbnailSource}
-              style={styles.thumb}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={[styles.thumb, styles.thumbPlaceholder]}>
-              <Text style={styles.thumbEmoji}>⚡</Text>
-            </View>
-          )}
+          <Image
+            source={resolvedThumb}
+            style={styles.thumb}
+            resizeMode="cover"
+          />
           {/* Bookmark icon */}
           {onBookmark != null && (
             <TouchableOpacity

@@ -7,6 +7,7 @@ import { useChargers } from '@/hooks/useChargers';
 import { useFavoriteStatus } from '@/hooks/useFavorites';
 import { usePlacePhotos } from '@/hooks/usePlacePhotos';
 import { useStation } from '@/hooks/useStations';
+import { getStationImageSource } from '@/constants/stationImages';
 import type { Charger } from '@/types/database.types';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -271,7 +272,11 @@ export default function StationDetailScreen() {
                 activeOpacity={0.9}
               >
                 <Image 
-                  source={{ uri: photos[currentPhotoIndex] }} 
+                  source={
+                    photos[currentPhotoIndex] && photos[currentPhotoIndex].startsWith('http')
+                      ? { uri: photos[currentPhotoIndex] }
+                      : getStationImageSource(station?.id || station?.name)
+                  } 
                   style={styles.stationImage}
                   resizeMode="cover"
                 />

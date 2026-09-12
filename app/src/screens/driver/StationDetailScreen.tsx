@@ -4,6 +4,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
@@ -31,6 +32,7 @@ import {
 } from '../../components';
 import { formatProviderName } from '../../features/stations/utils';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
+import { getStationImageSource } from '../../constants/stationImages';
 
 type StationDetailRouteProp = RouteProp<DriverStackParamList, 'StationDetail'>;
 
@@ -167,6 +169,23 @@ export const StationDetailScreen: React.FC = () => {
           </View>
         ) : (
           <>
+            {/* Hero Station Image */}
+            <View style={styles.heroImageContainer}>
+              <Image
+                source={getStationImageSource(station.id || station.name)}
+                style={styles.heroImage}
+                resizeMode="cover"
+              />
+              <View style={styles.heroBadge}>
+                <Chip
+                  label={station.openHours || '24/7 OPEN'}
+                  variant="solid"
+                  color="#FFFFFF"
+                  backgroundColor="rgba(0,0,0,0.65)"
+                />
+              </View>
+            </View>
+
             {/* 1. Header Information Card */}
             <View style={styles.headerCard}>
               <View style={styles.headerTop}>
@@ -178,13 +197,6 @@ export const StationDetailScreen: React.FC = () => {
                     {formatProviderName(station.provider)} · {station.operatorName}
                   </Text>
                 </View>
-
-                <Chip
-                  label={station.openHours || '24/7 OPEN'}
-                  variant="subtle"
-                  color={colors.brand}
-                  backgroundColor={colors.brandTint}
-                />
               </View>
 
               {station.address && (
@@ -298,6 +310,24 @@ const styles = StyleSheet.create({
   },
   skeletonGroup: {
     gap: spacing.base,
+  },
+  heroImageContainer: {
+    height: 190,
+    borderRadius: radii.xl,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceSunken,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.e1,
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
   },
   headerCard: {
     backgroundColor: colors.surface,

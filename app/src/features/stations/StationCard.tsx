@@ -4,6 +4,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ViewStyle,
+  Image,
 } from 'react-native';
 import { StationWithMeta } from './types';
 import { formatConnectorName, formatProviderName } from './utils';
@@ -16,6 +17,7 @@ import {
   spacing,
 } from '../../theme/tokens';
 import { Text, Chip, Button } from '../../components';
+import { getStationImageSource } from '../../constants/stationImages';
 
 interface StationCardProps {
   station: StationWithMeta;
@@ -62,6 +64,11 @@ export const StationCard: React.FC<StationCardProps> = ({
     >
       {/* Top Meta Header */}
       <View style={styles.topRow}>
+        <Image
+          source={getStationImageSource(station.id || station.name)}
+          style={styles.stationThumb}
+          resizeMode="cover"
+        />
         <View style={styles.headerLeft}>
           <Text
             variant="title"
@@ -214,8 +221,14 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing.sm,
+  },
+  stationThumb: {
+    width: 46,
+    height: 46,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceSunken,
   },
   headerLeft: {
     flex: 1,
