@@ -5,6 +5,8 @@
 
 import { DirectionsMap } from '@/components/map/DirectionsMap';
 import { colors } from '@/constants/colors';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
@@ -18,6 +20,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function NavigationModal() {
   const insets = useSafeAreaInsets();
+  const { colors: themeColors } = useTheme();
+  const { t } = useLanguage();
   const { 
     latitude, 
     longitude, 
@@ -38,13 +42,13 @@ export default function NavigationModal() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      <View style={[styles.header, { paddingTop: insets.top, backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
-          <Ionicons name="close" size={28} color={colors.neutral[800]} />
+          <Ionicons name="close" size={28} color={themeColors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Navigation</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('nav.title', 'Navigation')}</Text>
         <View style={styles.placeholder} />
       </View>
 

@@ -3,6 +3,8 @@ import { ConnectorIcon, CHARGER_COLORS } from '@/components/ui/ConnectorIcon';
 import { CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 import { useCharger } from '@/hooks/useChargers';
 import { useCreateReservation, useStationAvailability } from '@/hooks/useReservations';
 
@@ -42,6 +44,8 @@ export default function ReserveScreen() {
   }>();
   const insets = useSafeAreaInsets();
   const { profile, user } = useAuth();
+  const { colors: themeColors, isDark } = useTheme();
+  const { t } = useLanguage();
   
   // Fetch the actual charger data
   const { charger, loading: chargerLoading, error: chargerError } = useCharger(chargerId || '');
@@ -80,12 +84,12 @@ export default function ReserveScreen() {
   const connectorType = charger ? CONNECTOR_TYPES[charger.connector_type] : null;
 
   const chargerTypeInfo = chargerType || {
-    name: charger ? (charger.charger_type === 'dc_fast' ? 'DC Fast Charging' : 'Level 2 AC') : 'EV Charger',
+    name: charger ? (charger.charger_type === 'dc_fast' ? t('reserve.type_dc_fast', 'DC Fast Charging') : t('reserve.type_level_2', 'Level 2 AC')) : 'EV Charger',
     description: charger ? `${charger.power_kw} kW Charging Point` : 'Charging Point',
     icon: 'flash',
     speed: charger ? `${charger.power_kw} kW` : 'Standard Speed',
     typicalTime: charger && charger.power_kw >= 50 ? '20-60 mins' : '2-6 hrs',
-    color: colors.primary[500],
+    color: themeColors.primary,
   };
   const connectorTypeInfo = connectorType || {
     name: charger ? (charger.connector_type ? charger.connector_type.toUpperCase().replace('_', ' ') : 'Standard Connector') : 'Connector',
@@ -172,12 +176,12 @@ export default function ReserveScreen() {
 
   const handleReserve = async () => {
     if (!selectedTime) {
-      Alert.alert('Select Time', 'Please select a start time for your reservation.');
+      Alert.alert(t('reserve.select_time', 'Select Time'), t('reserve.select_time_alert', 'Please select a start time for your reservation.'));
       return;
     }
 
     if (!stationId || !chargerId || !charger) {
-      Alert.alert('Error', 'Station or charger not found. Please try again.');
+      Alert.alert('Error', t('reserve.charger_not_found', 'Charger not found'));
       return;
     }
 
@@ -188,9 +192,9 @@ export default function ReserveScreen() {
 
     if (!vehicleId) {
       Alert.alert(
-        'No Vehicle Found',
-        'Please add a vehicle to your profile before making a reservation.',
-        [{ text: 'Add Vehicle', onPress: () => router.push('/vehicles') }, { text: 'Cancel' }]
+        t('account.no_vehicles', 'No Vehicle Found'),
+        t('reserve.no_vehicle_alert', 'Please add a vehicle to your profile before making a reservation.'),
+        [{ text: t('reserve.add_vehicle', 'Add Vehicle'), onPress: () => router.push('/vehicles') }, { text: t('support.cancel', 'Cancel') }]
       );
       return;
     }
@@ -222,7 +226,7 @@ export default function ReserveScreen() {
           params: { reservationId: reservation.id },
         });
       } else {
-        Alert.alert('Reservation Failed', 'The time slot may already be taken or the charger is unavailable. Please try a different time.');
+        Alert.alert('Reservation Failed', t('reserve.failed_alert', 'The time slot may already be taken or the charger is unavailable. Please try a different time.'));
       }
     } catch (error: any) {
       console.error('Reservation error:', error);
@@ -231,25 +235,25 @@ export default function ReserveScreen() {
   };
 
   const formatDateLabel = (date: Date, index: number): string => {
-    if (index === 0) return 'Today';
-    if (index === 1) return 'Tomorrow';
+    if (index === 0) return t('reservations.today', 'Today');
+    if (index === 1) return t('reservations.tomorrow', 'Tomorrow');
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
   // Show loading state while fetching charger
   if (chargerLoading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
+        <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="close" size={24} color={colors.neutral[800]} />
+            <Ionicons name="close" size={24} color={themeColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Reserve Charger</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('reserve.title', 'Reserve Charger')}</Text>
           <View style={styles.placeholder} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
-          <Text style={styles.loadingText}>Loading charger details...</Text>
+          <ActivityIndicator size="large" color={themeColors.primary} />
+          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>{t('reserve.loading_charger', 'Loading charger details...')}</Text>
         </View>
       </View>
     );
@@ -258,20 +262,20 @@ export default function ReserveScreen() {
   // Show error state if charger not found
   if (chargerError || !charger) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
+        <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="close" size={24} color={colors.neutral[800]} />
+            <Ionicons name="close" size={24} color={themeColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Reserve Charger</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('reserve.title', 'Reserve Charger')}</Text>
           <View style={styles.placeholder} />
         </View>
         <View style={styles.loadingContainer}>
-          <Ionicons name="alert-circle" size={48} color={colors.error[500]} />
-          <Text style={styles.errorText}>Charger not found</Text>
-          <Text style={styles.errorSubtext}>Please go back and try again</Text>
+          <Ionicons name="alert-circle" size={48} color={themeColors.error} />
+          <Text style={[styles.errorText, { color: themeColors.textPrimary }]}>{t('reserve.charger_not_found', 'Charger not found')}</Text>
+          <Text style={[styles.errorSubtext, { color: themeColors.textSecondary }]}>{t('reserve.error_subtext', 'Please go back and try again')}</Text>
           <Button 
-            title="Go Back"
+            title={t('station.go_back', 'Go Back')}
             onPress={() => router.back()}
             style={{ marginTop: 16 }}
           />
@@ -281,22 +285,22 @@ export default function ReserveScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="close" size={24} color={colors.neutral[800]} />
+          <Ionicons name="close" size={24} color={themeColors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Reserve Charger</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('reserve.title', 'Reserve Charger')}</Text>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Charger Info Card */}
-        <Card style={styles.chargerCard}>
+        <Card style={[styles.chargerCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
           <View style={styles.chargerInfo}>
             {/* Custom SVG connector icon */}
-            <View style={[styles.chargerIconWrap, { backgroundColor: (CHARGER_COLORS[charger.charger_type] ?? colors.primary[500]) + '18' }]}>
+            <View style={[styles.chargerIconWrap, { backgroundColor: (CHARGER_COLORS[charger.charger_type] ?? themeColors.primary) + '18' }]}>
               <ConnectorIcon
                 chargerType={charger.charger_type}
                 connectorType={charger.connector_type}
@@ -304,28 +308,28 @@ export default function ReserveScreen() {
               />
             </View>
             <View style={styles.chargerDetails}>
-              <Text style={styles.chargerType}>
+              <Text style={[styles.chargerType, { color: themeColors.textPrimary }]}>
                 {chargerTypeInfo.name} · {connectorTypeInfo.name}
               </Text>
               <View style={styles.chargerStats}>
-                <Text style={styles.statText}>⚡ {charger.power_kw} kW</Text>
-                <Text style={styles.statDivider}>•</Text>
-                <Text style={styles.statText}>₹{charger.price_per_kwh.toFixed(2)}/kWh base</Text>
+                <Text style={[styles.statText, { color: themeColors.primary }]}>⚡ {charger.power_kw} kW</Text>
+                <Text style={[styles.statDivider, { color: themeColors.textSecondary }]}>•</Text>
+                <Text style={[styles.statText, { color: themeColors.primary }]}>₹{charger.price_per_kwh.toFixed(2)}/kWh {t('reserve.base_rate', 'base')}</Text>
               </View>
             </View>
           </View>
           {/* Green pricing strip */}
           {priceQuote && (
-            <View style={styles.greenStrip}>
+            <View style={[styles.greenStrip, { borderTopColor: themeColors.border }]}>
               <View style={[styles.greenDot, { backgroundColor: greennessColor(priceQuote.finalPrice < charger.price_per_kwh ? 70 : 40) }]} />
-              <Text style={styles.greenStripText}>
+              <Text style={[styles.greenStripText, { color: themeColors.textSecondary }]}>
                 {priceQuote.touAdjustment < 0
-                  ? `🌿 Green discount active — save ₹${Math.abs(priceQuote.touAdjustment).toFixed(2)}/kWh`
+                  ? `${t('reserve.green_active', '🌿 Green discount active — save')} ₹${Math.abs(priceQuote.touAdjustment).toFixed(2)}/kWh`
                   : priceQuote.touAdjustment > 0
-                  ? `⚡ Peak hour — +₹${priceQuote.touAdjustment.toFixed(2)}/kWh surcharge`
-                  : '✓ Standard rate — no ToU adjustment'}
+                  ? `${t('reserve.peak_active', '⚡ Peak hour — surcharge')} +₹${priceQuote.touAdjustment.toFixed(2)}/kWh`
+                  : t('reserve.standard_rate', '✓ Standard rate — no ToU adjustment')}
               </Text>
-              <Text style={styles.greenFinalRate}>₹{priceQuote.finalPrice.toFixed(2)}/kWh</Text>
+              <Text style={[styles.greenFinalRate, { color: themeColors.textPrimary }]}>₹{priceQuote.finalPrice.toFixed(2)}/kWh</Text>
             </View>
           )}
         </Card>
@@ -333,10 +337,10 @@ export default function ReserveScreen() {
         {/* Vehicle Selection */}
         <View style={styles.section}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Select Vehicle</Text>
+            <Text style={[styles.sectionTitle, { marginBottom: 0, color: themeColors.textPrimary }]}>{t('reserve.select_vehicle', 'Select Vehicle')}</Text>
             {vehicles.length === 0 && (
               <TouchableOpacity onPress={() => router.push('/vehicles')}>
-                <Text style={{ color: colors.primary[600], fontWeight: '600' }}>+ Add Vehicle</Text>
+                <Text style={{ color: themeColors.primary, fontWeight: '600' }}>{t('reserve.add_vehicle', '+ Add Vehicle')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -352,10 +356,10 @@ export default function ReserveScreen() {
                 return (
                   <TouchableOpacity
                     key={v.id}
-                    style={[styles.durationItem, isSelected && styles.durationItemSelected]}
+                    style={[styles.durationItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, isSelected && { backgroundColor: themeColors.primary, borderColor: themeColors.primary }]}
                     onPress={() => setVehicleId(v.id)}
                   >
-                    <Text style={[styles.durationText, isSelected && styles.durationTextSelected]}>
+                    <Text style={[styles.durationText, { color: themeColors.textPrimary }, isSelected && { color: colors.white }]}>
                       {v.model || 'Unknown EV'}
                     </Text>
                   </TouchableOpacity>
@@ -363,15 +367,15 @@ export default function ReserveScreen() {
               })}
             </ScrollView>
           ) : (
-            <View style={{ padding: 16, backgroundColor: colors.neutral[100], borderRadius: 8, alignItems: 'center' }}>
-              <Text style={{ color: colors.neutral[600] }}>No vehicles found in your garage.</Text>
+            <View style={{ padding: 16, backgroundColor: isDark ? '#1F2937' : colors.neutral[100], borderRadius: 8, alignItems: 'center' }}>
+              <Text style={{ color: themeColors.textSecondary }}>{t('reserve.no_vehicles', 'No vehicles found in your garage.')}</Text>
             </View>
           )}
         </View>
 
         {/* Date Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Date</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('reserve.select_date', 'Select Date')}</Text>
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
@@ -382,13 +386,13 @@ export default function ReserveScreen() {
               return (
                 <TouchableOpacity
                   key={date.toISOString()}
-                  style={[styles.dateItem, isSelected && styles.dateItemSelected]}
+                  style={[styles.dateItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, isSelected && { backgroundColor: themeColors.primary, borderColor: themeColors.primary }]}
                   onPress={() => setSelectedDate(date)}
                 >
-                  <Text style={[styles.dateDay, isSelected && styles.dateDaySelected]}>
+                  <Text style={[styles.dateDay, { color: themeColors.textPrimary }, isSelected && { color: colors.white }]}>
                     {date.getDate()}
                   </Text>
-                  <Text style={[styles.dateLabel, isSelected && styles.dateLabelSelected]}>
+                  <Text style={[styles.dateLabel, { color: themeColors.textSecondary }, isSelected && { color: colors.white }]}>
                     {formatDateLabel(date, index)}
                   </Text>
                 </TouchableOpacity>
@@ -399,7 +403,7 @@ export default function ReserveScreen() {
 
         {/* Time Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Start Time</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('reserve.select_time', 'Select Start Time')}</Text>
           <View style={styles.timeGrid}>
             {timeSlots.map((slot) => {
               const isSelected = selectedTime === slot.time;
@@ -411,15 +415,17 @@ export default function ReserveScreen() {
                   disabled={!isAvailable}
                   style={[
                     styles.timeSlot, 
-                    isSelected && styles.timeSlotSelected,
-                    !isAvailable && styles.timeSlotDisabled,
+                    { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                    isSelected && { backgroundColor: themeColors.primary, borderColor: themeColors.primary },
+                    !isAvailable && { backgroundColor: isDark ? '#374151' : colors.neutral[100], borderColor: isDark ? '#4B5563' : colors.neutral[200], opacity: 0.6 },
                   ]}
                   onPress={() => isAvailable && setSelectedTime(slot.time)}
                 >
                   <Text style={[
                     styles.timeText, 
-                    isSelected && styles.timeTextSelected,
-                    !isAvailable && styles.timeTextDisabled,
+                    { color: themeColors.textPrimary },
+                    isSelected && { color: colors.white },
+                    !isAvailable && { color: themeColors.textSecondary, textDecorationLine: 'line-through' },
                   ]}>
                     {slot.time}
                   </Text>
@@ -431,18 +437,18 @@ export default function ReserveScreen() {
 
         {/* Duration Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Duration</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('reserve.duration', 'Duration')}</Text>
           <View style={styles.durationGrid}>
             {DURATION_OPTIONS.map((duration) => {
               const isSelected = selectedDuration === duration;
               return (
                 <TouchableOpacity
                   key={duration}
-                  style={[styles.durationItem, isSelected && styles.durationItemSelected]}
+                  style={[styles.durationItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, isSelected && { backgroundColor: themeColors.primary, borderColor: themeColors.primary }]}
                   onPress={() => setSelectedDuration(duration)}
                 >
-                  <Text style={[styles.durationText, isSelected && styles.durationTextSelected]}>
-                    {formatDuration(duration)}
+                  <Text style={[styles.durationText, { color: themeColors.textPrimary }, isSelected && { color: colors.white }]}>
+                    {duration} {t('reserve.mins', 'mins')}
                   </Text>
                 </TouchableOpacity>
               );
@@ -451,17 +457,17 @@ export default function ReserveScreen() {
         </View>
 
         {/* Summary */}
-        <Card style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Reservation Summary</Text>
+        <Card style={[styles.summaryCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+          <Text style={[styles.summaryTitle, { color: themeColors.textPrimary }]}>{t('reserve.summary_title', 'Reservation Summary')}</Text>
           
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Date</Text>
-            <Text style={styles.summaryValue}>{formatDate(selectedDate)}</Text>
+            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('reserve.date', 'Date')}</Text>
+            <Text style={[styles.summaryValue, { color: themeColors.textPrimary }]}>{formatDate(selectedDate)}</Text>
           </View>
           
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Time</Text>
-            <Text style={styles.summaryValue}>
+            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('reserve.time', 'Time')}</Text>
+            <Text style={[styles.summaryValue, { color: themeColors.textPrimary }]}>
               {selectedTime ? `${selectedTime} - ${addMinutes(
                 (() => {
                   const [h, m] = (selectedTime || '00:00').split(':').map(Number);
@@ -470,27 +476,27 @@ export default function ReserveScreen() {
                   return d;
                 })(),
                 selectedDuration
-              ).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : 'Not selected'}
+              ).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : t('reserve.not_selected', 'Not selected')}
             </Text>
           </View>
           
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Duration</Text>
-            <Text style={styles.summaryValue}>{formatDuration(selectedDuration)}</Text>
+            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('reserve.duration_label', 'Duration')}</Text>
+            <Text style={[styles.summaryValue, { color: themeColors.textPrimary }]}>{selectedDuration} {t('reserve.mins', 'mins')}</Text>
           </View>
 
           {/* Pricing breakdown */}
           {priceQuote && (
             <>
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Base rate</Text>
-                <Text style={styles.summaryValue}>₹{priceQuote.baseTariff.toFixed(2)}/kWh</Text>
+                <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('reserve.base_rate', 'Base rate')}</Text>
+                <Text style={[styles.summaryValue, { color: themeColors.textPrimary }]}>₹{priceQuote.baseTariff.toFixed(2)}/kWh</Text>
               </View>
               {priceQuote.touAdjustment !== 0 && (
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: priceQuote.touAdjustment < 0 ? '#16A34A' : '#EA580C' }]}>
-                    {priceQuote.touAdjustment < 0 ? '🌿 Green discount' : '⚡ Peak surcharge'}
+                    {priceQuote.touAdjustment < 0 ? t('reserve.green_discount', '🌿 Green discount') : t('reserve.peak_surcharge_label', '⚡ Peak surcharge')}
                   </Text>
                   <Text style={[styles.summaryValue, { color: priceQuote.touAdjustment < 0 ? '#16A34A' : '#EA580C' }]}>
                     {priceQuote.touAdjustment < 0 ? '−' : '+'}₹{Math.abs(priceQuote.touAdjustment).toFixed(2)}/kWh
@@ -498,21 +504,21 @@ export default function ReserveScreen() {
                 </View>
               )}
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Effective rate</Text>
-                <Text style={[styles.summaryValue, { fontWeight: '700' }]}>₹{priceQuote.finalPrice.toFixed(2)}/kWh</Text>
+                <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('reserve.effective_rate', 'Effective rate')}</Text>
+                <Text style={[styles.summaryValue, { fontWeight: '700', color: themeColors.textPrimary }]}>₹{priceQuote.finalPrice.toFixed(2)}/kWh</Text>
               </View>
             </>
           )}
           
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
           
           <View style={styles.summaryRow}>
-            <Text style={styles.costLabel}>Estimated Cost</Text>
-            <Text style={styles.costValue}>{formatCurrency(estimatedCost)}</Text>
+            <Text style={[styles.costLabel, { color: themeColors.textPrimary }]}>{t('reserve.estimated_cost', 'Estimated Cost')}</Text>
+            <Text style={[styles.costValue, { color: themeColors.primary }]}>{formatCurrency(estimatedCost)}</Text>
           </View>
           
-          <Text style={styles.costNote}>
-            * Based on {charger.power_kw} kW × {selectedDuration} min at 85% efficiency
+          <Text style={[styles.costNote, { color: themeColors.textSecondary }]}>
+            * {t('reserve.cost_note', 'Based on full duration at 85% charging efficiency')}
           </Text>
         </Card>
 
@@ -520,14 +526,14 @@ export default function ReserveScreen() {
       </ScrollView>
 
       {/* Reserve Button */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footer, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border, paddingBottom: insets.bottom + 16 }]}>
         <Button
           variant="primary"
           size="lg"
           loading={isLoading}
           disabled={!selectedTime}
           onPress={handleReserve}
-          title="Confirm Reservation"
+          title={t('reserve.confirm_btn', 'Confirm Reservation')}
           fullWidth
         />
       </View>

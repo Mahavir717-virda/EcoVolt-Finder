@@ -3,6 +3,8 @@ import { ConnectorIcon } from '@/components/ui/ConnectorIcon';
 import { CHARGER_STATUS_CONFIG, CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 import { useChargers } from '@/hooks/useChargers';
 import { useFavoriteStatus } from '@/hooks/useFavorites';
 import { usePlacePhotos } from '@/hooks/usePlacePhotos';
@@ -85,6 +87,8 @@ export default function StationDetailScreen() {
   const { stationId } = useLocalSearchParams<{ stationId: string }>();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
+  const { colors: themeColors, isDark } = useTheme();
+  const { t } = useLanguage();
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [isPhotoLoading, setIsPhotoLoading] = useState(true);
@@ -190,20 +194,20 @@ export default function StationDetailScreen() {
   // Loading state
   if (stationLoading || chargersLoading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
+        <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity 
             onPress={() => router.back()} 
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color={colors.neutral[800]} />
+            <Ionicons name="arrow-back" size={24} color={themeColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Station Details</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('station.details_title', 'Station Details')}</Text>
           <View style={styles.favoriteButton} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
-          <Text style={styles.loadingText}>Loading station...</Text>
+          <ActivityIndicator size="large" color={themeColors.primary} />
+          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>{t('station.loading', 'Loading station...')}</Text>
         </View>
       </View>
     );
@@ -212,21 +216,21 @@ export default function StationDetailScreen() {
   // Error or not found state
   if (stationError || !station) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
+        <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity 
             onPress={() => router.back()} 
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color={colors.neutral[800]} />
+            <Ionicons name="arrow-back" size={24} color={themeColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Station Details</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('station.details_title', 'Station Details')}</Text>
           <View style={styles.favoriteButton} />
         </View>
         <View style={styles.loadingContainer}>
-          <Ionicons name="warning-outline" size={48} color={colors.neutral[400]} />
-          <Text style={styles.errorText}>Station not found</Text>
-          <Button variant="outline" onPress={() => router.back()} title="Go Back" />
+          <Ionicons name="warning-outline" size={48} color={themeColors.textSecondary} />
+          <Text style={[styles.errorText, { color: themeColors.textPrimary }]}>{t('station.not_found', 'Station not found')}</Text>
+          <Button variant="outline" onPress={() => router.back()} title={t('station.go_back', 'Go Back')} />
         </View>
       </View>
     );
@@ -240,11 +244,17 @@ export default function StationDetailScreen() {
 
     // Dynamic pricing breakdown for this charger
     const priceQuote = getDynamicPriceQuote(charger.id, charger.price_per_kwh);
-    const touColor = priceQuote.touAdjustment < 0 ? '#0E8E4F' : priceQuote.touAdjustment > 0 ? '#E2732B' : colors.neutral[500];
+    const touColor = priceQuote.touAdjustment < 0 ? '#0E8E4F' : priceQuote.touAdjustment > 0 ? '#E2732B' : themeColors.textSecondary;
     const touPrefix = priceQuote.touAdjustment < 0 ? '−' : priceQuote.touAdjustment > 0 ? '+' : '';
 
+    const statusLabelTranslated = 
+      charger.status === 'available' ? t('reserve.status_available', 'Available') :
+      charger.status === 'in_use' ? t('reserve.status_in_use', 'In Use') :
+      charger.status === 'reserved' ? t('reserve.status_reserved', 'Reserved') :
+      t('reserve.status_offline', 'Offline');
+
     return (
-      <Card key={charger.id} style={styles.chargerCard}>
+      <Card key={charger.id} style={[styles.chargerCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
         <View style={styles.chargerHeader}>
           <View style={styles.chargerInfo}>
             {/* Custom SVG connector icon */}
@@ -256,8 +266,8 @@ export default function StationDetailScreen() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.chargerType}>{chargerType.name} · {connectorType.name}</Text>
-              <Text style={styles.chargerPower}>⚡ {charger.power_kw} kW</Text>
+              <Text style={[styles.chargerType, { color: themeColors.textPrimary }]}>{chargerType.name} · {connectorType.name}</Text>
+              <Text style={[styles.chargerPower, { color: themeColors.primary }]}>⚡ {charger.power_kw} kW</Text>
             </View>
           </View>
           <Badge 
@@ -267,39 +277,39 @@ export default function StationDetailScreen() {
               charger.status === 'reserved' ? 'info' : 'default'
             }
           >
-            {statusConfig.label}
+            {statusLabelTranslated}
           </Badge>
         </View>
 
         {/* Dynamic Pricing Breakdown */}
-        <View style={styles.priceBreakdown}>
+        <View style={[styles.priceBreakdown, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB', borderColor: themeColors.border }]}>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Base tariff ({priceQuote.provider})</Text>
-            <Text style={styles.priceVal}>₹{priceQuote.baseTariff.toFixed(2)}/kWh</Text>
+            <Text style={[styles.priceLabel, { color: themeColors.textSecondary }]}>{t('station.base_tariff', 'Base tariff')} ({priceQuote.provider})</Text>
+            <Text style={[styles.priceVal, { color: themeColors.textPrimary }]}>₹{priceQuote.baseTariff.toFixed(2)}/kWh</Text>
           </View>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Service markup</Text>
-            <Text style={styles.priceVal}>+₹{priceQuote.providerMarkup.toFixed(2)}/kWh</Text>
+            <Text style={[styles.priceLabel, { color: themeColors.textSecondary }]}>{t('station.service_markup', 'Service markup')}</Text>
+            <Text style={[styles.priceVal, { color: themeColors.textPrimary }]}>+₹{priceQuote.providerMarkup.toFixed(2)}/kWh</Text>
           </View>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>
-              {priceQuote.touAdjustment < 0 ? '🌿 Green discount (now)' : priceQuote.touAdjustment > 0 ? '⚡ Peak surcharge' : 'No ToU adjustment'}
+            <Text style={[styles.priceLabel, { color: themeColors.textSecondary }]}>
+              {priceQuote.touAdjustment < 0 ? t('station.green_discount_now', '🌿 Green discount (now)') : priceQuote.touAdjustment > 0 ? t('station.peak_surcharge', '⚡ Peak surcharge') : t('station.no_tou_adj', 'No ToU adjustment')}
             </Text>
             <Text style={[styles.priceVal, { color: touColor }]}>
               {priceQuote.touAdjustment !== 0 ? `${touPrefix}₹${Math.abs(priceQuote.touAdjustment).toFixed(2)}/kWh` : '—'}
             </Text>
           </View>
-          <View style={styles.priceDivider} />
+          <View style={[styles.priceDivider, { backgroundColor: themeColors.border }]} />
           <View style={styles.priceRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.priceFinalLabel}>Final price</Text>
+              <Text style={[styles.priceFinalLabel, { color: themeColors.textPrimary }]}>{t('station.final_price', 'Final price')}</Text>
               {priceQuote.isEstimate && (
                 <View style={styles.estimateBadge}>
-                  <Text style={styles.estimateBadgeText}>estimate</Text>
+                  <Text style={styles.estimateBadgeText}>{t('station.estimate', 'estimate')}</Text>
                 </View>
               )}
             </View>
-            <Text style={styles.priceFinal}>₹{priceQuote.finalPrice.toFixed(2)}/kWh</Text>
+            <Text style={[styles.priceFinal, { color: themeColors.primary }]}>₹{priceQuote.finalPrice.toFixed(2)}/kWh</Text>
           </View>
         </View>
 
@@ -309,7 +319,7 @@ export default function StationDetailScreen() {
           disabled={!isAvailable}
           onPress={() => handleReserve(charger)}
           style={styles.reserveButton}
-          title={isAvailable ? 'Reserve Now' : statusConfig.label}
+          title={isAvailable ? t('station.reserve_now', 'Reserve Now') : statusLabelTranslated}
         />
       </Card>
     );
@@ -317,28 +327,28 @@ export default function StationDetailScreen() {
 
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
       {/* Header with Back Button */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity 
           onPress={() => router.back()} 
           style={styles.backButton}
         >
-          <Ionicons name="arrow-back" size={24} color={colors.neutral[800]} />
+          <Ionicons name="arrow-back" size={24} color={themeColors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Station Details</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('station.details_title', 'Station Details')}</Text>
         <TouchableOpacity onPress={handleToggleFavorite} style={styles.favoriteButton} disabled={favoriteLoading}>
           {favoriteLoading ? (
-            <ActivityIndicator size="small" color={colors.neutral[500]} />
+            <ActivityIndicator size="small" color={themeColors.textSecondary} />
           ) : (
-            <View style={[styles.saveBtn, isFavorite && styles.saveBtnActive]}>
+            <View style={[styles.saveBtn, { borderColor: themeColors.primary }, isFavorite && { backgroundColor: themeColors.primary }]}>
               <Ionicons
                 name={isFavorite ? 'bookmark' : 'bookmark-outline'}
                 size={18}
-                color={isFavorite ? colors.white : colors.primary[500]}
+                color={isFavorite ? colors.white : themeColors.primary}
               />
-              <Text style={[styles.saveBtnText, isFavorite && styles.saveBtnTextActive]}>
-                {isFavorite ? 'Saved' : 'Save'}
+              <Text style={[styles.saveBtnText, { color: isFavorite ? colors.white : themeColors.primary }]}>
+                {isFavorite ? t('station.saved', 'Saved') : t('station.save', 'Save')}
               </Text>
             </View>
           )}
@@ -350,7 +360,7 @@ export default function StationDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Photo Gallery with Skeleton Shimmer */}
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, { backgroundColor: isDark ? '#1F2937' : colors.neutral[200] }]}>
           {(photosLoading || isPhotoLoading) && (
             <Skeleton
               width="100%"
@@ -412,13 +422,13 @@ export default function StationDetailScreen() {
               {/* Tap to view hint */}
               <View style={styles.tapToViewBadge}>
                 <Ionicons name="expand-outline" size={12} color="#fff" />
-                <Text style={styles.tapToViewText}>Tap to enlarge</Text>
+                <Text style={styles.tapToViewText}>{t('station.photos_enlarge', 'Tap to enlarge')}</Text>
               </View>
             </>
           ) : (
-            <View style={styles.noPhotoContainer}>
-              <Ionicons name="image-outline" size={48} color={colors.neutral[400]} />
-              <Text style={styles.noPhotoText}>No photos available</Text>
+            <View style={[styles.noPhotoContainer, { backgroundColor: isDark ? '#1F2937' : colors.neutral[100] }]}>
+              <Ionicons name="image-outline" size={48} color={themeColors.textSecondary} />
+              <Text style={[styles.noPhotoText, { color: themeColors.textSecondary }]}>{t('station.no_photos', 'No photos available')}</Text>
             </View>
           )}
         </View>
@@ -428,7 +438,7 @@ export default function StationDetailScreen() {
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
-            style={styles.thumbnailsContainer}
+            style={[styles.thumbnailsContainer, { backgroundColor: themeColors.surface }]}
             contentContainerStyle={styles.thumbnailsContent}
           >
             {photos.map((photo, index) => (
@@ -437,7 +447,7 @@ export default function StationDetailScreen() {
                 onPress={() => setCurrentPhotoIndex(index)}
                 style={[
                   styles.thumbnail,
-                  index === currentPhotoIndex && styles.thumbnailActive
+                  index === currentPhotoIndex && { borderColor: themeColors.primary }
                 ]}
               >
                 <Image 
@@ -453,52 +463,52 @@ export default function StationDetailScreen() {
         )}
 
         {/* Station Info */}
-        <View style={styles.stationInfo}>
-          <Text style={styles.stationName}>{station.name}</Text>
+        <View style={[styles.stationInfo, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+          <Text style={[styles.stationName, { color: themeColors.textPrimary }]}>{station.name}</Text>
           
           <View style={styles.addressRow}>
-            <Ionicons name="location-outline" size={18} color={colors.neutral[500]} />
-            <Text style={styles.address}>{station.address}, {station.city}</Text>
+            <Ionicons name="location-outline" size={18} color={themeColors.textSecondary} />
+            <Text style={[styles.address, { color: themeColors.textSecondary }]}>{station.address}, {station.city}</Text>
           </View>
 
-          <View style={styles.statsRow}>
+          <View style={[styles.statsRow, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB', borderColor: themeColors.border }]}>
             <View style={styles.stat}>
-              <Ionicons name="flash-outline" size={18} color={colors.primary[500]} />
-              <Text style={styles.statValue}>{station.available_chargers}</Text>
-              <Text style={styles.statLabel}>Available</Text>
+              <Ionicons name="flash-outline" size={18} color={themeColors.primary} />
+              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{station.available_chargers}</Text>
+              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('station.available_chargers', 'Available')}</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: themeColors.border }]} />
             <View style={styles.stat}>
-              <Ionicons name="navigate-outline" size={18} color={colors.primary[600]} />
-              <Text style={styles.statValue}>
+              <Ionicons name="navigate-outline" size={18} color={themeColors.primary} />
+              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>
                 {dynamicDistanceKm !== null ? formatDistance(dynamicDistanceKm) : '—'}
               </Text>
-              <Text style={styles.statLabel}>
-                {dynamicDriveMinutes !== null ? `${dynamicDriveMinutes} min drive` : 'Distance'}
+              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>
+                {dynamicDriveMinutes !== null ? `${dynamicDriveMinutes} ${t('station.min_drive', 'min drive')}` : t('station.distance', 'Distance')}
               </Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: themeColors.border }]} />
             <View style={styles.stat}>
               <Ionicons name="star" size={18} color={colors.status.warning} />
-              <Text style={styles.statValue}>{station.rating?.toFixed(1) || 'N/A'}</Text>
-              <Text style={styles.statLabel}>Rating</Text>
+              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{station.rating?.toFixed(1) || 'N/A'}</Text>
+              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('station.rating', 'Rating')}</Text>
             </View>
           </View>
 
           {/* Amenities */}
           {station.amenities && station.amenities.length > 0 && (
             <View style={styles.amenitiesSection}>
-              <Text style={styles.sectionTitle}>Amenities</Text>
+              <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('station.amenities', 'Amenities')}</Text>
               <View style={styles.amenitiesRow}>
                 {station.amenities.map((amenity) => (
-                  <View key={amenity} style={styles.amenityItem}>
+                  <View key={amenity} style={[styles.amenityItem, { backgroundColor: isDark ? '#1F2937' : colors.primary[50] }]}>
                     <Ionicons 
                       name={AMENITY_ICONS[amenity] as any || 'checkmark-circle-outline'} 
                       size={20} 
-                      color={colors.primary[500]} 
+                      color={themeColors.primary} 
                     />
-                    <Text style={styles.amenityText}>
-                      {amenity.charAt(0).toUpperCase() + amenity.slice(1)}
+                    <Text style={[styles.amenityText, { color: themeColors.textPrimary }]}>
+                      {t(`station.amenity.${amenity}`, amenity.charAt(0).toUpperCase() + amenity.slice(1))}
                     </Text>
                   </View>
                 ))}
@@ -511,15 +521,15 @@ export default function StationDetailScreen() {
             variant="outline" 
             onPress={handleNavigate}
             style={styles.navigateButton}
-            title="Get Directions"
-            leftIcon={<Ionicons name="navigate-outline" size={18} color={colors.primary[500]} />}
+            title={t('station.get_directions', 'Get Directions')}
+            leftIcon={<Ionicons name="navigate-outline" size={18} color={themeColors.primary} />}
           />
         </View>
 
         {/* ── Greenness Gauge Section ── */}
-        <View style={styles.sectionCard}>
+        <View style={[styles.sectionCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Live Grid Greenness</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('station.live_greenness', 'Live Grid Greenness')}</Text>
             <View style={[styles.qualityBadge, {
               backgroundColor: isLive ? '#22C55E20' : '#0FB8C920',
               borderColor: isLive ? '#22C55E40' : '#0FB8C940',
@@ -528,14 +538,14 @@ export default function StationDetailScreen() {
               <Text style={[styles.qualityText, { color: isLive ? '#15803D' : '#0FB8C9' }]}>{liveGrid.quality.toUpperCase()}</Text>
             </View>
           </View>
-          <Text style={styles.sectionSubtitle}>{liveGrid.zoneName}</Text>
+          <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>{liveGrid.zoneName}</Text>
 
           {/* Big percentage + band */}
           <View style={styles.gaugeRow}>
             <View style={styles.gaugeCircle}>
-              <View style={[styles.gaugeCircleInner, { borderColor: gridColor }]}>
+              <View style={[styles.gaugeCircleInner, { borderColor: gridColor, backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}>
                 <Text style={[styles.gaugePct, { color: gridColor }]}>{liveGrid.renewablePct.toFixed(0)}%</Text>
-                <Text style={styles.gaugeLabel}>renewable</Text>
+                <Text style={[styles.gaugeLabel, { color: themeColors.textSecondary }]}>{t('station.renewable', 'renewable')}</Text>
               </View>
             </View>
             <View style={styles.gaugeInfo}>
@@ -543,19 +553,19 @@ export default function StationDetailScreen() {
                 <Text style={[styles.bandPillText, { color: gridColor }]}>{gridBandLabel}</Text>
               </View>
               <View style={styles.gaugeStatRow}>
-                <Text style={styles.gaugeStatKey}>Carbon-free</Text>
-                <Text style={styles.gaugeStatVal}>{liveGrid.carbonFreePct.toFixed(0)}%</Text>
+                <Text style={[styles.gaugeStatKey, { color: themeColors.textSecondary }]}>{t('station.carbon_free', 'Carbon-free')}</Text>
+                <Text style={[styles.gaugeStatVal, { color: themeColors.textPrimary }]}>{liveGrid.carbonFreePct.toFixed(0)}%</Text>
               </View>
               <View style={styles.gaugeStatRow}>
-                <Text style={styles.gaugeStatKey}>Carbon intensity</Text>
-                <Text style={styles.gaugeStatVal}>{liveGrid.carbonIntensity} gCO₂/kWh</Text>
+                <Text style={[styles.gaugeStatKey, { color: themeColors.textSecondary }]}>{t('station.carbon_intensity', 'Carbon intensity')}</Text>
+                <Text style={[styles.gaugeStatVal, { color: themeColors.textPrimary }]}>{liveGrid.carbonIntensity} gCO₂/kWh</Text>
               </View>
-              <Text style={styles.gaugeNote}>Renewable ≠ Carbon-free (nuclear excluded)</Text>
+              <Text style={[styles.gaugeNote, { color: themeColors.textSecondary }]}>{t('station.renewable_note', 'Renewable ≠ Carbon-free (nuclear excluded)')}</Text>
             </View>
           </View>
 
           {/* Stacked source bar */}
-          <Text style={[styles.sectionTitle, { fontSize: 13, marginTop: 16, marginBottom: 8 }]}>Grid Mix Right Now</Text>
+          <Text style={[styles.sectionTitle, { fontSize: 13, marginTop: 16, marginBottom: 8, color: themeColors.textPrimary }]}>{t('station.grid_mix', 'Grid Mix Right Now')}</Text>
           <View style={styles.stackBar}>
             {solarPct > 0  && <View style={[styles.stackSegment, { flex: solarPct,   backgroundColor: '#F59E0B' }]} />}
             {windPct > 0   && <View style={[styles.stackSegment, { flex: windPct,    backgroundColor: '#0FB8C9' }]} />}
@@ -566,31 +576,31 @@ export default function StationDetailScreen() {
           <View style={styles.stackLegend}>
             <View style={styles.stackLegendItem}>
               <View style={[styles.stackLegendDot, { backgroundColor: '#F59E0B' }]} />
-              <Text style={styles.stackLegendText}>Solar {solarPct}%</Text>
+              <Text style={[styles.stackLegendText, { color: themeColors.textSecondary }]}>{t('profile.solar', 'Solar')} {solarPct}%</Text>
             </View>
             <View style={styles.stackLegendItem}>
               <View style={[styles.stackLegendDot, { backgroundColor: '#0FB8C9' }]} />
-              <Text style={styles.stackLegendText}>Wind {windPct}%</Text>
+              <Text style={[styles.stackLegendText, { color: themeColors.textSecondary }]}>{t('profile.wind', 'Wind')} {windPct}%</Text>
             </View>
             <View style={styles.stackLegendItem}>
               <View style={[styles.stackLegendDot, { backgroundColor: '#3B82F6' }]} />
-              <Text style={styles.stackLegendText}>Hydro {hydroPct}%</Text>
+              <Text style={[styles.stackLegendText, { color: themeColors.textSecondary }]}>{t('profile.hydro', 'Hydro')} {hydroPct}%</Text>
             </View>
             <View style={styles.stackLegendItem}>
               <View style={[styles.stackLegendDot, { backgroundColor: '#8B5CF6' }]} />
-              <Text style={styles.stackLegendText}>Nuclear {nuclearPct}%</Text>
+              <Text style={[styles.stackLegendText, { color: themeColors.textSecondary }]}>Nuclear {nuclearPct}%</Text>
             </View>
             <View style={styles.stackLegendItem}>
               <View style={[styles.stackLegendDot, { backgroundColor: '#6B7280' }]} />
-              <Text style={styles.stackLegendText}>Coal+Gas {coalPct}%</Text>
+              <Text style={[styles.stackLegendText, { color: themeColors.textSecondary }]}>{t('profile.coal_gas', 'Coal+Gas')} {coalPct}%</Text>
             </View>
           </View>
         </View>
 
         {/* ── 24h Forecast Strip ── */}
-        <View style={styles.sectionCard}>
+        <View style={[styles.sectionCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>24h Renewable Forecast</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('station.forecast_24h', '24h Renewable Forecast')}</Text>
             <View style={[styles.qualityBadge, {
               backgroundColor: isLive ? '#22C55E20' : '#E0A81E20',
             }]}>
@@ -601,12 +611,12 @@ export default function StationDetailScreen() {
           </View>
 
           {/* Best window callout */}
-          <View style={styles.bestWindowCard}>
-            <Ionicons name="flash" size={16} color="#0E8E4F" />
-            <Text style={styles.bestWindowText}>
-              Best window: <Text style={{ color: '#0E8E4F', fontWeight: '700' }}>{bestWindow.label}</Text>
-              {' '}· {bestWindow.renewablePct.toFixed(0)}% renewable
-              {bestWindow.savingsRs > 0 ? ` · saves ~₹${bestWindow.savingsRs}/session` : ''}
+          <View style={[styles.bestWindowCard, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#F0FDF4', borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#BBF7D0' }]}>
+            <Ionicons name="flash" size={16} color={themeColors.primary} />
+            <Text style={[styles.bestWindowText, { color: themeColors.textPrimary }]}>
+              {t('station.best_window', 'Best window:')} <Text style={{ color: themeColors.primary, fontWeight: '700' }}>{bestWindow.label}</Text>
+              {' '}· {bestWindow.renewablePct.toFixed(0)}% {t('station.renewable', 'renewable')}
+              {bestWindow.savingsRs > 0 ? ` · ${t('station.forecast_saves', 'saves ~₹')}${bestWindow.savingsRs}/session` : ''}
             </Text>
           </View>
 
@@ -632,7 +642,7 @@ export default function StationDetailScreen() {
                         { height: barHeight, backgroundColor: barColor },
                       ]} />
                     </View>
-                    <Text style={[styles.forecastBarLabel, isCurrent && { color: '#0FB8C9' }]}>
+                    <Text style={[styles.forecastBarLabel, { color: isCurrent ? themeColors.primary : themeColors.textSecondary }]}>
                       {point.hourIST % 3 === 0 ? point.label.split(' ')[0] : ''}
                     </Text>
                   </View>
@@ -641,22 +651,22 @@ export default function StationDetailScreen() {
             </View>
           </ScrollView>
           <View style={styles.forecastScaleLegend}>
-            <Text style={styles.forecastScaleText}>◼ Highlighted = best charging window</Text>
-            <Text style={styles.forecastScaleText}>◉ = Now</Text>
+            <Text style={[styles.forecastScaleText, { color: themeColors.textSecondary }]}>{t('station.forecast_highlight', '◼ Highlighted = best charging window')}</Text>
+            <Text style={[styles.forecastScaleText, { color: themeColors.textSecondary }]}>{t('station.forecast_now', '◉ = Now')}</Text>
           </View>
         </View>
 
 
         {/* Chargers Section */}
         <View style={styles.chargersSection}>
-          <Text style={styles.sectionTitle}>
-            Available Chargers ({chargers.length})
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
+            {t('station.available_chargers', 'Available Chargers')} ({chargers.length})
           </Text>
           
           {chargers.length === 0 ? (
             <View style={styles.noChargersContainer}>
-              <Ionicons name="flash-off-outline" size={32} color={colors.neutral[400]} />
-              <Text style={styles.noChargersText}>No chargers available</Text>
+              <Ionicons name="flash-off-outline" size={32} color={themeColors.textSecondary} />
+              <Text style={[styles.noChargersText, { color: themeColors.textSecondary }]}>{t('station.no_chargers', 'No chargers available')}</Text>
             </View>
           ) : (
             chargers.map(renderChargerCard)

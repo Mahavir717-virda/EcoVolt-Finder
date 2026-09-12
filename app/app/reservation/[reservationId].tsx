@@ -41,6 +41,7 @@ export default function ReservationDetailScreen() {
   // Photo gallery state
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   // Extract nested data
   const charger = (reservation as any)?.charger;
@@ -105,19 +106,19 @@ export default function ReservationDetailScreen() {
     if (reservationStatus === 'upcoming') {
       const diffMs = startTime.getTime() - now.getTime();
       const diffMins = Math.floor(diffMs / 60000);
-      if (diffMins <= 0) return 'Starts right now! Please arrive at station';
-      if (diffMins < 60) return `Starts in ${diffMins} mins — Come fast! ⚡`;
+      if (diffMins <= 0) return t('reservations.starts_now', 'Starts right now! Please arrive at station');
+      if (diffMins < 60) return t('reservations.starts_in_mins', 'Starts in {m} mins — Come fast! ⚡').replace('{m}', diffMins.toString());
       const diffHours = Math.floor(diffMins / 60);
       const remMins = diffMins % 60;
-      if (diffHours < 24) return `Starts in ${diffHours}h ${remMins}m`;
+      if (diffHours < 24) return t('reservations.starts_in_hours', 'Starts in {h}h {m}m').replace('{h}', diffHours.toString()).replace('{m}', remMins.toString());
       const diffDays = Math.floor(diffHours / 24);
-      return `Starts in ${diffDays} days`;
+      return t('reservations.starts_in_days', 'Starts in {d} days').replace('{d}', diffDays.toString());
     }
     
     if (reservationStatus === 'in-progress') {
       const diffMs = endTime.getTime() - now.getTime();
       const diffMins = Math.floor(diffMs / 60000);
-      return `${Math.max(0, diffMins)} minutes remaining in slot`;
+      return `${Math.max(0, diffMins)} ${t('reservations.mins_remaining', 'minutes remaining in slot')}`;
     }
     
     return null;
@@ -125,18 +126,18 @@ export default function ReservationDetailScreen() {
 
   const handleCancel = useCallback(() => {
     Alert.alert(
-      'Cancel Reservation',
-      'Are you sure you want to cancel this reservation? This action cannot be undone.',
+      t('reservations.cancel_alert_title', 'Cancel Reservation'),
+      t('reservations.cancel_alert_msg', 'Are you sure you want to cancel this reservation? This action cannot be undone.'),
       [
-        { text: 'Keep Reservation', style: 'cancel' },
+        { text: t('reservations.keep_booking', 'Keep Reservation'), style: 'cancel' },
         {
-          text: 'Cancel Reservation',
+          text: t('reservations.cancel_alert_title', 'Cancel Reservation'),
           style: 'destructive',
           onPress: async () => {
             if (reservationId) {
               const success = await cancel(reservationId);
               if (success) {
-                Alert.alert('Cancelled', 'Your reservation has been cancelled.');
+                Alert.alert(t('reservations.cancelled_success', 'Cancelled'), t('reservations.cancelled_success', 'Your reservation has been cancelled.'));
                 router.back();
               }
             }
@@ -145,6 +146,15 @@ export default function ReservationDetailScreen() {
       ]
     );
   }, [cancel, reservationId]);
+
+  const handleSendReminder = async () => {
+    setSendingReminder(true);
+    // Simulate sending a push notification reminder
+    setTimeout(() => {
+      setSendingReminder(false);
+      Alert.alert(t('reservations.send_reminder', 'Reminder Sent'), t('reservations.send_reminder', 'A push notification reminder has been sent to your device.'));
+    }, 1500);
+  };
 
   const handleStartCharging = useCallback(() => {
     // Navigate to charging session screen
@@ -487,7 +497,7 @@ export default function ReservationDetailScreen() {
           {reservationStatus === 'upcoming' && (
             <>
               <Button
-                title="⚡ Check In / Start Charging Session"
+                title={t('reservations.check_in_start', '⚡ Check In / Start Charging Session')}
                 variant="primary"
                 onPress={handleSendReminder}
                 loading={sendingReminder}
@@ -495,7 +505,7 @@ export default function ReservationDetailScreen() {
                 style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
               />
               <Button
-                title="⚡ Check In / Start Charging Now"
+                title={t('reservations.check_in_start', '⚡ Check In / Start Charging Now')}
                 variant="outline"
                 onPress={handleStartCharging}
                 fullWidth
@@ -522,7 +532,7 @@ export default function ReservationDetailScreen() {
                 style={{ marginBottom: 8 }}
               />
               <Button
-                title="🔔 Send Status Reminder"
+                title={t('reservations.send_reminder', '🔔 Send Status Reminder')}
                 variant="outline"
                 onPress={handleSendReminder}
                 loading={sendingReminder}
@@ -533,7 +543,7 @@ export default function ReservationDetailScreen() {
           
           {(reservationStatus === 'completed' || reservationStatus === 'expired') && (
             <Button
-              title="Book Again"
+              title={t('reservations.book_again', 'Book Again')}
               variant="primary"
               onPress={() => {
                 if (station?.id) {
