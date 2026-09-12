@@ -1,6 +1,7 @@
 export type NotificationType =
   | 'smart_savings_alert'
   | 'green_window_start'
+  | 'booking_confirmed'
   | 'booking_reminder'
   | 'connector_offline'
   | 'session_completed'

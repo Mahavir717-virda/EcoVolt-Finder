@@ -11,5 +11,7 @@ router.get('/', BookingsController.listBookings);
 router.get('/:id', BookingsController.getBookingById);
 router.post('/', BookingsController.createBooking);
 router.patch('/:id/cancel', BookingsController.cancelBooking);
+router.post('/:id/reminder', BookingsController.triggerReminder);
+router.post('/:id/nudge', BookingsController.triggerReminder);
 
 export const bookingsRouter = router;

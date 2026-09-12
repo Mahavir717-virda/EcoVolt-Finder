@@ -3,6 +3,7 @@ import { CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
 import { usePlacePhotos } from '@/hooks/usePlacePhotos';
 import { useCancelReservation, useReservation } from '@/hooks/useReservations';
+import { triggerBookingReminder } from '@/services/reservations.service';
 import { ChargerType, ConnectorType } from '@/types/database.types';
 import { formatDate, formatDuration, formatTime } from '@/utils/date';
 import { formatCurrency } from '@/utils/pricing';
@@ -32,6 +33,7 @@ export default function ReservationDetailScreen() {
   const insets = useSafeAreaInsets();
   const { reservation, loading, error, refresh } = useReservation(reservationId || '');
   const { cancel, loading: cancelling } = useCancelReservation();
+  const [sendingReminder, setSendingReminder] = useState(false);
   
   // Photo gallery state
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -100,9 +102,11 @@ export default function ReservationDetailScreen() {
     if (reservationStatus === 'upcoming') {
       const diffMs = startTime.getTime() - now.getTime();
       const diffMins = Math.floor(diffMs / 60000);
-      if (diffMins < 60) return `Starts in ${diffMins} minutes`;
+      if (diffMins <= 0) return 'Starts right now! Please arrive at station';
+      if (diffMins < 60) return `Starts in ${diffMins} mins — Come fast! ⚡`;
       const diffHours = Math.floor(diffMins / 60);
-      if (diffHours < 24) return `Starts in ${diffHours} hours`;
+      const remMins = diffMins % 60;
+      if (diffHours < 24) return `Starts in ${diffHours}h ${remMins}m`;
       const diffDays = Math.floor(diffHours / 24);
       return `Starts in ${diffDays} days`;
     }
@@ -110,11 +114,32 @@ export default function ReservationDetailScreen() {
     if (reservationStatus === 'in-progress') {
       const diffMs = endTime.getTime() - now.getTime();
       const diffMins = Math.floor(diffMs / 60000);
-      return `${diffMins} minutes remaining`;
+      return `${Math.max(0, diffMins)} minutes remaining in slot`;
     }
     
     return null;
   }, [reservation, reservationStatus]);
+
+  const handleSendReminder = useCallback(async () => {
+    if (!reservationId) return;
+    try {
+      setSendingReminder(true);
+      const res = await triggerBookingReminder(reservationId);
+      if (res && res.success) {
+        Alert.alert(
+          '🔔 Dynamic Notification Dispatched',
+          `${res.message}\n\nStation: ${res.booking?.stationName || station?.name || 'EV Station'}\nRemaining Time: ${res.minutesRemaining} minutes remaining.`,
+          [{ text: 'Great!' }]
+        );
+      } else {
+        Alert.alert('Reminder', res?.message || 'Reminder notification generated.');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to send reminder notification.');
+    } finally {
+      setSendingReminder(false);
+    }
+  }, [reservationId, station]);
 
   const handleCancel = useCallback(() => {
     Alert.alert(
@@ -480,8 +505,23 @@ export default function ReservationDetailScreen() {
           {reservationStatus === 'upcoming' && (
             <>
               <Button
-                title="Cancel Reservation"
+                title="🔔 Send Time Remaining Reminder"
+                variant="primary"
+                onPress={handleSendReminder}
+                loading={sendingReminder}
+                fullWidth
+                style={{ backgroundColor: colors.primary[600], marginBottom: 8 }}
+              />
+              <Button
+                title="⚡ Check In / Start Charging Now"
                 variant="outline"
+                onPress={handleStartCharging}
+                fullWidth
+                style={{ marginBottom: 8 }}
+              />
+              <Button
+                title="Cancel Reservation"
+                variant="ghost"
                 onPress={handleCancel}
                 loading={cancelling}
                 fullWidth
@@ -491,12 +531,22 @@ export default function ReservationDetailScreen() {
           )}
           
           {reservationStatus === 'in-progress' && (
-            <Button
-              title="⚡ Start Charging Session"
-              variant="primary"
-              onPress={handleStartCharging}
-              fullWidth
-            />
+            <>
+              <Button
+                title="⚡ Start Charging Session"
+                variant="primary"
+                onPress={handleStartCharging}
+                fullWidth
+                style={{ marginBottom: 8 }}
+              />
+              <Button
+                title="🔔 Send Status Reminder"
+                variant="outline"
+                onPress={handleSendReminder}
+                loading={sendingReminder}
+                fullWidth
+              />
+            </>
           )}
           
           {(reservationStatus === 'completed' || reservationStatus === 'expired') && (

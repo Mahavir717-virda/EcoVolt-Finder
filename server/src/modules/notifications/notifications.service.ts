@@ -73,6 +73,77 @@ export class NotificationsService {
   // ─── Event Hooks & Nudges ───────────────────────────────────────
 
   /**
+   * Booking Confirmed Notification (Instant Nudge upon slot reservation)
+   */
+  public static async notifyBookingConfirmed(
+    userId: string,
+    bookingId: string,
+    stationName: string,
+    vehicleModel: string,
+    windowStart: Date | string,
+    windowEnd: Date | string,
+    connectorType?: string,
+    finalPrice?: number
+  ) {
+    const startDate = new Date(windowStart);
+    const timeStr = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const dateStr = startDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+    return this.send({
+      userId,
+      type: 'booking_confirmed',
+      title: `⚡ Booking Confirmed: ${stationName}`,
+      body: `Your charging slot at ${stationName} is locked for ${dateStr} at ${timeStr} (${vehicleModel}). Tap to view your confirmed pass & directions!`,
+      data: {
+        bookingId,
+        stationName,
+        vehicleModel,
+        windowStart: startDate.toISOString(),
+        windowEnd: new Date(windowEnd).toISOString(),
+        connectorType,
+        finalPrice,
+      },
+    });
+  }
+
+  /**
+   * Booking Time Remaining Reminder Nudge
+   */
+  public static async notifyBookingReminder(
+    userId: string,
+    stationName: string,
+    windowStart: Date | string,
+    minutesRemaining: number = 15,
+    bookingId?: string
+  ) {
+    const startDate = new Date(windowStart);
+    const timeStr = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const title =
+      minutesRemaining <= 5
+        ? `⏰ Hurry! Only ${minutesRemaining} mins remaining!`
+        : `⏰ Slot Reminder: ${minutesRemaining} mins remaining!`;
+
+    const body =
+      minutesRemaining <= 5
+        ? `Your reserved slot at ${stationName} starts at ${timeStr}! Please head over quickly to plug in on time.`
+        : `Your charging session at ${stationName} begins in ${minutesRemaining} minutes (${timeStr}). Head over now to secure your spot!`;
+
+    return this.send({
+      userId,
+      type: 'booking_reminder',
+      title,
+      body,
+      data: {
+        bookingId,
+        stationName,
+        windowStart: startDate.toISOString(),
+        minutesRemaining,
+      },
+    });
+  }
+
+  /**
    * Edge Case #7: Smart Green Window Starting Nudge
    */
   public static async notifyGreenWindow(userId: string, stationName: string, renewablePct: number, savingsInr: number) {
@@ -82,19 +153,6 @@ export class NotificationsService {
       title: '🌿 Solar Peak Charging Window Starting!',
       body: `Green window at ${stationName} is now live with ${renewablePct}% renewable energy. Charge now to save ₹${savingsInr.toFixed(0)}!`,
       data: { stationName, renewablePct, savingsInr },
-    });
-  }
-
-  /**
-   * Booking Reminder Nudge (15 mins before window)
-   */
-  public static async notifyBookingReminder(userId: string, stationName: string, windowStart: string) {
-    return this.send({
-      userId,
-      type: 'booking_reminder',
-      title: '⚡ Upcoming EV Charging Reservation',
-      body: `Your charging session at ${stationName} begins in 15 minutes (${new Date(windowStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}).`,
-      data: { stationName, windowStart },
     });
   }
 
@@ -129,15 +187,28 @@ export class NotificationsService {
   }
 
   /**
-   * Session Completed Impact Summary Nudge
+   * Session Completed Impact Summary & Sweet Driver Message
    */
-  public static async notifySessionComplete(userId: string, energyKwh: number, cost: number, co2AvoidedKg: number) {
+  public static async notifySessionComplete(
+    userId: string,
+    energyKwh: number,
+    cost: number,
+    co2AvoidedKg: number,
+    stationName: string = 'EcoVolt Supercharger',
+    pointsEarned: number = Math.round(co2AvoidedKg * 10) || 50
+  ) {
     return this.send({
       userId,
       type: 'session_completed',
-      title: '✅ Charging Complete!',
-      body: `Delivered ${energyKwh.toFixed(1)} kWh for ₹${cost.toFixed(2)}. You avoided ${co2AvoidedKg.toFixed(2)} kg of CO₂!`,
-      data: { energyKwh, cost, co2AvoidedKg },
+      title: '🎉 Charging Complete! Sweet Green Energy 🌿⚡',
+      body: `Awesome charge! You powered up ${energyKwh.toFixed(1)} kWh at ${stationName} for ₹${cost.toFixed(2)}. You avoided ${co2AvoidedKg.toFixed(2)} kg of CO₂ and earned +${pointsEarned} EcoPoints! 💚 Thank you for driving green!`,
+      data: {
+        energyKwh,
+        cost,
+        co2AvoidedKg,
+        stationName,
+        pointsEarned,
+      },
     });
   }
 }
