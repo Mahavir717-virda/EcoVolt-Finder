@@ -27,6 +27,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ManagerDashboardScreen as ManagerHubScreen } from '@/src/screens/manager/ManagerDashboardScreen';
+import AdminConsoleScreen from '../admin';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TabType = 'active' | 'past';
@@ -34,8 +36,29 @@ type TabType = 'active' | 'past';
 export default function ReservationsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string; refresh?: string }>();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { colors: themeColors, isDark } = useTheme();
+
+  const isAdmin =
+    (profile as any)?.role === 'admin' ||
+    (user as any)?.role === 'admin' ||
+    user?.email === 'admin@ecovolt.in' ||
+    profile?.email === 'admin@ecovolt.in';
+
+  if (isAdmin) {
+    return <AdminConsoleScreen initialTab="registry" />;
+  }
+
+  const isManager =
+    (profile as any)?.role === 'manager' ||
+    (user as any)?.role === 'manager' ||
+    user?.email === 'mahavir@gmail.com' ||
+    profile?.email === 'mahavir@gmail.com';
+
+  if (isManager) {
+    return <ManagerHubScreen initialTab="sessions" />;
+  }
+
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [refreshing, setRefreshing] = useState(false);

@@ -1,115 +1,158 @@
 import { Request, Response, NextFunction } from 'express';
 import { AdminService } from './admin.service';
-import { z } from 'zod';
-import { BadRequestError } from '../../middleware/error-handler';
+import { UnauthorizedError } from '../../middleware/error-handler';
 import { Role } from '@prisma/client';
 
 export class AdminController {
-  
-  static getNetworkOverview = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const data = await AdminService.getNetworkOverview();
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+  private static getAdminUserId(req: Request): string {
+    const userId = (req as any).user?.sub || (req as any).user?.id || (req as any).userId;
+    if (!userId) throw new UnauthorizedError('Authentication required');
+    return String(userId);
+  }
 
-  static getZoneDrilldown = async (req: Request, res: Response, next: NextFunction) => {
+  public static async getNetworkOverview(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await AdminService.getZoneDrilldown(req.params.id as string);
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const overview = await AdminService.getNetworkOverview();
+      res.status(200).json(overview);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static getOperators = async (req: Request, res: Response, next: NextFunction) => {
+  public static async getStationRegistry(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const skip = parseInt(req.query.skip as string) || 0;
-      const take = parseInt(req.query.take as string) || 50;
-      const data = await AdminService.getOperators(skip, take);
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const stations = await AdminService.getStationRegistry();
+      res.status(200).json(stations);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static getUsers = async (req: Request, res: Response, next: NextFunction) => {
+  public static async updateStationStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const skip = parseInt(req.query.skip as string) || 0;
-      const take = parseInt(req.query.take as string) || 50;
-      const search = req.query.search as string;
-      const data = await AdminService.getUsers(skip, take, search);
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const adminId = AdminController.getAdminUserId(req);
+      const stationId = String(req.params.id);
+      const { isActive, reason } = req.body;
+      const updated = await AdminService.updateStationStatus(adminId, stationId, Boolean(isActive), String(reason || ''));
+      res.status(200).json(updated);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static updateUserRole = async (req: Request, res: Response, next: NextFunction) => {
+  public static async getUsersList(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const schema = z.object({ role: z.nativeEnum(Role) });
-      const { role } = schema.parse(req.body);
-      const data = await AdminService.updateUserRole(req.user!.sub, req.params.id as string, role);
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const users = await AdminService.getUsersList();
+      res.status(200).json(users);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static suspendUser = async (req: Request, res: Response, next: NextFunction) => {
+  public static async updateUserRoleAndStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const schema = z.object({ reason: z.string().min(3) });
-      const { reason } = schema.parse(req.body);
-      const data = await AdminService.suspendUser(req.user!.sub, req.params.id as string, reason);
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const adminId = AdminController.getAdminUserId(req);
+      const userId = String(req.params.id);
+      const { role, status, reason } = req.body;
+      const updated = await AdminService.updateUserRoleAndStatus(
+        adminId,
+        userId,
+        role as Role,
+        status as string,
+        String(reason || '')
+      );
+      res.status(200).json(updated);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static getStations = async (req: Request, res: Response, next: NextFunction) => {
+  public static async getGridZones(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const skip = parseInt(req.query.skip as string) || 0;
-      const take = parseInt(req.query.take as string) || 50;
-      const data = await AdminService.getStations(skip, take);
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const zones = await AdminService.getGridZones();
+      res.status(200).json(zones);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static setStationPlatformStatus = async (req: Request, res: Response, next: NextFunction) => {
+  public static async getSystemHealth(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const schema = z.object({ status: z.enum(['active', 'flagged', 'deactivated']), reason: z.string().optional() });
-      const { status, reason } = schema.parse(req.body);
-      const data = await AdminService.setStationPlatformStatus(req.user!.sub, req.params.id as string, status, reason);
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const health = await AdminService.getSystemHealth();
+      res.status(200).json(health);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static getDataQuality = async (req: Request, res: Response, next: NextFunction) => {
+  public static async getFinancialAggregates(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await AdminService.getDataQuality();
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const financials = await AdminService.getFinancialAggregates();
+      res.status(200).json(financials);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static getSystemHealth = async (req: Request, res: Response, next: NextFunction) => {
+  public static async getPlatformConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await AdminService.getSystemHealth();
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const config = await AdminService.getPlatformConfig();
+      res.status(200).json(config);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static getPlatformAnalytics = async (req: Request, res: Response, next: NextFunction) => {
+  public static async getAuditTrail(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await AdminService.getPlatformAnalytics();
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const logs = await AdminService.getAuditTrail();
+      res.status(200).json(logs);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static getFinancialOversight = async (req: Request, res: Response, next: NextFunction) => {
+  public static async createUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await AdminService.getFinancialOversight();
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const adminId = AdminController.getAdminUserId(req);
+      const user = await AdminService.createUser(adminId, req.body);
+      res.status(201).json(user);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  static getAuditLogs = async (req: Request, res: Response, next: NextFunction) => {
+  public static async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const skip = parseInt(req.query.skip as string) || 0;
-      const take = parseInt(req.query.take as string) || 50;
-      const data = await AdminService.getAuditLogs(skip, take);
-      res.json(data);
-    } catch (err) { next(err); }
-  };
+      const adminId = AdminController.getAdminUserId(req);
+      const userId = String(req.params.id);
+      const reason = String(req.body?.reason || req.query?.reason || 'Administrative Deletion');
+      const result = await AdminService.deleteUser(adminId, userId, reason);
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 
+  public static async createStation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = AdminController.getAdminUserId(req);
+      const station = await AdminService.createStation(adminId, req.body);
+      res.status(201).json(station);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async deleteStation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = AdminController.getAdminUserId(req);
+      const stationId = String(req.params.id);
+      const reason = String(req.body?.reason || req.query?.reason || 'Administrative Removal');
+      const result = await AdminService.deleteStation(adminId, stationId, reason);
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }

@@ -3,38 +3,40 @@ import { AdminController } from './admin.controller';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
 import { Role } from '@prisma/client';
 
-export const adminRouter = Router();
+const router = Router();
 
-// All routes require authentication and ADMIN role
-adminRouter.use(requireAuth, requireRole(Role.admin));
+// Strictly enforce Admin role check server-side
+router.use(requireAuth);
+router.use(requireRole(Role.admin));
 
-// 1. Network Overview & Zone Drilldown
-adminRouter.get('/network/overview', AdminController.getNetworkOverview);
-adminRouter.get('/network/zones/:id', AdminController.getZoneDrilldown);
+// 1. Network-Wide Overview & Telemetry
+router.get('/overview', AdminController.getNetworkOverview);
 
-// 2. Operator Oversight
-adminRouter.get('/operators', AdminController.getOperators);
+// 2. Station Registry (CRUD: Browse, Add, Status update, Delete)
+router.get('/stations', AdminController.getStationRegistry);
+router.post('/stations', AdminController.createStation);
+router.put('/stations/:id/status', AdminController.updateStationStatus);
+router.delete('/stations/:id', AdminController.deleteStation);
 
-// 3. User & Role Management
-adminRouter.get('/users', AdminController.getUsers);
-adminRouter.patch('/users/:id/role', AdminController.updateUserRole);
-adminRouter.patch('/users/:id/suspend', AdminController.suspendUser);
+// 3. User Governance & Role Management (CRUD: Browse, Add, Role/Status update, Delete)
+router.get('/users', AdminController.getUsersList);
+router.post('/users', AdminController.createUser);
+router.put('/users/:id/governance', AdminController.updateUserRoleAndStatus);
+router.delete('/users/:id', AdminController.deleteUser);
 
-// 4. Station Registry Governance
-adminRouter.get('/stations', AdminController.getStations);
-adminRouter.patch('/stations/:id/status', AdminController.setStationPlatformStatus);
+// 4. Grid Zones & Data Quality
+router.get('/zones', AdminController.getGridZones);
 
-// 5. Data Quality Monitoring
-adminRouter.get('/data-quality', AdminController.getDataQuality);
+// 5. System Health & Ops Telemetry
+router.get('/health', AdminController.getSystemHealth);
 
-// 6. System Health / Ops
-adminRouter.get('/health', AdminController.getSystemHealth);
+// 6. Financial Aggregates (Read-Only)
+router.get('/financials', AdminController.getFinancialAggregates);
 
-// 7. Network Analytics
-adminRouter.get('/analytics', AdminController.getPlatformAnalytics);
+// 7. Platform Configuration
+router.get('/config', AdminController.getPlatformConfig);
 
-// 8. Financial Oversight
-adminRouter.get('/finance', AdminController.getFinancialOversight);
+// 8. Permanent Audit Log (Read-Only, Append-Only)
+router.get('/audit-log', AdminController.getAuditTrail);
 
-// 9. Audit Log
-adminRouter.get('/audit-logs', AdminController.getAuditLogs);
+export const adminRouter = router;

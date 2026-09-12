@@ -71,7 +71,11 @@ export interface LiveSessionItem {
   lockedPrice: number;
 }
 
-export const ManagerDashboardScreen: React.FC = () => {
+export interface ManagerDashboardScreenProps {
+  initialTab?: string;
+}
+
+export const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({ initialTab }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<ManagerStackParamList>>();
   const queryClient = useQueryClient();

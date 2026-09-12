@@ -25,6 +25,8 @@ import { GamificationProfile } from '@contracts/types';
 import { useVehiclesStore } from '@/src/features/vehicles/vehiclesStore';
 import { useTheme } from '@/hooks/useTheme';
 import { useLanguage } from '@/hooks/useLanguage';
+import AdminConsoleScreen from '../admin';
+import { ManagerDashboardScreen as ManagerHubScreen } from '@/src/screens/manager/ManagerDashboardScreen';
 
 interface MenuItemProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -85,10 +87,30 @@ function MenuItem({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { profile, signOut } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const { colors, isDark } = useTheme();
   const { t, language } = useLanguage();
   const [gamification, setGamification] = React.useState<GamificationProfile | null>(null);
+
+  const isAdmin =
+    (profile as any)?.role === 'admin' ||
+    (user as any)?.role === 'admin' ||
+    user?.email === 'admin@ecovolt.in' ||
+    profile?.email === 'admin@ecovolt.in';
+
+  if (isAdmin) {
+    return <AdminConsoleScreen initialTab="audit" />;
+  }
+
+  const isManager =
+    (profile as any)?.role === 'manager' ||
+    (user as any)?.role === 'manager' ||
+    user?.email === 'mahavir@gmail.com' ||
+    profile?.email === 'mahavir@gmail.com';
+
+  if (isManager) {
+    return <ManagerHubScreen initialTab="payout" />;
+  }
 
   const vehicles = useVehiclesStore((state) => state.vehicles);
   const activeVehicleId = useVehiclesStore((state) => state.activeVehicleId);
