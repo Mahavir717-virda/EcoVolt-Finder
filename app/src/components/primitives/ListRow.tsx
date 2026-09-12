@@ -31,7 +31,7 @@ export const ListRow: React.FC<ListRowProps> = ({
     <View style={[styles.container, showDivider && styles.divider, style]}>
       {leftElement && <View style={styles.left}>{leftElement}</View>}
       <View style={styles.center}>
-        <Text variant="title" numberOfLines={1} style={styles.title}>
+        <Text variant="cardTitle" numberOfLines={1} style={styles.title}>
           {title}
         </Text>
         {subtitle && (
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.line,
+    borderBottomColor: colors.border,
   },
   left: {
     marginRight: spacing.md,

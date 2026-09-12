@@ -18,19 +18,57 @@ import {
 import { colors } from '../theme/tokens';
 
 import { Ionicons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
+import { Platform, TouchableOpacity, Text, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const Tab = createBottomTabNavigator<DriverTabParamList>();
 const Stack = createNativeStackNavigator<DriverStackParamList>();
 
 const DriverTabNavigator: React.FC = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<DriverStackParamList>>();
+  const [currentLocation, setCurrentLocation] = React.useState('San Francisco, CA');
+
+  const handleLocationPress = () => {
+    Alert.alert(
+      'Select Region',
+      'Choose a region to find stations:',
+      [
+        { text: 'San Francisco, CA', onPress: () => setCurrentLocation('San Francisco, CA') },
+        { text: 'New York, NY', onPress: () => setCurrentLocation('New York, NY') },
+        { text: 'Austin, TX', onPress: () => setCurrentLocation('Austin, TX') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
   return (
     <Tab.Navigator
       initialRouteName="Explore"
       screenOptions={{
-        headerStyle: { backgroundColor: colors.surface },
+        headerStyle: { backgroundColor: colors.canvas, elevation: 0, shadowOpacity: 0, borderBottomWidth: 0 },
         headerTintColor: colors.ink,
-        headerTitleStyle: { fontFamily: 'SpaceGrotesk_600SemiBold' },
+        headerTitle: '',
+        headerLeft: () => (
+          <TouchableOpacity 
+            onPress={handleLocationPress} 
+            style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 16 }}
+          >
+            <Ionicons name="location" size={20} color={colors.brand} />
+            <Text style={{ marginLeft: 6, fontFamily: 'Manrope_600SemiBold', fontSize: 14, color: colors.ink }}>
+              {currentLocation}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.ink} style={{ marginLeft: 2 }} />
+          </TouchableOpacity>
+        ),
+        headerRight: () => (
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('Profile')}
+            style={{ marginRight: 16, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand + '20', justifyContent: 'center', alignItems: 'center' }}
+          >
+            <Ionicons name="person" size={18} color={colors.brand} />
+          </TouchableOpacity>
+        ),
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
@@ -56,7 +94,7 @@ const DriverTabNavigator: React.FC = () => {
         name="Explore"
         component={HomeMapScreen}
         options={{
-          title: 'Map',
+          title: 'Home',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? 'map' : 'map-outline'}
@@ -88,20 +126,6 @@ const DriverTabNavigator: React.FC = () => {
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? 'battery-charging' : 'battery-charging-outline'}
-              size={size || 22}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'person' : 'person-outline'}
               size={size || 22}
               color={color}
             />
@@ -161,6 +185,11 @@ export const DriverNavigator: React.FC = () => {
         name="SessionSummary"
         component={SessionSummaryScreen}
         options={{ title: 'Session Summary' }}
+      />
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ title: 'Profile' }}
       />
     </Stack.Navigator>
   );

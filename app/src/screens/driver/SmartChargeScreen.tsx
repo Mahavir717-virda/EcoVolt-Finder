@@ -111,7 +111,7 @@ export const SmartChargeScreen: React.FC = () => {
         {/* Header Title */}
         <View style={styles.headerTitleRow}>
           <View style={styles.titleCol}>
-            <Text variant="h2" style={styles.screenTitle}>
+            <Text variant="sectionLabel" style={styles.screenTitle}>
               Smart-Charge Optimizer
             </Text>
             <Text variant="caption" color={colors.ink2}>
@@ -136,7 +136,7 @@ export const SmartChargeScreen: React.FC = () => {
         {isPlanning && (
           <View style={styles.progressContainer}>
             <LinearProgress style={styles.progress} />
-            <Text variant="micro" color={colors.volt} align="center">
+            <Text variant="micro" color={colors.brand} align="center">
               ⚡ Finding highest renewable solar window before {deadline}…
             </Text>
           </View>
@@ -148,7 +148,7 @@ export const SmartChargeScreen: React.FC = () => {
           <View style={styles.payoffHeader}>
             <View style={styles.payoffTitleCol}>
               <View style={styles.windowTimeRow}>
-                <Text variant="h2" style={styles.windowTime}>
+                <Text variant="sectionLabel" style={styles.windowTime}>
                   {formatTime(plan.startLocal)} – {formatTime(plan.endLocal)}
                 </Text>
                 <Chip
@@ -170,7 +170,7 @@ export const SmartChargeScreen: React.FC = () => {
               <Text variant="micro" color={colors.ink3}>
                 Tariff Savings
               </Text>
-              <Text variant="h1" color={colors.brand} style={styles.savingsNum}>
+              <Text variant="screenTitle" color={colors.brand} style={styles.savingsNum}>
                 ₹{plan.expectedSavings.toFixed(0)}
               </Text>
               <Text variant="micro" color={colors.brand}>
@@ -184,7 +184,7 @@ export const SmartChargeScreen: React.FC = () => {
               <Text variant="micro" color={colors.ink3}>
                 Renewable Share
               </Text>
-              <Text variant="h1" color={greenColor} style={styles.savingsNum}>
+              <Text variant="screenTitle" color={greenColor} style={styles.savingsNum}>
                 {plan.expectedRenewablePct}%
               </Text>
               <Text variant="micro" color={colors.ink2}>
@@ -199,7 +199,7 @@ export const SmartChargeScreen: React.FC = () => {
                 ML Confidence
               </Text>
               <Text
-                variant="h1"
+                variant="screenTitle"
                 color={isHighConf ? colors.ink : colors.warning}
                 style={styles.savingsNum}
               >
@@ -231,7 +231,7 @@ export const SmartChargeScreen: React.FC = () => {
         {/* Urgent Override Section (Edge Case #8) */}
         <View style={styles.urgentCard}>
           <View style={styles.urgentLeft}>
-            <Text variant="bodyMedium" style={styles.urgentTitle}>
+            <Text variant="body" style={styles.urgentTitle}>
               In a hurry?
             </Text>
             <Text variant="micro" color={colors.ink3}>
@@ -285,14 +285,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   screenTitle: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   configCard: {
     backgroundColor: colors.surface,
     borderRadius: radii.xl,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: spacing.sm,
     ...shadows.e1,
   },
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   windowTime: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
     fontSize: 22,
   },
   payoffGrid: {
@@ -346,13 +346,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   savingsNum: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
     fontSize: 24,
   },
   payoffDivider: {
     width: 1,
     height: 36,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
   },
   noteBanner: {
     backgroundColor: colors.surfaceSunken,
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     ...shadows.e1,
   },
   urgentLeft: {
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: colors.border,
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.base,
     ...shadows.e2,

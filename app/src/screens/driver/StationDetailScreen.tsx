@@ -27,6 +27,7 @@ import {
   ForecastStrip,
   PriceBreakdown,
   TrueCostCard,
+  LocationLine,
 } from '../../components';
 import { formatProviderName } from '../../features/stations/utils';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
@@ -170,7 +171,7 @@ export const StationDetailScreen: React.FC = () => {
             <View style={styles.headerCard}>
               <View style={styles.headerTop}>
                 <View style={styles.titleArea}>
-                  <Text variant="h2" style={styles.stationTitle}>
+                  <Text variant="sectionLabel" style={styles.stationTitle}>
                     {station.name}
                   </Text>
                   <Text variant="caption" color={colors.ink2}>
@@ -187,9 +188,7 @@ export const StationDetailScreen: React.FC = () => {
               </View>
 
               {station.address && (
-                <Text variant="caption" color={colors.ink3} style={styles.addressText}>
-                  📍 {station.address}
-                </Text>
+                <LocationLine address={station.address} style={styles.addressText} />
               )}
 
               {/* Quick Summary Row */}
@@ -198,7 +197,7 @@ export const StationDetailScreen: React.FC = () => {
                   <Text variant="micro" color={colors.ink3}>
                     Available Plugs
                   </Text>
-                  <Text variant="bodyMedium" color={colors.brand} style={styles.summaryVal}>
+                  <Text variant="body" color={colors.brand} style={styles.summaryVal}>
                     {availableConnectors}/{totalConnectors} Free
                   </Text>
                 </View>
@@ -209,7 +208,7 @@ export const StationDetailScreen: React.FC = () => {
                   <Text variant="micro" color={colors.ink3}>
                     Distance
                   </Text>
-                  <Text variant="bodyMedium" style={styles.summaryVal}>
+                  <Text variant="body" style={styles.summaryVal}>
                     {activeRec.distanceKm ?? 2.4} km ({activeRec.travelMinutes ?? 8}m)
                   </Text>
                 </View>
@@ -220,7 +219,7 @@ export const StationDetailScreen: React.FC = () => {
                   <Text variant="micro" color={colors.ink3}>
                     Tariff From
                   </Text>
-                  <Text variant="bodyMedium" style={styles.summaryVal}>
+                  <Text variant="body" style={styles.summaryVal}>
                     ₹{(station.priceFrom ?? pricingQuotes[0]?.finalPrice ?? 6.2).toFixed(1)}/kWh
                   </Text>
                 </View>
@@ -305,7 +304,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: spacing.sm,
     ...shadows.e1,
   },
@@ -320,7 +319,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   stationTitle: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   addressText: {
     marginTop: -2,
@@ -340,12 +339,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   summaryVal: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_600SemiBold',
   },
   summaryDivider: {
     width: 1,
     height: 24,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
     marginHorizontal: spacing.xs,
   },
   amenitiesRow: {
@@ -367,7 +366,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: colors.border,
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.base,
     flexDirection: 'row',

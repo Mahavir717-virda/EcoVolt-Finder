@@ -143,12 +143,12 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: radii.xl,
+    borderRadius: radii.card,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: spacing.sm,
-    ...shadows.e1,
+    ...shadows.card,
   },
   headerRow: {
     flexDirection: 'row',
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sectionTitle: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_700Bold',
   },
   quotesList: {
     gap: spacing.sm,
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.sm + 2,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: spacing.xs,
   },
   quoteCardTop: {
@@ -199,11 +199,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   eqSign: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_700Bold',
     fontSize: 14,
   },
   eqValue: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_700Bold',
   },
   finalBlock: {
     alignItems: 'flex-end',
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_600SemiBold',
   },
   finalPrice: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   estimateDisclaimer: {
     paddingTop: 2,

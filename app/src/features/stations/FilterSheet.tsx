@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
+  useWindowDimensions,
 } from 'react-native';
 import { ConnectorType, VehicleClass } from '@contracts/enums';
 import { StationFilterState, StationSortOption } from './types';
@@ -26,21 +27,46 @@ interface FilterSheetProps {
   onReset: () => void;
 }
 
-const ALL_CONNECTORS: ConnectorType[] = [
+// 4-Wheeler connectors & defaults
+const CAR_CONNECTORS: ConnectorType[] = [
   ConnectorType.CCS2,
   ConnectorType.TYPE2_AC,
   ConnectorType.BHARAT_DC_001,
-  ConnectorType.BHARAT_AC_001,
   ConnectorType.CHADEMO,
   ConnectorType.THREE_PIN,
 ];
 
-const POWER_THRESHOLDS = [
+const CAR_DEFAULT_CONNECTORS: ConnectorType[] = [
+  ConnectorType.CCS2,
+  ConnectorType.TYPE2_AC,
+];
+
+const CAR_POWER_THRESHOLDS = [
   { label: 'Any', value: null },
   { label: '15 kW+', value: 15 },
   { label: '30 kW+', value: 30 },
   { label: '50 kW+', value: 50 },
   { label: '60 kW+', value: 60 },
+];
+
+// 2-Wheeler connectors & defaults (Standard in India for Ather, Ola, Chetak, TVS iQube)
+const BIKE_CONNECTORS: ConnectorType[] = [
+  ConnectorType.THREE_PIN,
+  ConnectorType.BHARAT_AC_001,
+  ConnectorType.TYPE2_AC,
+];
+
+const BIKE_DEFAULT_CONNECTORS: ConnectorType[] = [
+  ConnectorType.THREE_PIN,
+  ConnectorType.BHARAT_AC_001,
+  ConnectorType.TYPE2_AC,
+];
+
+const BIKE_POWER_THRESHOLDS = [
+  { label: 'Any', value: null },
+  { label: '3.3 kW+', value: 3.3 },
+  { label: '7 kW+', value: 7 },
+  { label: '15 kW+', value: 15 },
 ];
 
 export const FilterSheet: React.FC<FilterSheetProps> = ({
@@ -50,6 +76,8 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({
   onApply,
   onReset,
 }) => {
+  const { height: windowHeight } = useWindowDimensions();
+  const sheetHeight = Math.min(Math.round(windowHeight * 0.85), 720);
   const [draft, setDraft] = useState<StationFilterState>(filters);
 
   // Sync draft state when sheet opens
@@ -58,6 +86,29 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({
       setDraft(filters);
     }
   }, [visible, filters]);
+
+  // Handle vehicle class toggle with smart resets
+  const handleVehicleClassChange = (newClass: VehicleClass) => {
+    if (newClass === draft.vehicleClass) return;
+
+    if (newClass === VehicleClass.BIKE) {
+      // Switching to 2-Wheeler: reset to bike defaults
+      setDraft((prev) => ({
+        ...prev,
+        vehicleClass: VehicleClass.BIKE,
+        minPowerKw: null,
+        connectorTypes: [...BIKE_DEFAULT_CONNECTORS],
+      }));
+    } else {
+      // Switching to 4-Wheeler: reset to car defaults
+      setDraft((prev) => ({
+        ...prev,
+        vehicleClass: VehicleClass.CAR,
+        minPowerKw: null,
+        connectorTypes: [...CAR_DEFAULT_CONNECTORS],
+      }));
+    }
+  };
 
   const toggleConnector = (connector: ConnectorType) => {
     setDraft((prev) => {
@@ -75,12 +126,29 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({
   };
 
   const handleReset = () => {
+    const isBike = draft.vehicleClass === VehicleClass.BIKE;
+    setDraft({
+      vehicleClass: draft.vehicleClass,
+      sortBy: 'trueCost',
+      reachableOnly: false,
+      minPowerKw: null,
+      connectorTypes: isBike ? [...BIKE_DEFAULT_CONNECTORS] : [...CAR_DEFAULT_CONNECTORS],
+      query: draft.query || '',
+    });
     onReset();
     onClose();
   };
 
+  const isBike = draft.vehicleClass === VehicleClass.BIKE;
+  const currentConnectors = isBike ? BIKE_CONNECTORS : CAR_CONNECTORS;
+  const currentPowerThresholds = isBike ? BIKE_POWER_THRESHOLDS : CAR_POWER_THRESHOLDS;
+
   return (
-    <Sheet visible={visible} onClose={onClose}>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      style={[styles.sheetContainer, { height: sheetHeight }]}
+    >
       <View style={styles.headerRow}>
         <Text variant="title" style={styles.sheetTitle}>
           Filter & Sort Stations
@@ -93,8 +161,11 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({
       </View>
 
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={true}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        bounces={true}
       >
         {/* 1. Vehicle Class */}
         <View style={styles.section}>
@@ -107,7 +178,7 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({
               { label: '🛵 2-Wheeler (Bike)', value: VehicleClass.BIKE },
             ]}
             value={draft.vehicleClass}
-            onChange={(val) => setDraft((prev) => ({ ...prev, vehicleClass: val }))}
+            onChange={handleVehicleClassChange}
           />
         </View>
 
@@ -127,14 +198,61 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({
           />
         </View>
 
-        {/* 3. Reachable Only Toggle */}
-        <View style={styles.switchSection}>
-          <View style={styles.switchTextCol}>
-            <Text variant="bodyMedium" style={styles.switchTitle}>
-              Show Only Reachable Stations
+        {/* 3. Reachable Only Interactive Toggle Card */}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={() =>
+            setDraft((prev) => ({ ...prev, reachableOnly: !prev.reachableOnly }))
+          }
+          style={[
+            styles.switchSection,
+            draft.reachableOnly && styles.switchSectionActive,
+          ]}
+        >
+          <View
+            style={[
+              styles.switchIconBox,
+              draft.reachableOnly && styles.switchIconBoxActive,
+            ]}
+          >
+            <Text style={styles.switchEmoji}>
+              {draft.reachableOnly ? '🔋' : '⚡'}
             </Text>
-            <Text variant="micro" color={colors.ink3}>
-              Excludes stations beyond remaining battery range
+          </View>
+          <View style={styles.switchTextCol}>
+            <View style={styles.switchTitleRow}>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  styles.switchTitle,
+                  draft.reachableOnly && styles.switchTitleActive,
+                ]}
+              >
+                Show Only Reachable Stations
+              </Text>
+              {draft.reachableOnly ? (
+                <View style={styles.activeBadge}>
+                  <View style={styles.activeBadgeDot} />
+                  <Text variant="micro" color={colors.brand} style={styles.activeBadgeText}>
+                    ON
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.inactiveBadge}>
+                  <Text variant="micro" color={colors.ink3} style={styles.inactiveBadgeText}>
+                    OFF
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text
+              variant="micro"
+              color={draft.reachableOnly ? colors.brandPress : colors.ink3}
+              style={styles.switchSubtitle}
+            >
+              {draft.reachableOnly
+                ? 'Only stations reachable with remaining battery range'
+                : 'Showing all stations regardless of battery range'}
             </Text>
           </View>
           <Switch
@@ -142,18 +260,31 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({
             onValueChange={(val) =>
               setDraft((prev) => ({ ...prev, reachableOnly: val }))
             }
-            trackColor={{ false: colors.line, true: colors.brandTint }}
-            thumbColor={draft.reachableOnly ? colors.brand : colors.surface}
+            trackColor={{ false: '#D1D5DB', true: colors.brand }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor="#D1D5DB"
           />
-        </View>
+        </TouchableOpacity>
 
         {/* 4. Minimum Power (kW) */}
         <View style={styles.section}>
-          <Text variant="caption" color={colors.ink2} style={styles.sectionLabel}>
-            Minimum Charger Power
-          </Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text variant="caption" color={colors.ink2} style={styles.sectionLabel}>
+              Minimum Charger Power {isBike ? '(AC Slow/Fast)' : '(DC Fast/AC)'}
+            </Text>
+            {draft.minPowerKw !== null && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setDraft((p) => ({ ...p, minPowerKw: null }))}
+              >
+                <Text variant="micro" color={colors.brand} style={styles.resetInlineText}>
+                  Clear
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <View style={styles.chipsWrap}>
-            {POWER_THRESHOLDS.map((pt, i) => {
+            {currentPowerThresholds.map((pt, i) => {
               const isSelected = draft.minPowerKw === pt.value;
               return (
                 <Chip
@@ -173,11 +304,26 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({
 
         {/* 5. Connector Type */}
         <View style={styles.section}>
-          <Text variant="caption" color={colors.ink2} style={styles.sectionLabel}>
-            Connector Compatibility
-          </Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text variant="caption" color={colors.ink2} style={styles.sectionLabel}>
+              {isBike ? '2-Wheeler Connectors' : '4-Wheeler Connectors'}
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() =>
+                setDraft((p) => ({
+                  ...p,
+                  connectorTypes: isBike ? [...BIKE_DEFAULT_CONNECTORS] : [...CAR_DEFAULT_CONNECTORS],
+                }))
+              }
+            >
+              <Text variant="micro" color={colors.ink3} style={styles.resetInlineText}>
+                Reset Defaults
+              </Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.chipsWrap}>
-            {ALL_CONNECTORS.map((conn) => {
+            {currentConnectors.map((conn) => {
               const isSelected = draft.connectorTypes.includes(conn);
               return (
                 <Chip
@@ -214,12 +360,15 @@ export const FilterSheet: React.FC<FilterSheetProps> = ({
 };
 
 const styles = StyleSheet.create({
+  sheetContainer: {
+    maxHeight: '90%',
+  },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: spacing.xs,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   sheetTitle: {
     fontFamily: 'SpaceGrotesk_600SemiBold',
@@ -227,34 +376,109 @@ const styles = StyleSheet.create({
   resetText: {
     fontFamily: 'Manrope_600SemiBold',
   },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
     gap: spacing.base,
-    paddingBottom: spacing.base,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xl,
   },
   section: {
     gap: spacing.xs,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   sectionLabel: {
+    fontFamily: 'Manrope_600SemiBold',
+  },
+  resetInlineText: {
     fontFamily: 'Manrope_600SemiBold',
   },
   switchSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: colors.surfaceSunken,
     padding: spacing.md,
     borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    gap: spacing.sm,
+  },
+  switchSectionActive: {
+    backgroundColor: colors.brandTint,
+    borderColor: colors.brand,
+  },
+  switchIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: radii.sm,
+    backgroundColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switchIconBoxActive: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.brand,
+  },
+  switchEmoji: {
+    fontSize: 18,
   },
   switchTextCol: {
     flex: 1,
     gap: 2,
-    marginRight: spacing.sm,
+  },
+  switchTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   switchTitle: {
     fontFamily: 'Manrope_600SemiBold',
     color: colors.ink,
+    fontSize: 14,
+  },
+  switchTitleActive: {
+    color: colors.brandPress,
+    fontFamily: 'Manrope_700Bold',
+  },
+  switchSubtitle: {
+    lineHeight: 16,
+  },
+  activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
+  activeBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.brand,
+  },
+  activeBadgeText: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 10,
+  },
+  inactiveBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radii.pill,
+    backgroundColor: colors.border,
+  },
+  inactiveBadgeText: {
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 10,
   },
   chipsWrap: {
     flexDirection: 'row',
@@ -265,9 +489,11 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
+    marginTop: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: colors.line,
+    backgroundColor: colors.surface,
   },
   cancelBtn: {
     flex: 1,

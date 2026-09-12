@@ -21,6 +21,9 @@ import {
   Card,
   LinearProgress,
   ChargingPulse,
+  CircularGauge,
+  BatteryPill,
+  StatColumn,
   Spinner,
 } from '../../components';
 import { colors, radii, shadows, spacing, greennessColor, greennessBandLabel } from '../../theme/tokens';
@@ -181,7 +184,7 @@ export const ActiveSessionScreen: React.FC = () => {
             <View style={styles.completedBadgeCircle}>
               <Text style={styles.completedBadgeIcon}>✓</Text>
             </View>
-            <Text variant="h1" align="center" style={styles.completedTitle}>
+            <Text variant="screenTitle" align="center" style={styles.completedTitle}>
               Charging Completed
             </Text>
             <Text variant="body" color={colors.ink2} align="center" style={styles.completedSubtitle}>
@@ -192,49 +195,33 @@ export const ActiveSessionScreen: React.FC = () => {
           {/* Core Summary Card */}
           <Card elevation="e1" style={styles.summaryCard}>
             <View style={styles.summaryRow}>
-              <View style={styles.summaryMetric}>
-                <Text variant="caption" color={colors.ink3}>
-                  DELIVERED ENERGY
-                </Text>
-                <Text variant="display" color={colors.ink} style={styles.tabularNumber}>
-                  {currentDeliveredKwh.toFixed(1)} <Text variant="title">kWh</Text>
-                </Text>
-              </View>
-
+              <StatColumn
+                label="DELIVERED ENERGY"
+                value={`${currentDeliveredKwh.toFixed(1)} kWh`}
+                valueColor={colors.ink}
+              />
               <View style={styles.summaryDivider} />
-
-              <View style={styles.summaryMetric}>
-                <Text variant="caption" color={colors.ink3}>
-                  TOTAL BILLED (LOCKED)
-                </Text>
-                <Text variant="display" color={colors.brand} style={styles.tabularNumber}>
-                  ₹{currentCost.toFixed(2)}
-                </Text>
-              </View>
+              <StatColumn
+                label="TOTAL BILLED (LOCKED)"
+                value={`₹${currentCost.toFixed(2)}`}
+                valueColor={colors.brand}
+              />
             </View>
 
             <View style={styles.horizontalRule} />
 
             <View style={styles.summaryRow}>
-              <View style={styles.summaryMetric}>
-                <Text variant="caption" color={colors.ink3}>
-                  AVG RENEWABLE MIX
-                </Text>
-                <Text variant="h2" color={colors.brand} style={styles.tabularNumber}>
-                  {avgRenewablePct}% ☀️
-                </Text>
-              </View>
-
+              <StatColumn
+                label="AVG RENEWABLE MIX"
+                value={`${avgRenewablePct}% ☀️`}
+                valueColor={colors.brand}
+              />
               <View style={styles.summaryDivider} />
-
-              <View style={styles.summaryMetric}>
-                <Text variant="caption" color={colors.ink3}>
-                  CO₂ AVOIDED
-                </Text>
-                <Text variant="h2" color={colors.volt} style={styles.tabularNumber}>
-                  {currentCo2Avoided} kg
-                </Text>
-              </View>
+              <StatColumn
+                label="CO₂ AVOIDED"
+                value={`${currentCo2Avoided} kg`}
+                valueColor={colors.brand}
+              />
             </View>
 
             {/* Edge Case #17 Guarantee Note */}
@@ -251,7 +238,7 @@ export const ActiveSessionScreen: React.FC = () => {
               <Text variant="caption" color={colors.ink2}>
                 Station
               </Text>
-              <Text variant="bodyMedium" color={colors.ink}>
+              <Text variant="body" color={colors.ink}>
                 {rawSession?.stationName || 'Torrent Charging Hub – CG Road'}
               </Text>
             </View>
@@ -259,7 +246,7 @@ export const ActiveSessionScreen: React.FC = () => {
               <Text variant="caption" color={colors.ink2}>
                 Connector
               </Text>
-              <Text variant="bodyMedium" color={colors.ink}>
+              <Text variant="body" color={colors.ink}>
                 {formatConnectorName((rawSession?.connectorType as any) || 'ccs2')}
               </Text>
             </View>
@@ -267,7 +254,7 @@ export const ActiveSessionScreen: React.FC = () => {
               <Text variant="caption" color={colors.ink2}>
                 Final Battery Level
               </Text>
-              <Text variant="bodyMedium" color={colors.brand}>
+              <Text variant="body" color={colors.brand}>
                 {currentChargePct}% (Target reached)
               </Text>
             </View>
@@ -313,7 +300,7 @@ export const ActiveSessionScreen: React.FC = () => {
         {/* Top Header Bar */}
         <View style={styles.headerBar}>
           <View style={styles.headerTitleCol}>
-            <Text variant="h2" style={styles.headerStationName}>
+            <Text variant="sectionLabel" style={styles.headerStationName}>
               {rawSession?.stationName || 'Torrent Charging Hub – CG Road'}
             </Text>
             <Text variant="caption" color={colors.ink2}>
@@ -326,7 +313,7 @@ export const ActiveSessionScreen: React.FC = () => {
             label={isConnectorOffline ? 'OFFLINE' : '● LIVE CHARGING'}
             variant="solid"
             color="#FFFFFF"
-            backgroundColor={isConnectorOffline ? colors.danger : colors.volt}
+            backgroundColor={isConnectorOffline ? colors.danger : colors.brand}
           />
         </View>
 
@@ -363,7 +350,7 @@ export const ActiveSessionScreen: React.FC = () => {
                 <Text style={styles.offlineIconText}>⚠️</Text>
               </View>
               <View style={styles.offlineHeaderTextCol}>
-                <Text variant="title" color={colors.danger}>
+                <Text variant="cardTitle" color={colors.danger}>
                   Connector Offline / Interrupted
                 </Text>
                 <Text variant="caption" color={colors.ink2}>
@@ -373,9 +360,9 @@ export const ActiveSessionScreen: React.FC = () => {
             </View>
 
             <Text variant="body" color={colors.ink} style={styles.offlineExplanation}>
-              All <Text variant="bodyMedium">{currentDeliveredKwh} kWh</Text> delivered up to this
+              All <Text variant="body">{currentDeliveredKwh} kWh</Text> delivered up to this
               interruption has been safely recorded and billed at your locked rate (
-              <Text variant="bodyMedium" color={colors.brand}>
+              <Text variant="body" color={colors.brand}>
                 ₹{currentCost.toFixed(2)}
               </Text>
               ).
@@ -415,25 +402,19 @@ export const ActiveSessionScreen: React.FC = () => {
         {/* HERO DARK PANEL: Single Animated Pulse & Living Telemetry */}
         <View style={styles.heroDarkPanel}>
           <View style={styles.heroGlowContainer}>
-            {/* The single ChargingPulse animated moment on screen */}
-            <ChargingPulse
-              size={140}
-              reduceMotion={reduceMotion}
-              style={styles.chargingPulseWrapper}
-            >
-              <View style={styles.pulseInnerContent}>
-                <Text variant="display" color="#FFFFFF" style={styles.batteryBigPct}>
-                  {currentChargePct}%
-                </Text>
-                <Text variant="micro" color={colors.volt} style={styles.chargingStatusText}>
-                  {isConnectorOffline ? 'STOPPED' : 'CHARGING'}
-                </Text>
-              </View>
-            </ChargingPulse>
+            <CircularGauge
+              value={`${currentChargePct}`}
+              unit="%"
+              label={isConnectorOffline ? 'STOPPED' : 'CHARGING'}
+              progress={currentChargePct / 100}
+              size={180}
+              ringColor={isConnectorOffline ? colors.danger : colors.brand}
+              glowPulse={!isConnectorOffline}
+            />
           </View>
 
           {/* Subtitle & Target Info */}
-          <Text variant="bodyMedium" color="#FFFFFF" align="center" style={styles.heroTargetSubtitle}>
+          <Text variant="body" color="#FFFFFF" align="center" style={styles.heroTargetSubtitle}>
             Target {targetChargePct}% · ~{Math.max(1, Math.round((targetChargePct - currentChargePct) * 0.8))} min remaining
           </Text>
 
@@ -443,7 +424,7 @@ export const ActiveSessionScreen: React.FC = () => {
               <Text variant="caption" color="#8A998F">
                 Start: {startChargePct}%
               </Text>
-              <Text variant="caption" color={colors.volt}>
+              <Text variant="caption" color={colors.brand}>
                 Now: {currentChargePct}%
               </Text>
               <Text variant="caption" color="#8A998F">
@@ -454,7 +435,7 @@ export const ActiveSessionScreen: React.FC = () => {
             <LinearProgress
               progress={currentProgressTowardsTarget}
               indeterminate={false}
-              color={colors.volt}
+              color={colors.brand}
               backgroundColor="#1B3026"
               height={8}
               reduceMotion={reduceMotion}
@@ -467,42 +448,38 @@ export const ActiveSessionScreen: React.FC = () => {
         <View style={styles.metricGrid}>
           {/* Metric 1: Delivered Energy */}
           <Card elevation="e0" style={styles.metricCell}>
-            <Text variant="caption" color={colors.ink3}>
-              ENERGY DELIVERED
-            </Text>
-            <Text variant="h2" color={colors.ink} style={styles.tabularNumber}>
-              {currentDeliveredKwh.toFixed(1)} <Text variant="body">kWh</Text>
-            </Text>
+            <StatColumn
+              label="ENERGY DELIVERED"
+              value={`${currentDeliveredKwh.toFixed(1)} kWh`}
+              valueColor={colors.ink}
+            />
           </Card>
 
           {/* Metric 2: Live Power Speed */}
           <Card elevation="e0" style={styles.metricCell}>
-            <Text variant="caption" color={colors.ink3}>
-              POWER SPEED
-            </Text>
-            <Text variant="h2" color={colors.volt} style={styles.tabularNumber}>
-              {powerKw.toFixed(1)} <Text variant="body">kW</Text>
-            </Text>
+            <StatColumn
+              label="POWER SPEED"
+              value={`${powerKw.toFixed(1)} kW`}
+              valueColor={colors.brand}
+            />
           </Card>
 
           {/* Metric 3: Live Accrued Cost */}
           <Card elevation="e0" style={styles.metricCell}>
-            <Text variant="caption" color={colors.ink3}>
-              ACCRUED COST
-            </Text>
-            <Text variant="h2" color={colors.brand} style={styles.tabularNumber}>
-              ₹{currentCost.toFixed(2)}
-            </Text>
+            <StatColumn
+              label="ACCRUED COST"
+              value={`₹${currentCost.toFixed(2)}`}
+              valueColor={colors.brand}
+            />
           </Card>
 
           {/* Metric 4: CO2 Avoided */}
           <Card elevation="e0" style={styles.metricCell}>
-            <Text variant="caption" color={colors.ink3}>
-              CO₂ AVOIDED
-            </Text>
-            <Text variant="h2" color={colors.brand} style={styles.tabularNumber}>
-              {currentCo2Avoided} <Text variant="body">kg</Text>
-            </Text>
+            <StatColumn
+              label="CO₂ AVOIDED"
+              value={`${currentCo2Avoided} kg`}
+              valueColor={colors.brand}
+            />
           </Card>
         </View>
 
@@ -510,7 +487,7 @@ export const ActiveSessionScreen: React.FC = () => {
         <Card elevation="e1" style={styles.priceLockCard}>
           <View style={styles.priceLockHeader}>
             <View style={styles.priceLockTitleCol}>
-              <Text variant="title" color={colors.ink}>
+              <Text variant="cardTitle" color={colors.ink}>
                 Locked Rate Billing
               </Text>
               <Text variant="caption" color={colors.ink2}>
@@ -529,7 +506,7 @@ export const ActiveSessionScreen: React.FC = () => {
             <Text variant="caption" color={colors.ink2}>
               Calculation:
             </Text>
-            <Text variant="bodyMedium" color={colors.ink} style={styles.tabularNumber}>
+            <Text variant="body" color={colors.ink} style={styles.tabularNumber}>
               {currentDeliveredKwh.toFixed(2)} kWh × ₹{lockedPrice.toFixed(2)} = ₹{currentCost.toFixed(2)}
             </Text>
           </View>
@@ -539,7 +516,7 @@ export const ActiveSessionScreen: React.FC = () => {
         <Card elevation="e0" style={styles.greennessCard}>
           <View style={styles.greennessHeaderRow}>
             <View style={styles.greennessTextCol}>
-              <Text variant="title" color={colors.ink}>
+              <Text variant="cardTitle" color={colors.ink}>
                 Live Grid Renewable Mix
               </Text>
               <Text variant="caption" color={colors.ink2}>
@@ -623,7 +600,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
   },
   demoPillActive: {
     borderColor: colors.danger,
@@ -668,7 +645,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     marginBottom: spacing.base,
   },
   offlineStepText: {
@@ -684,7 +661,7 @@ const styles = StyleSheet.create({
 
   // Hero Dark Panel (Dark Surface token: grid900)
   heroDarkPanel: {
-    backgroundColor: colors.grid900,
+    backgroundColor: colors.ink,
     borderRadius: radii.xl,
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.base,
@@ -769,7 +746,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: colors.border,
   },
 
   // Greenness Card
@@ -794,7 +771,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: colors.border,
   },
 
   // Stop Action CTA
@@ -859,12 +836,12 @@ const styles = StyleSheet.create({
   summaryDivider: {
     width: 1,
     height: 48,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
     marginHorizontal: spacing.sm,
   },
   horizontalRule: {
     height: 1,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
     marginVertical: spacing.base,
   },
   priceGuaranteeBox: {

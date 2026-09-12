@@ -20,6 +20,7 @@ import {
   Button,
   Chip,
   Card,
+  TicketCard,
 } from '../../components';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
 
@@ -121,35 +122,21 @@ export const ConfirmBookingScreen: React.FC = () => {
   if (isSuccess) {
     return (
       <View style={[styles.container, styles.successContainer]}>
-        <View style={styles.successCard}>
-          <View style={styles.successIconCircle}>
-            <Text variant="h1" color="#FFFFFF">
-              ✓
-            </Text>
-          </View>
-
-          <Text variant="h2" align="center" style={styles.successTitle}>
-            Slot Booked Successfully!
-          </Text>
-
-          <Text variant="body" color={colors.ink2} align="center" style={styles.successMsg}>
-            Your slot at <Text variant="bodyMedium">{station.name}</Text> is confirmed at the locked price of{' '}
-            <Text variant="bodyMedium" color={colors.brand}>
-              ₹{quote.finalPrice.toFixed(2)}/kWh
-            </Text>.
-          </Text>
-
-          <View style={styles.successDetailsBox}>
-            <Text variant="caption" color={colors.ink2}>
-              📅 Schedule: 12:00 PM – 1:30 PM (Solar Peak)
-            </Text>
-            <Text variant="caption" color={colors.ink2}>
-              🔌 Connector: {formatConnectorName(connectorType as any)}
-            </Text>
-            <Text variant="caption" color={colors.ink2}>
-              🚗 EV: {activeVehicle?.model || 'Tata Nexon EV Max'}
-            </Text>
-          </View>
+        <Text variant="screenTitle" align="center" style={{ marginBottom: spacing.md }}>
+          Slot Booked!
+        </Text>
+        
+        <TicketCard
+          bookingId={`BK-${Date.now().toString().slice(-6)}`}
+          stationName={station.name}
+          dateTime="12:00 PM – 1:30 PM (Solar Peak)"
+          rows={[
+            { label: 'Connector', value: formatConnectorName(connectorType as any) },
+            { label: 'Vehicle', value: activeVehicle?.model || 'Tata Nexon EV Max' },
+            { label: 'Locked Tariff', value: `₹${quote.finalPrice.toFixed(2)}/kWh`, highlight: true },
+          ]}
+          style={{ marginBottom: spacing.xl }}
+        />
 
           <Button
             label="View Active Session"
@@ -170,7 +157,6 @@ export const ConfirmBookingScreen: React.FC = () => {
               })
             }
           />
-        </View>
       </View>
     );
   }
@@ -187,7 +173,7 @@ export const ConfirmBookingScreen: React.FC = () => {
         {/* Header */}
         <View style={styles.headerTitleRow}>
           <View style={styles.titleCol}>
-            <Text variant="h2" style={styles.screenTitle}>
+            <Text variant="sectionLabel" style={styles.screenTitle}>
               Confirm Reservation
             </Text>
             <Text variant="caption" color={colors.ink2}>
@@ -200,7 +186,7 @@ export const ConfirmBookingScreen: React.FC = () => {
         <View style={styles.summaryCard}>
           <View style={styles.stationRow}>
             <View style={styles.stationTitleCol}>
-              <Text variant="title" style={styles.stationName}>
+              <Text variant="cardTitle" style={styles.stationName}>
                 {station.name}
               </Text>
               <Text variant="micro" color={colors.ink2}>
@@ -222,7 +208,7 @@ export const ConfirmBookingScreen: React.FC = () => {
               <Text variant="micro" color={colors.ink3}>
                 Vehicle Assigned
               </Text>
-              <Text variant="bodyMedium" style={styles.vehicleModel}>
+              <Text variant="body" style={styles.vehicleModel}>
                 {activeVehicle?.model || 'Tata Nexon EV Max'}
               </Text>
             </View>
@@ -231,7 +217,7 @@ export const ConfirmBookingScreen: React.FC = () => {
               <Text variant="micro" color={colors.ink3}>
                 Connector
               </Text>
-              <Text variant="bodyMedium" color={colors.brand} style={styles.connType}>
+              <Text variant="body" color={colors.brand} style={styles.connType}>
                 {formatConnectorName(connectorType as any)}
               </Text>
             </View>
@@ -241,7 +227,7 @@ export const ConfirmBookingScreen: React.FC = () => {
         {/* 2. Scheduled Time Window Card */}
         <View style={styles.timeWindowCard}>
           <View style={styles.timeWindowHeader}>
-            <Text variant="title" style={styles.timeWindowTitle}>
+            <Text variant="cardTitle" style={styles.timeWindowTitle}>
               Scheduled Slot Window
             </Text>
             <Chip
@@ -253,7 +239,7 @@ export const ConfirmBookingScreen: React.FC = () => {
           </View>
 
           <View style={styles.timeBox}>
-            <Text variant="h2" color={colors.brand} style={styles.timeBig}>
+            <Text variant="sectionLabel" color={colors.brand} style={styles.timeBig}>
               12:00 PM – 1:30 PM
             </Text>
             <Text variant="micro" color={colors.ink2}>
@@ -266,7 +252,7 @@ export const ConfirmBookingScreen: React.FC = () => {
         <View style={styles.priceLockCard}>
           <View style={styles.priceLockHeader}>
             <View style={styles.priceLockTitleCol}>
-              <Text variant="title" color={colors.brand} style={styles.priceLockTitle}>
+              <Text variant="cardTitle" color={colors.brand} style={styles.priceLockTitle}>
                 🔒 Guaranteed Price Lock
               </Text>
               <Text variant="micro" color={colors.ink3}>
@@ -286,7 +272,7 @@ export const ConfirmBookingScreen: React.FC = () => {
               <Text variant="micro" color={colors.ink3}>
                 Locked Tariff
               </Text>
-              <Text variant="title" color={colors.brand} style={styles.priceValue}>
+              <Text variant="cardTitle" color={colors.brand} style={styles.priceValue}>
                 ₹{quote.finalPrice.toFixed(2)}/kWh
               </Text>
             </View>
@@ -297,7 +283,7 @@ export const ConfirmBookingScreen: React.FC = () => {
               <Text variant="micro" color={colors.ink3}>
                 Target kWh
               </Text>
-              <Text variant="title" style={styles.priceValue}>
+              <Text variant="cardTitle" style={styles.priceValue}>
                 18.0 kWh
               </Text>
             </View>
@@ -308,7 +294,7 @@ export const ConfirmBookingScreen: React.FC = () => {
               <Text variant="micro" color={colors.ink3}>
                 Estimated Cost
               </Text>
-              <Text variant="title" color={colors.ink} style={styles.priceValue}>
+              <Text variant="cardTitle" color={colors.ink} style={styles.priceValue}>
                 ₹{(quote.finalPrice * 18).toFixed(2)}
               </Text>
             </View>
@@ -367,14 +353,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   screenTitle: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   summaryCard: {
     backgroundColor: colors.surface,
     borderRadius: radii.xl,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: spacing.sm,
     ...shadows.e1,
   },
@@ -388,11 +374,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   stationName: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   divider: {
     height: 1,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
   },
   vehicleRow: {
     flexDirection: 'row',
@@ -417,7 +403,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: spacing.sm,
     ...shadows.e1,
   },
@@ -427,7 +413,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timeWindowTitle: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_600SemiBold',
   },
   timeBox: {
     backgroundColor: colors.surfaceSunken,
@@ -437,7 +423,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   timeBig: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   priceLockCard: {
     backgroundColor: '#F3FAF5',
@@ -458,7 +444,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   priceLockTitle: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   timerBadge: {
     backgroundColor: colors.brandTint,
@@ -469,7 +455,7 @@ const styles = StyleSheet.create({
     borderColor: colors.brand,
   },
   timerText: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   priceGrid: {
     flexDirection: 'row',
@@ -485,13 +471,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   priceValue: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
     fontSize: 16,
   },
   priceDivider: {
     width: 1,
     height: 32,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
   },
   priceLockFooter: {
     paddingTop: 2,
@@ -511,7 +497,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: colors.border,
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.base,
     ...shadows.e2,
@@ -530,7 +516,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     ...shadows.e2,
   },
   successIconCircle: {
@@ -542,7 +528,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   successTitle: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   successMsg: {
     lineHeight: 22,

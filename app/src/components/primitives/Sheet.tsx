@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   ViewStyle,
+  StyleProp,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
@@ -14,7 +15,7 @@ export interface SheetProps {
   visible: boolean;
   onClose: () => void;
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const Sheet: React.FC<SheetProps> = ({
@@ -57,17 +58,17 @@ export const Sheet: React.FC<SheetProps> = ({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(12, 26, 19, 0.4)',
+    backgroundColor: 'rgba(20,24,20,0.40)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingHorizontal: spacing.base,
     paddingTop: spacing.sm,
     maxHeight: '85%',
-    ...shadows.e2,
+    ...shadows.sheet,
   },
   handleContainer: {
     alignItems: 'center',
@@ -77,6 +78,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: radii.pill,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
   },
 });

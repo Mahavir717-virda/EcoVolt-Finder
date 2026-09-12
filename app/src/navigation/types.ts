@@ -12,7 +12,6 @@ export type DriverTabParamList = {
   Explore: undefined;
   SmartCharge: undefined;
   Activity: undefined;
-  Profile: undefined;
 };
 
 export type DriverStackParamList = {
@@ -24,6 +23,7 @@ export type DriverStackParamList = {
   Bookings: undefined;
   Impact: undefined;
   Vehicles: undefined;
+  Profile: undefined;
 };
 
 export type ManagerStackParamList = {
@@ -33,6 +33,7 @@ export type ManagerStackParamList = {
   PricingControls: { stationId: string };
   LiveSessions: undefined;
   ManagerAnalytics: undefined;
+  Profile: undefined;
 };
 
 export type AdminStackParamList = {

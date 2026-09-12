@@ -4,6 +4,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
 import { ConnectorType, VehicleClass } from '@contracts/enums';
 import { Vehicle } from '@contracts/types';
@@ -47,6 +48,8 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
   initialVehicle,
   onSave,
 }) => {
+  const { height: windowHeight } = useWindowDimensions();
+  const sheetHeight = Math.min(Math.round(windowHeight * 0.88), 750);
   const isEditing = !!initialVehicle;
 
   // Form fields state
@@ -162,7 +165,11 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose}>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      style={[styles.sheetContainer, { height: sheetHeight }]}
+    >
       <View style={styles.headerRow}>
         <Text variant="title" style={styles.sheetTitle}>
           {isEditing ? 'Edit EV Profile' : 'Add EV to Garage'}
@@ -175,8 +182,11 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
       </View>
 
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={true}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        bounces={true}
       >
         {/* 1. Vehicle Class Selector */}
         <View style={styles.fieldSection}>
@@ -319,6 +329,9 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
 };
 
 const styles = StyleSheet.create({
+  sheetContainer: {
+    maxHeight: '90%',
+  },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -329,9 +342,13 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontFamily: 'SpaceGrotesk_600SemiBold',
   },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
     gap: spacing.sm + 2,
-    paddingBottom: spacing.base,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xl,
   },
   fieldSection: {
     gap: 4,
@@ -377,9 +394,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   footerRow: {
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
+    marginTop: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: colors.line,
+    backgroundColor: colors.surface,
   },
   saveBtn: {
     width: '100%',

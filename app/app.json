@@ -4,9 +4,10 @@
     "slug": "ecovolt-finder",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "scheme": "ecovolt",
+    "userInterfaceStyle": "automatic",
     "splash": {
-      "backgroundColor": "#F3F6F2",
+      "backgroundColor": "#0F172A",
       "resizeMode": "contain"
     },
     "assetBundlePatterns": [
@@ -21,13 +22,20 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0E8E4F"
+        "backgroundColor": "#0F172A"
       },
       "package": "com.ecovolt.finder",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ]
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

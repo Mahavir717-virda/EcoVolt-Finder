@@ -21,38 +21,39 @@ export const ChargingPulse: React.FC<ChargingPulseProps> = ({
   style,
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(0.6)).current;
+  const opacity = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
     if (reduceMotion) {
       scale.setValue(1);
-      opacity.setValue(0.3);
+      opacity.setValue(0.4);
       return;
     }
 
+    // ChargingPulse animation: opacity 0.4↔0.8, 2.5s ease-in-out loop
     const pulseAnimation = Animated.loop(
       Animated.parallel([
         Animated.sequence([
           Animated.timing(scale, {
-            toValue: 1.45,
-            duration: 1800,
+            toValue: 1.2,
+            duration: 2500,
             useNativeDriver: true,
           }),
           Animated.timing(scale, {
             toValue: 1,
-            duration: 1800,
+            duration: 2500,
             useNativeDriver: true,
           }),
         ]),
         Animated.sequence([
           Animated.timing(opacity, {
-            toValue: 0.1,
-            duration: 1800,
+            toValue: 0.8,
+            duration: 2500,
             useNativeDriver: true,
           }),
           Animated.timing(opacity, {
-            toValue: 0.6,
-            duration: 1800,
+            toValue: 0.4,
+            duration: 2500,
             useNativeDriver: true,
           }),
         ]),
@@ -107,15 +108,15 @@ const styles = StyleSheet.create({
   },
   pulseRing: {
     position: 'absolute',
-    backgroundColor: colors.voltTint,
+    backgroundColor: colors.brandTint,
     borderWidth: 2,
-    borderColor: colors.volt,
+    borderColor: colors.brand,
   },
   core: {
-    backgroundColor: colors.volt,
+    backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.volt,
+    shadowColor: colors.brand,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 10,

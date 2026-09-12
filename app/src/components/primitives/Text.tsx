@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Text as RNText,
   TextProps as RNTextProps,
@@ -8,14 +9,21 @@ import {
 import { typography, colors } from '../../theme/tokens';
 
 export type TextVariant =
+  // Reference-matched scale
+  | 'screenTitle'
+  | 'sectionLabel'
+  | 'cardTitle'
+  | 'body'
+  | 'caption'
+  | 'micro'
+  | 'bigNumeral'
+  | 'price'
+  // Backward-compat aliases (existing screens)
   | 'display'
   | 'h1'
   | 'h2'
   | 'title'
-  | 'body'
-  | 'bodyMedium'
-  | 'caption'
-  | 'micro';
+  | 'bodyMedium';
 
 export interface TextProps extends RNTextProps {
   variant?: TextVariant;
@@ -34,7 +42,7 @@ export const Text: React.FC<TextProps> = ({
   children,
   ...rest
 }) => {
-  const variantStyle = typography[variant] || typography.body;
+  const variantStyle = typography[variant] ?? typography.body;
 
   return (
     <RNText

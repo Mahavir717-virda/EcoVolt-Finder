@@ -21,6 +21,7 @@ import {
   EmptyState,
   SegmentedControl,
   SkeletonRow,
+  StatColumn,
 } from '../../components';
 import { colors, radii, shadows, spacing, greennessColor } from '../../theme/tokens';
 import { formatConnectorName } from '../../features/stations/utils';
@@ -155,7 +156,7 @@ export const BookingsScreen: React.FC = () => {
       >
         {/* Screen Header */}
         <View style={styles.header}>
-          <Text variant="h1" style={styles.screenTitle}>
+          <Text variant="screenTitle" style={styles.screenTitle}>
             My Bookings & History
           </Text>
           <Text variant="caption" color={colors.ink2}>
@@ -241,7 +242,7 @@ export const BookingsScreen: React.FC = () => {
                       {/* Top Card Row */}
                       <View style={styles.cardHeaderRow}>
                         <View style={styles.stationTitleCol}>
-                          <Text variant="title" style={styles.stationName}>
+                          <Text variant="cardTitle" style={styles.stationName}>
                             {booking.stationName}
                           </Text>
                           <Text variant="caption" color={colors.ink2}>
@@ -255,7 +256,7 @@ export const BookingsScreen: React.FC = () => {
                             label="LIVE NOW"
                             variant="solid"
                             color="#FFFFFF"
-                            backgroundColor={colors.volt}
+                            backgroundColor={colors.brand}
                           />
                         )}
                         {isUpcoming && (
@@ -301,36 +302,27 @@ export const BookingsScreen: React.FC = () => {
 
                       {/* Metrics & Locked Price Breakdown */}
                       <View style={styles.metricsRow}>
-                        <View style={styles.metricItem}>
-                          <Text variant="micro" color={colors.ink3}>
-                            LOCKED TARIFF
-                          </Text>
-                          <Text variant="bodyMedium" color={colors.brand} style={styles.tabularNum}>
-                            ₹{(booking.lockedPrice ?? 6.2).toFixed(2)}/kWh
-                          </Text>
-                        </View>
+                        <StatColumn
+                          label="LOCKED TARIFF"
+                          value={`₹${(booking.lockedPrice ?? 6.2).toFixed(2)}/kWh`}
+                          valueColor={colors.brand}
+                        />
 
                         {isCompleted && (
                           <>
                             <View style={styles.metricDivider} />
-                            <View style={styles.metricItem}>
-                              <Text variant="micro" color={colors.ink3}>
-                                DELIVERED
-                              </Text>
-                              <Text variant="bodyMedium" color={colors.ink} style={styles.tabularNum}>
-                                {(booking.energyKwh ?? 18.0).toFixed(1)} kWh
-                              </Text>
-                            </View>
+                            <StatColumn
+                              label="DELIVERED"
+                              value={`${(booking.energyKwh ?? 18.0).toFixed(1)} kWh`}
+                              valueColor={colors.ink}
+                            />
 
                             <View style={styles.metricDivider} />
-                            <View style={styles.metricItem}>
-                              <Text variant="micro" color={colors.ink3}>
-                                TOTAL BILLED
-                              </Text>
-                              <Text variant="bodyMedium" color={colors.brand} style={styles.tabularNum}>
-                                ₹{(booking.cost ?? ((booking.energyKwh ?? 18.0) * (booking.lockedPrice ?? 6.2))).toFixed(2)}
-                              </Text>
-                            </View>
+                            <StatColumn
+                              label="TOTAL BILLED"
+                              value={`₹${(booking.cost ?? ((booking.energyKwh ?? 18.0) * (booking.lockedPrice ?? 6.2))).toFixed(2)}`}
+                              valueColor={colors.brand}
+                            />
                           </>
                         )}
                       </View>
@@ -462,7 +454,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: colors.border,
   },
   metricItem: {
     flex: 1,
@@ -470,14 +462,14 @@ const styles = StyleSheet.create({
   metricDivider: {
     width: 1,
     height: 24,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
     marginHorizontal: spacing.xs,
   },
   graceSection: {
     marginTop: spacing.sm,
     paddingTop: spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: colors.border,
   },
   graceNoticeRow: {
     marginBottom: spacing.xs,

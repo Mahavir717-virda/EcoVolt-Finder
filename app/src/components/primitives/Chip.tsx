@@ -114,6 +114,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontWeight: '600',
-    fontFamily: 'Manrope_600SemiBold',
+    fontFamily: 'Manrope_700Bold',
   },
 });
