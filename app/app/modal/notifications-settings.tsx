@@ -1,6 +1,7 @@
 /**
  * Notification Settings & Preferences Modal Screen
  * Manage smart solar window alerts, price drop notifications, countdowns, and distance units.
+ * Connected to dynamic Theme & Hindi/English Language.
  */
 
 import React, { useState } from 'react';
@@ -16,12 +17,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
 import { spacing } from '@/styles/spacing';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function NotificationSettingsModal() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const { t } = useLanguage();
 
   const [pushEnabled, setPushEnabled] = useState(true);
   const [solarWindowAlerts, setSolarWindowAlerts] = useState(true);
@@ -32,22 +36,38 @@ export default function NotificationSettingsModal() {
 
   const handleSave = () => {
     Alert.alert(
-      'Preferences Saved',
+      t('pref.notifications', 'Preferences Saved'),
       'Your notification and unit preferences have been successfully updated.',
-      [{ text: 'OK', onPress: () => router.back() }]
+      [{ text: t('common.ok', 'OK'), onPress: () => router.back() }]
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 8,
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="close" size={26} color={colors.neutral[800]} />
+          <Ionicons name="close" size={26} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications & Settings</Text>
-        <TouchableOpacity onPress={handleSave} style={styles.saveHeaderButton}>
-          <Text style={styles.saveHeaderText}>Save</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          {t('pref.notifications', 'Notifications & Settings')}
+        </Text>
+        <TouchableOpacity
+          onPress={handleSave}
+          style={[styles.saveHeaderButton, { backgroundColor: colors.primaryLight }]}
+        >
+          <Text style={[styles.saveHeaderText, { color: colors.primary }]}>
+            {t('common.save', 'Save')}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -56,35 +76,43 @@ export default function NotificationSettingsModal() {
         showsVerticalScrollIndicator={false}
       >
         {/* Master Push Toggle */}
-        <View style={styles.masterCard}>
+        <View style={[styles.masterCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.masterLeft}>
-            <View style={styles.masterIconBox}>
-              <Ionicons name="notifications" size={22} color={colors.primary[600]} />
+            <View style={[styles.masterIconBox, { backgroundColor: colors.primaryLight }]}>
+              <Ionicons name="notifications" size={22} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.masterTitle}>Push Notifications</Text>
-              <Text style={styles.masterSubtitle}>Enable all real-time alerts and charging updates</Text>
+              <Text style={[styles.masterTitle, { color: colors.textPrimary }]}>
+                {t('pref.notifications', 'Push Notifications')}
+              </Text>
+              <Text style={[styles.masterSubtitle, { color: colors.textSecondary }]}>
+                Enable all real-time alerts and charging updates
+              </Text>
             </View>
           </View>
           <Switch
             value={pushEnabled}
             onValueChange={setPushEnabled}
-            trackColor={{ false: colors.neutral[300], true: colors.primary[500] }}
-            thumbColor={colors.white}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor="#FFFFFF"
           />
         </View>
 
         {/* Smart Green Grid Alerts */}
-        <Text style={styles.sectionTitle}>Eco & Smart Charging Alerts</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          Eco & Smart Charging Alerts
+        </Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Solar Windows */}
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <View style={styles.rowTitleWrap}>
                 <Ionicons name="sunny" size={18} color="#F59E0B" />
-                <Text style={styles.toggleTitle}>Peak Solar & Wind Hours</Text>
+                <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>
+                  Peak Solar & Wind Hours
+                </Text>
               </View>
-              <Text style={styles.toggleDesc}>
+              <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>
                 Notify when renewable grid mix exceeds 75% for lowest carbon intensity
               </Text>
             </View>
@@ -92,21 +120,23 @@ export default function NotificationSettingsModal() {
               value={solarWindowAlerts && pushEnabled}
               onValueChange={setSolarWindowAlerts}
               disabled={!pushEnabled}
-              trackColor={{ false: colors.neutral[300], true: colors.primary[500] }}
-              thumbColor={colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
             />
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
 
           {/* Dynamic Discounts */}
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <View style={styles.rowTitleWrap}>
                 <Ionicons name="pricetag" size={18} color="#10B981" />
-                <Text style={styles.toggleTitle}>Price Drop & Dynamic Discounts</Text>
+                <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>
+                  Price Drop & Dynamic Discounts
+                </Text>
               </View>
-              <Text style={styles.toggleDesc}>
+              <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>
                 Alert when nearby fast-chargers offer ₹100+ savings or off-peak rates
               </Text>
             </View>
@@ -114,23 +144,27 @@ export default function NotificationSettingsModal() {
               value={priceDiscountAlerts && pushEnabled}
               onValueChange={setPriceDiscountAlerts}
               disabled={!pushEnabled}
-              trackColor={{ false: colors.neutral[300], true: colors.primary[500] }}
-              thumbColor={colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
             />
           </View>
         </View>
 
         {/* Charging Session Updates */}
-        <Text style={styles.sectionTitle}>Active Sessions & Garage</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          Active Sessions & Garage
+        </Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Session Countdown */}
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <View style={styles.rowTitleWrap}>
                 <Ionicons name="timer-outline" size={18} color="#3B82F6" />
-                <Text style={styles.toggleTitle}>Session 10-Min Countdown</Text>
+                <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>
+                  Session 10-Min Countdown
+                </Text>
               </View>
-              <Text style={styles.toggleDesc}>
+              <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>
                 Reminders before reservation window expires to avoid idle fees
               </Text>
             </View>
@@ -138,21 +172,23 @@ export default function NotificationSettingsModal() {
               value={sessionCountdowns && pushEnabled}
               onValueChange={setSessionCountdowns}
               disabled={!pushEnabled}
-              trackColor={{ false: colors.neutral[300], true: colors.primary[500] }}
-              thumbColor={colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
             />
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
 
           {/* Low Battery Alerts */}
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <View style={styles.rowTitleWrap}>
                 <Ionicons name="battery-dead-outline" size={18} color="#EF4444" />
-                <Text style={styles.toggleTitle}>Low EV Battery Protection</Text>
+                <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>
+                  Low EV Battery Protection
+                </Text>
               </View>
-              <Text style={styles.toggleDesc}>
+              <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>
                 Smart prompts when EV state of charge falls below 20%
               </Text>
             </View>
@@ -160,30 +196,44 @@ export default function NotificationSettingsModal() {
               value={lowBatteryReminder && pushEnabled}
               onValueChange={setLowBatteryReminder}
               disabled={!pushEnabled}
-              trackColor={{ false: colors.neutral[300], true: colors.primary[500] }}
-              thumbColor={colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
             />
           </View>
         </View>
 
         {/* Distance Units */}
-        <Text style={styles.sectionTitle}>Measurement Units</Text>
-        <View style={styles.unitsCard}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          Measurement Units
+        </Text>
+        <View style={[styles.unitsCard, { backgroundColor: colors.surfaceSunken }]}>
           <TouchableOpacity
-            style={[styles.unitButton, units === 'km' && styles.unitButtonActive]}
+            style={[styles.unitButton, units === 'km' && [styles.unitButtonActive, { backgroundColor: colors.surface }]]}
             onPress={() => setUnits('km')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.unitText, units === 'km' && styles.unitTextActive]}>
+            <Text
+              style={[
+                styles.unitText,
+                { color: colors.textSecondary },
+                units === 'km' && { color: colors.primary, fontWeight: '700' },
+              ]}
+            >
               Kilometers (km)
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.unitButton, units === 'mi' && styles.unitButtonActive]}
+            style={[styles.unitButton, units === 'mi' && [styles.unitButtonActive, { backgroundColor: colors.surface }]]}
             onPress={() => setUnits('mi')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.unitText, units === 'mi' && styles.unitTextActive]}>
+            <Text
+              style={[
+                styles.unitText,
+                { color: colors.textSecondary },
+                units === 'mi' && { color: colors.primary, fontWeight: '700' },
+              ]}
+            >
               Miles (mi)
             </Text>
           </TouchableOpacity>
@@ -196,7 +246,6 @@ export default function NotificationSettingsModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
   },
   header: {
     flexDirection: 'row',
@@ -204,9 +253,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
   },
   headerButton: {
     padding: 6,
@@ -214,18 +261,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   saveHeaderButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: colors.primary[50],
   },
   saveHeaderText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.primary[600],
   },
   scrollContent: {
     padding: spacing.screenPadding,
@@ -234,12 +278,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.white,
     borderRadius: spacing.radius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
   },
   masterLeft: {
     flexDirection: 'row',
@@ -251,7 +293,6 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: colors.primary[50],
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -259,17 +300,14 @@ const styles = StyleSheet.create({
   masterTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   masterSubtitle: {
     fontSize: 12,
-    color: colors.neutral[500],
     marginTop: 2,
   },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.neutral[500],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -277,10 +315,8 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   card: {
-    backgroundColor: colors.white,
     borderRadius: spacing.radius.lg,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
     overflow: 'hidden',
     marginBottom: spacing.md,
   },
@@ -302,21 +338,17 @@ const styles = StyleSheet.create({
   toggleTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   toggleDesc: {
     fontSize: 12,
-    color: colors.neutral[500],
     marginTop: 4,
     lineHeight: 16,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.neutral[100],
   },
   unitsCard: {
     flexDirection: 'row',
-    backgroundColor: colors.neutral[200],
     borderRadius: spacing.radius.lg,
     padding: 4,
     gap: 4,
@@ -329,20 +361,10 @@ const styles = StyleSheet.create({
     borderRadius: spacing.radius.md,
   },
   unitButtonActive: {
-    backgroundColor: colors.white,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     elevation: 2,
   },
   unitText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.neutral[600],
-  },
-  unitTextActive: {
-    color: colors.primary[600],
-    fontWeight: '700',
   },
 });

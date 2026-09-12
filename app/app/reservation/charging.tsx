@@ -1,6 +1,8 @@
 import { Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 import { updateChargerStatus } from '@/services/chargers.service';
 import { completeReservation } from '@/services/reservations.service';
 import { formatCurrency } from '@/utils/pricing';
@@ -8,13 +10,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Animated,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -35,6 +37,8 @@ export default function ChargingSessionScreen() {
   
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { colors: themeColors, isDark } = useTheme();
+  const { t } = useLanguage();
   
   const [sessionStarted, setSessionStarted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -117,12 +121,12 @@ export default function ChargingSessionScreen() {
 
   const handleStartSession = useCallback(() => {
     Alert.alert(
-      'Start Charging',
-      'Make sure your vehicle is properly connected to the charger before starting.',
+      t('charging.start_alert_title', 'Start Charging'),
+      t('charging.start_alert_desc', 'Make sure your vehicle is properly connected to the charger before starting.'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('support.cancel', 'Cancel'), style: 'cancel' },
         {
-          text: 'Start Charging',
+          text: t('charging.start_btn', 'Start Charging'),
           onPress: async () => {
             setSessionStarted(true);
             if (chargerId) {
@@ -132,16 +136,16 @@ export default function ChargingSessionScreen() {
         },
       ]
     );
-  }, [chargerId]);
+  }, [chargerId, t]);
 
   const handleEndSession = useCallback(async () => {
     Alert.alert(
-      'End Charging Session',
-      `You've charged ${energyDelivered.toFixed(2)} kWh for ${formatCurrency(currentCost)}. End session now?`,
+      t('charging.end_alert_title', 'End Charging Session'),
+      `${t('charging.end_alert_desc', 'Are you sure you want to end your charging session now?')}\n\n${energyDelivered.toFixed(2)} kWh · ${formatCurrency(currentCost)}`,
       [
-        { text: 'Continue Charging', style: 'cancel' },
+        { text: t('charging.continue', 'Continue Charging'), style: 'cancel' },
         {
-          text: 'End Session',
+          text: t('charging.end_btn', 'End Session'),
           style: 'destructive',
           onPress: async () => {
             setIsEnding(true);
@@ -166,8 +170,7 @@ export default function ChargingSessionScreen() {
               setShowSweetModal(true);
             } catch (error) {
               console.error('Error ending session:', error);
-              Alert.alert('Session Complete', 'Session ended successfully!');
-              router.replace('/(tabs)/reservations');
+              setShowSweetModal(true);
             } finally {
               setIsEnding(false);
             }
@@ -175,15 +178,15 @@ export default function ChargingSessionScreen() {
         },
       ]
     );
-  }, [energyDelivered, currentCost, formattedTime, reservationId, chargerId]);
+  }, [energyDelivered, currentCost, formattedTime, reservationId, chargerId, t]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{stationName || 'Charging Session'}</Text>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{stationName || t('charging.title', 'Charging Session')}</Text>
         {!sessionStarted && (
-          <Text style={styles.headerSubtitle}>Ready to charge</Text>
+          <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>{t('charging.ready', 'Ready to charge')}</Text>
         )}
       </View>
 
@@ -195,80 +198,85 @@ export default function ChargingSessionScreen() {
             style={[
               styles.outerRing,
               {
+                backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : colors.primary[50],
                 transform: [{ scale: pulseAnim }],
                 opacity: sessionStarted ? 1 : 0.5,
               },
             ]}
           >
-            <View style={[styles.innerRing, sessionStarted && styles.innerRingActive]}>
+            <View style={[
+              styles.innerRing, 
+              { backgroundColor: isDark ? '#1F2937' : colors.neutral[100], borderColor: isDark ? '#374151' : colors.neutral[300] },
+              sessionStarted && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.25)' : colors.primary[50], borderColor: themeColors.primary }
+            ]}>
               <Ionicons
                 name={sessionStarted ? 'flash' : 'flash-outline'}
                 size={64}
-                color={sessionStarted ? colors.primary[500] : colors.neutral[400]}
+                color={sessionStarted ? themeColors.primary : themeColors.textSecondary}
               />
             </View>
           </Animated.View>
           
           {sessionStarted && (
-            <Text style={styles.chargingStatus}>Charging in progress...</Text>
+            <Text style={[styles.chargingStatus, { color: themeColors.primary }]}>{t('charging.in_progress', 'Charging in progress...')}</Text>
           )}
         </View>
 
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
-          <Card style={styles.statCard}>
-            <Ionicons name="time-outline" size={24} color={colors.primary[500]} />
-            <Text style={styles.statLabel}>Duration</Text>
-            <Text style={styles.statValue}>{formattedTime}</Text>
+          <Card style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+            <Ionicons name="time-outline" size={24} color={themeColors.primary} />
+            <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('charging.duration', 'Duration')}</Text>
+            <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{formattedTime}</Text>
           </Card>
 
-          <Card style={styles.statCard}>
+          <Card style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
             <Ionicons name="flash-outline" size={24} color={colors.success} />
-            <Text style={styles.statLabel}>Energy</Text>
-            <Text style={styles.statValue}>{energyDelivered.toFixed(2)} kWh</Text>
+            <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('charging.energy', 'Energy')}</Text>
+            <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{energyDelivered.toFixed(2)} kWh</Text>
           </Card>
 
-          <Card style={styles.statCard}>
+          <Card style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
             <Ionicons name="cash-outline" size={24} color={colors.warning} />
-            <Text style={styles.statLabel}>Cost</Text>
-            <Text style={styles.statValue}>{formatCurrency(currentCost)}</Text>
+            <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('charging.cost', 'Cost')}</Text>
+            <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{formatCurrency(currentCost)}</Text>
           </Card>
         </View>
 
         {/* Charger Info */}
-        <Card style={styles.infoCard}>
+        <Card style={[styles.infoCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Charger Power</Text>
-            <Text style={styles.infoValue}>{power} kW</Text>
+            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.charger_power', 'Charger Power')}</Text>
+            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>{power} kW</Text>
           </View>
-          <View style={styles.infoDivider} />
+          <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Rate</Text>
-            <Text style={styles.infoValue}>{formatCurrency(price)}/kWh</Text>
+            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.rate', 'Rate')}</Text>
+            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>{formatCurrency(price)}/kWh</Text>
           </View>
-          <View style={styles.infoDivider} />
+          <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Est. Range Added</Text>
-            <Text style={styles.infoValue}>~{Math.round(energyDelivered * 5)} km</Text>
+            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.est_range', 'Est. Range Added')}</Text>
+            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>~{Math.round(energyDelivered * 5)} km</Text>
           </View>
-          <View style={styles.infoDivider} />
+          <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>🌿 Clean Energy Grid</Text>
+            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>🌿 {t('charging.clean_grid', 'Clean Energy Grid')}</Text>
             <Text style={[styles.infoValue, { color: '#10B981', fontWeight: '600' }]}>92% Solar/Wind</Text>
           </View>
-          <View style={styles.infoDivider} />
+          <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>🌍 CO₂ Avoided</Text>
+            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>🌍 {t('charging.co2_avoided', 'CO₂ Avoided')}</Text>
             <Text style={[styles.infoValue, { color: '#10B981', fontWeight: '600' }]}>{(energyDelivered * 0.72).toFixed(2)} kg</Text>
           </View>
         </Card>
       </View>
 
       {/* Action Button */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footer, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border, paddingBottom: insets.bottom + 16 }]}>
         {!sessionStarted ? (
           <Button
-            title="⚡ Start Charging Session"
+            title={t('charging.start_btn', '⚡ Start Charging Session')}
             variant="primary"
             size="lg"
             onPress={handleStartSession}
@@ -276,7 +284,7 @@ export default function ChargingSessionScreen() {
           />
         ) : (
           <Button
-            title="End Charging Session"
+            title={t('charging.end_btn', 'End Charging Session')}
             variant="outline"
             size="lg"
             onPress={handleEndSession}
@@ -294,68 +302,74 @@ export default function ChargingSessionScreen() {
         animationType="slide"
         onRequestClose={() => {
           setShowSweetModal(false);
-          router.replace('/(tabs)/reservations');
+          router.replace({
+            pathname: '/(tabs)/reservations',
+            params: { tab: 'past', refresh: Date.now().toString() }
+          });
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.sweetModalCard}>
-            <View style={styles.sweetBadge}>
-              <Ionicons name="sparkles" size={28} color="#16A34A" />
+          <View style={[styles.sweetModalCard, { backgroundColor: themeColors.surface }]}>
+            <View style={[styles.sweetBadge, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#DCFCE7' }]}>
+              <Ionicons name="sparkles" size={28} color={themeColors.primary} />
             </View>
 
-            <Text style={styles.sweetTitle}>Charging Complete! 🎉</Text>
-            <Text style={styles.sweetSubtitle}>
-              Thank you for driving clean and powering the green revolution with EcoVolt! 🌿⚡
+            <Text style={[styles.sweetTitle, { color: themeColors.textPrimary }]}>{t('charging.complete_title', 'Charging Complete! 🎉')}</Text>
+            <Text style={[styles.sweetSubtitle, { color: themeColors.textSecondary }]}>
+              {t('charging.complete_sub', 'Thank you for driving clean and powering the green revolution with EcoVolt! 🌿⚡')}
             </Text>
 
             {/* Impact Grid */}
             <View style={styles.impactGrid}>
-              <View style={styles.impactCell}>
+              <View style={[styles.impactCell, { backgroundColor: isDark ? '#1F2937' : '#F8FAFC' }]}>
                 <Text style={styles.impactEmoji}>⚡</Text>
-                <Text style={styles.impactValue}>{completedStats?.energy.toFixed(2)} kWh</Text>
-                <Text style={styles.impactLabel}>Delivered</Text>
+                <Text style={[styles.impactValue, { color: themeColors.textPrimary }]}>{completedStats?.energy.toFixed(2)} kWh</Text>
+                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>{t('charging.delivered', 'Delivered')}</Text>
               </View>
 
-              <View style={styles.impactCell}>
+              <View style={[styles.impactCell, { backgroundColor: isDark ? '#1F2937' : '#F8FAFC' }]}>
                 <Text style={styles.impactEmoji}>🌍</Text>
                 <Text style={[styles.impactValue, { color: '#16A34A' }]}>{completedStats?.co2Avoided.toFixed(2)} kg</Text>
-                <Text style={styles.impactLabel}>CO₂ Avoided</Text>
+                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>{t('charging.co2_avoided', 'CO₂ Avoided')}</Text>
               </View>
 
-              <View style={styles.impactCell}>
+              <View style={[styles.impactCell, { backgroundColor: isDark ? '#1F2937' : '#F8FAFC' }]}>
                 <Text style={styles.impactEmoji}>💰</Text>
-                <Text style={styles.impactValue}>{formatCurrency(completedStats?.cost || 0)}</Text>
-                <Text style={styles.impactLabel}>Total Cost</Text>
+                <Text style={[styles.impactValue, { color: themeColors.textPrimary }]}>{formatCurrency(completedStats?.cost || 0)}</Text>
+                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>{t('charging.total_cost', 'Total Cost')}</Text>
               </View>
 
-              <View style={styles.impactCell}>
+              <View style={[styles.impactCell, { backgroundColor: isDark ? '#1F2937' : '#F8FAFC' }]}>
                 <Text style={styles.impactEmoji}>🏆</Text>
                 <Text style={[styles.impactValue, { color: '#D97706' }]}>+{completedStats?.ecoPoints} pts</Text>
-                <Text style={styles.impactLabel}>EcoPoints</Text>
+                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>{t('charging.ecopoints', 'EcoPoints')}</Text>
               </View>
             </View>
 
-            <View style={styles.sweetNoteBox}>
-              <Ionicons name="leaf-outline" size={18} color="#16A34A" />
-              <Text style={styles.sweetNoteText}>
-                A dynamic session receipt and sweet eco-credit alert have been saved in your notifications!
+            <View style={[styles.sweetNoteBox, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#F0FDF4' }]}>
+              <Ionicons name="leaf-outline" size={18} color={themeColors.primary} />
+              <Text style={[styles.sweetNoteText, { color: themeColors.primary }]}>
+                {t('charging.receipt_note', 'A dynamic session receipt and sweet eco-credit alert have been saved in your notifications!')}
               </Text>
             </View>
 
             {/* Buttons */}
             <View style={styles.modalButtonContainer}>
               <Button
-                title="View All Reservations"
+                title={t('charging.view_reservations', 'View All Reservations')}
                 variant="primary"
                 onPress={() => {
                   setShowSweetModal(false);
-                  router.replace('/(tabs)/reservations');
+                  router.replace({
+                    pathname: '/(tabs)/reservations',
+                    params: { tab: 'past', refresh: Date.now().toString() }
+                  });
                 }}
                 fullWidth
                 style={{ marginBottom: 10 }}
               />
               <Button
-                title="Go to Home"
+                title={t('charging.go_home', 'Go to Home')}
                 variant="outline"
                 onPress={() => {
                   setShowSweetModal(false);
@@ -418,10 +432,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 4,
     borderColor: colors.neutral[300],
-  },
-  innerRingActive: {
-    backgroundColor: colors.primary[50],
-    borderColor: colors.primary[500],
   },
   chargingStatus: {
     marginTop: 16,

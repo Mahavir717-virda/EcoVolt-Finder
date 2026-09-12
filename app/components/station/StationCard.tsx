@@ -1,6 +1,7 @@
-import { Card, Skeleton } from '@/components/ui';
 import { ConnectorIcon, CHARGER_COLORS } from '@/components/ui/ConnectorIcon';
 import { colors } from '@/constants/colors';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 import { getStationImageSource } from '@/constants/stationImages';
 import type { Station, ConnectorType, ChargerType } from '@/types/database.types';
 import { Ionicons } from '@expo/vector-icons';
@@ -76,6 +77,8 @@ export function StationCard({
   isSaved = false,
   variant = 'default',
 }: StationCardProps) {
+  const { colors: themeColors, isDark, accentColor } = useTheme();
+  const { t } = useLanguage();
   const [isImageLoading, setIsImageLoading] = useState(true);
 
   const handlePress = () => {
@@ -106,33 +109,33 @@ export function StationCard({
   if (variant === 'compact') {
     return (
       <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-        <Card style={styles.compactCard}>
+        <View style={[styles.compactCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
           <View style={styles.compactContent}>
             <View style={[styles.availabilityDot, { backgroundColor: getAvailabilityColor() }]} />
             <View style={styles.compactInfo}>
-              <Text style={styles.compactName} numberOfLines={1}>
+              <Text style={[styles.compactName, { color: themeColors.textPrimary }]} numberOfLines={1}>
                 {station.name}
               </Text>
-              <Text style={styles.compactAddress} numberOfLines={1}>
+              <Text style={[styles.compactAddress, { color: themeColors.textSecondary }]} numberOfLines={1}>
                 {station.address}
               </Text>
             </View>
             <View style={styles.compactStats}>
-              <Text style={styles.availableText}>
+              <Text style={[styles.availableText, { color: themeColors.textPrimary }]}>
                 {station.available_chargers}/{station.total_chargers}
               </Text>
               {station.price_from !== undefined && (
-                <Text style={styles.compactPriceText}>₹{station.price_from}/kWh</Text>
+                <Text style={[styles.compactPriceText, { color: themeColors.primary }]}>₹{station.price_from}/kWh</Text>
               )}
               {distance !== undefined && (
-                <Text style={styles.distanceText}>
+                <Text style={[styles.distanceText, { color: themeColors.textSecondary }]}>
                   {distance < 1 ? `${(distance * 1000).toFixed(0)}m` : `${distance.toFixed(1)}km`}
                 </Text>
               )}
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.neutral[400]} />
+            <Ionicons name="chevron-forward" size={20} color={themeColors.textSecondary} />
           </View>
-        </Card>
+        </View>
       </TouchableOpacity>
     );
   }
@@ -154,19 +157,11 @@ export function StationCard({
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.85} style={styles.cardWrapper}>
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
         {/* ── Top Row: Thumbnail + Info + Bookmark ── */}
         <View style={styles.topRow}>
           {/* Thumbnail */}
-          <View style={styles.thumbnailContainer}>
-            {isImageLoading && (
-              <Skeleton
-                width={90}
-                height={90}
-                borderRadius={12}
-                style={StyleSheet.absoluteFillObject}
-              />
-            )}
+          <View style={[styles.thumbnailContainer, { backgroundColor: isDark ? '#1F2937' : colors.neutral[200] }]}>
             <Image
               source={imageSource}
               style={styles.thumbnail}
@@ -184,7 +179,7 @@ export function StationCard({
           <View style={styles.infoContainer}>
             {/* Name + Bookmark */}
             <View style={styles.nameRow}>
-              <Text style={styles.stationName} numberOfLines={2}>
+              <Text style={[styles.stationName, { color: themeColors.textPrimary }]} numberOfLines={2}>
                 {station.name}
               </Text>
               <TouchableOpacity
@@ -198,15 +193,15 @@ export function StationCard({
                 <Ionicons
                   name={isSaved ? 'bookmark' : 'bookmark-outline'}
                   size={22}
-                  color={isSaved ? colors.primary[600] : colors.neutral[400]}
+                  color={isSaved ? themeColors.primary : themeColors.textSecondary}
                 />
               </TouchableOpacity>
             </View>
 
             {/* Address */}
             <View style={styles.addressRow}>
-              <Ionicons name="location-outline" size={13} color={colors.neutral[400]} />
-              <Text style={styles.addressText} numberOfLines={2}>
+              <Ionicons name="location-outline" size={13} color={themeColors.textSecondary} />
+              <Text style={[styles.addressText, { color: themeColors.textSecondary }]} numberOfLines={2}>
                 {station.address}
               </Text>
             </View>
@@ -215,9 +210,9 @@ export function StationCard({
             {station.rating != null && (
               <View style={styles.ratingRow}>
                 <Ionicons name="star" size={14} color="#F59E0B" />
-                <Text style={styles.ratingText}>
+                <Text style={[styles.ratingText, { color: themeColors.textPrimary }]}>
                   {station.rating.toFixed(1)}{' '}
-                  <Text style={styles.reviewCount}>({reviewCount} review{reviewCount !== 1 ? 's' : ''})</Text>
+                  <Text style={[styles.reviewCount, { color: themeColors.textSecondary }]}>({reviewCount} {t('card.reviews', 'reviews')})</Text>
                 </Text>
               </View>
             )}
@@ -225,14 +220,14 @@ export function StationCard({
         </View>
 
         {/* ── Divider ── */}
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
         {/* ── Mid Row: Distance · Time · Availability ── */}
         <View style={styles.midRow}>
           {distanceKm !== null && (
-            <View style={styles.badge}>
-              <Ionicons name="location" size={13} color={colors.primary[600]} />
-              <Text style={styles.badgeText}>
+            <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : colors.primary[50] }]}>
+              <Ionicons name="location" size={13} color={themeColors.primary} />
+              <Text style={[styles.badgeText, { color: themeColors.primary }]}>
                 {distanceKm < 1
                   ? `${(distanceKm * 1000).toFixed(0)} m`
                   : `${distanceKm.toFixed(1)} km`}
@@ -240,24 +235,24 @@ export function StationCard({
             </View>
           )}
           {driveMinutes !== null && (
-            <View style={styles.badge}>
-              <Ionicons name="car-outline" size={13} color={colors.primary[600]} />
-              <Text style={styles.badgeText}>{driveMinutes} min</Text>
+            <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : colors.primary[50] }]}>
+              <Ionicons name="car-outline" size={13} color={themeColors.primary} />
+              <Text style={[styles.badgeText, { color: themeColors.primary }]}>{driveMinutes} {t('card.min', 'min')}</Text>
             </View>
           )}
           <View
             style={[
               styles.availabilityBadge,
-              { backgroundColor: isAvailable ? '#DCFCE7' : '#FEE2E2' },
+              { backgroundColor: isAvailable ? (isDark ? 'rgba(34, 197, 94, 0.2)' : '#DCFCE7') : (isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') },
             ]}
           >
             <Text
               style={[
                 styles.availabilityBadgeText,
-                { color: isAvailable ? colors.primary[700] : colors.status.error },
+                { color: isAvailable ? (isDark ? '#4ADE80' : colors.primary[700]) : colors.status.error },
               ]}
             >
-              {isAvailable ? 'Available' : 'Unavailable'}
+              {isAvailable ? t('card.available', 'Available') : t('card.unavailable', 'Occupied')}
             </Text>
           </View>
         </View>
@@ -265,21 +260,21 @@ export function StationCard({
         {/* ── Live Data Row: Price and Greenness ── */}
         <View style={styles.liveDataRow}>
           {station.price_from !== undefined && (
-            <View style={styles.priceBadge}>
+            <View style={[styles.priceBadge, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7' }]}>
               <Ionicons name="flash" size={13} color="#D97706" />
-              <Text style={styles.priceText}>From ₹{station.price_from}/kWh</Text>
+              <Text style={styles.priceText}>{t('card.from', 'From')} ₹{station.price_from}/kWh</Text>
             </View>
           )}
           {station.greenness_score !== undefined && (
-            <View style={styles.greenBadge}>
-              <Ionicons name="leaf" size={13} color={colors.primary[700]} />
-              <Text style={styles.greenText}>{station.greenness_score.toFixed(0)}% Renewable</Text>
+            <View style={[styles.greenBadge, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#DCFCE7' }]}>
+              <Ionicons name="leaf" size={13} color={themeColors.primary} />
+              <Text style={[styles.greenText, { color: themeColors.primary }]}>{station.greenness_score.toFixed(0)}% {t('card.renewable', 'Renewable')}</Text>
             </View>
           )}
         </View>
 
         {/* ── Divider ── */}
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
         {/* ── Bottom Row: Connector Icons + Charger Count ── */}
         <View style={styles.bottomRow}>
@@ -295,19 +290,20 @@ export function StationCard({
             ))}
           </View>
           <TouchableOpacity onPress={handlePress} style={styles.chargerCountBtn}>
-            <Text style={styles.chargerCountText}>
-              {station.total_chargers} charger{station.total_chargers !== 1 ? 's' : ''} {'>'}
+            <Text style={[styles.chargerCountText, { color: themeColors.textSecondary }]}>
+              {station.total_chargers} {t('card.chargers', 'chargers')} {'>'}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* ── Book Slot Button ── */}
         <TouchableOpacity
-          style={[styles.bookBtn, !isAvailable && styles.bookBtnDisabled]}
+          style={[styles.bookBtn, { backgroundColor: isAvailable ? themeColors.primary : (isDark ? '#374151' : colors.neutral[300]) }]}
           onPress={handlePress}
           activeOpacity={0.8}
+          disabled={!isAvailable}
         >
-          <Text style={styles.bookBtnText}>Book Slot</Text>
+          <Text style={styles.bookBtnText}>{t('card.book_slot', 'Book Slot')}</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>

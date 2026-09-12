@@ -1,6 +1,6 @@
 /**
  * Reservations Screen
- * Shows user's active and past reservations
+ * Shows user's active and past reservations with dynamic Theme & Language support
  */
 
 import { EmptyState } from '@/components/common';
@@ -8,61 +8,35 @@ import { Button } from '@/components/ui';
 import { CHARGER_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 import { useCancelReservation, useReservations } from '@/hooks/useReservations';
 import { spacing } from '@/styles/spacing';
 import { Reservation } from '@/types/database.types';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TabType = 'active' | 'past';
 
-// Helper to format date
-const formatReservationDate = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  
-  if (date.toDateString() === today.toDateString()) {
-    return 'Today';
-  }
-  if (date.toDateString() === tomorrow.toDateString()) {
-    return 'Tomorrow';
-  }
-  return date.toLocaleDateString('en-US', { 
-    weekday: 'short', 
-    month: 'short', 
-    day: 'numeric' 
-  });
-};
-
-// Helper to format time
-const formatReservationTime = (startTime: string, endTime: string): string => {
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  const formatTime = (d: Date) => d.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit', 
-    hour12: true 
-  });
-  return `${formatTime(start)} - ${formatTime(end)}`;
-};
-
 export default function ReservationsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string; refresh?: string }>();
   const { profile } = useAuth();
+  const { colors: themeColors, isDark } = useTheme();
+  const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -70,7 +44,54 @@ export default function ReservationsScreen() {
   const { reservations, loading, refresh } = useReservations();
   const { cancel, loading: cancelLoading } = useCancelReservation();
 
-  
+  // Listen to router params (e.g. redirected from completed charging session)
+  useEffect(() => {
+    if (params.tab === 'past') {
+      setActiveTab('past');
+    } else if (params.tab === 'active') {
+      setActiveTab('active');
+    }
+  }, [params.tab, params.refresh]);
+
+  // Refetch on tab focus to keep active/past always synchronized
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
+
+  // Helper to format date with i18n
+  const formatReservationDate = useCallback((dateStr: string): string => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return t('reservations.today', 'Today');
+    }
+    if (date.toDateString() === tomorrow.toDateString()) {
+      return t('reservations.tomorrow', 'Tomorrow');
+    }
+    return date.toLocaleDateString(language === 'hi' ? 'hi-IN' : 'en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  }, [language, t]);
+
+  // Helper to format time
+  const formatReservationTime = (startTime: string, endTime: string): string => {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const formatTime = (d: Date) => d.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    return `${formatTime(start)} - ${formatTime(end)}`;
+  };
+
   // Separate active and past reservations
   const { activeReservations, pastReservations } = useMemo(() => {
     const now = new Date();
@@ -79,8 +100,11 @@ export default function ReservationsScreen() {
     
     reservations.forEach(r => {
       const endTime = new Date(r.end_time);
-      // Active reservation: status is 'active' and hasn't ended yet
-      if (r.status === 'active' && endTime > now) {
+      const isFinished = r.status === 'completed' || r.status === 'cancelled' || r.status === 'expired';
+      // If completed or cancelled or past expiration time by 10 mins
+      const isPastTime = endTime.getTime() < (now.getTime() - 10 * 60 * 1000);
+
+      if (!isFinished && !isPastTime && (r.status === 'active' || (r.status as any) === 'reserved' || (r.status as any) === 'scheduled' || !r.status)) {
         active.push(r);
       } else {
         past.push(r);
@@ -89,7 +113,7 @@ export default function ReservationsScreen() {
     
     // Sort active by start time (soonest first), past by end time (most recent first)
     active.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-    past.sort((a, b) => new Date(b.end_time).getTime() - new Date(a.end_time).getTime());
+    past.sort((a, b) => new Date(b.end_time || b.start_time).getTime() - new Date(a.end_time || a.start_time).getTime());
     
     return { activeReservations: active, pastReservations: past };
   }, [reservations]);
@@ -102,12 +126,12 @@ export default function ReservationsScreen() {
 
   const handleCancel = useCallback(async (reservation: Reservation) => {
     Alert.alert(
-      'Cancel Reservation',
-      'Are you sure you want to cancel this reservation?',
+      t('reservations.cancel_booking', 'Cancel Reservation'),
+      t('reservations.cancel_confirm', 'Are you sure you want to cancel this reservation?'),
       [
-        { text: 'No', style: 'cancel' },
+        { text: t('support.cancel', 'No'), style: 'cancel' },
         {
-          text: 'Yes, Cancel',
+          text: t('account.delete', 'Yes, Cancel'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -124,7 +148,7 @@ export default function ReservationsScreen() {
         },
       ]
     );
-  }, [cancel, refresh]);
+  }, [cancel, refresh, t]);
 
   const handleNavigate = useCallback((reservation: Reservation) => {
     const charger = (reservation as any).charger;
@@ -147,27 +171,41 @@ export default function ReservationsScreen() {
   }, [router]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Reservations</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+        <Text style={[styles.title, { color: themeColors.textPrimary }]}>{t('reservations.title', 'My Bookings & History')}</Text>
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, { backgroundColor: themeColors.surface }]}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'active' && styles.tabActive]}
+          style={[
+            styles.tab, 
+            { backgroundColor: activeTab === 'active' ? themeColors.primary : (isDark ? '#1F2937' : colors.neutral[100]) }
+          ]}
           onPress={() => setActiveTab('active')}
+          activeOpacity={0.8}
         >
-          <Text style={[styles.tabText, activeTab === 'active' && styles.tabTextActive]}>
-            Active ({activeReservations.length})
+          <Text style={[
+            styles.tabText, 
+            { color: activeTab === 'active' ? colors.white : themeColors.textSecondary }
+          ]}>
+            {t('reservations.active_tab', 'Active & Scheduled')} ({activeReservations.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'past' && styles.tabActive]}
+          style={[
+            styles.tab, 
+            { backgroundColor: activeTab === 'past' ? themeColors.primary : (isDark ? '#1F2937' : colors.neutral[100]) }
+          ]}
           onPress={() => setActiveTab('past')}
+          activeOpacity={0.8}
         >
-          <Text style={[styles.tabText, activeTab === 'past' && styles.tabTextActive]}>
-            Past ({pastReservations.length})
+          <Text style={[
+            styles.tabText, 
+            { color: activeTab === 'past' ? colors.white : themeColors.textSecondary }
+          ]}>
+            {t('reservations.past_tab', 'Past Receipts')} ({pastReservations.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -179,23 +217,23 @@ export default function ReservationsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={colors.primary[500]}
+            tintColor={themeColors.primary}
           />
         }
       >
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary[500]} />
-            <Text style={styles.loadingText}>Loading reservations...</Text>
+            <ActivityIndicator size="large" color={themeColors.primary} />
+            <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading reservations...</Text>
           </View>
         ) : (
           <>
             {activeTab === 'active' && activeReservations.length === 0 && (
               <EmptyState
                 icon="calendar-outline"
-                title="No Active Reservations"
-                description="You don't have any upcoming reservations. Find a station to book your charging slot."
-                actionLabel="Find Stations"
+                title={t('reservations.no_active', 'No Active Reservations')}
+                description={t('reservations.no_active_desc', 'Book a charging slot at your preferred station to guarantee availability.')}
+                actionLabel={t('reservations.find_stations', 'Find Charging Stations')}
                 onAction={() => router.push('/(tabs)')}
               />
             )}
@@ -203,8 +241,8 @@ export default function ReservationsScreen() {
             {activeTab === 'past' && pastReservations.length === 0 && (
               <EmptyState
                 icon="time-outline"
-                title="No Past Reservations"
-                description="Your completed reservations will appear here."
+                title={t('reservations.no_past', 'No Past Charging Sessions')}
+                description={t('reservations.no_past_desc', 'Your completed charging sessions and receipts will appear here.')}
               />
             )}
 
@@ -215,10 +253,14 @@ export default function ReservationsScreen() {
               const chargerType = chargerTypeKey ? CHARGER_TYPES[chargerTypeKey] : null;
               const isActive = activeTab === 'active';
               
+              const statusLabel = isActive 
+                ? (reservation.status === 'active' ? t('reservations.status_active', 'Charging Active') : t('reservations.status_reserved', 'Upcoming'))
+                : (reservation.status === 'cancelled' ? t('reservations.status_cancelled', 'Cancelled') : t('reservations.status_completed', 'Completed'));
+
               return (
                 <TouchableOpacity 
                   key={reservation.id} 
-                  style={styles.reservationCard}
+                  style={[styles.reservationCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}
                   onPress={() => router.push({
                     pathname: '/reservation/[reservationId]',
                     params: { reservationId: reservation.id }
@@ -227,61 +269,63 @@ export default function ReservationsScreen() {
                 >
                   {/* Tap to view details hint */}
                   <View style={styles.tapHint}>
-                    <Text style={styles.tapHintText}>Tap for details</Text>
-                    <Ionicons name="chevron-forward" size={14} color={colors.neutral[400]} />
+                    <Text style={[styles.tapHintText, { color: themeColors.textSecondary }]}>Tap for details</Text>
+                    <Ionicons name="chevron-forward" size={14} color={themeColors.textSecondary} />
                   </View>
                   
                   <View style={styles.reservationHeader}>
-                    <View style={styles.stationIconContainer}>
-                      <Ionicons name="flash" size={24} color={colors.primary[500]} />
+                    <View style={[styles.stationIconContainer, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : colors.primary[50] }]}>
+                      <Ionicons name="flash" size={24} color={themeColors.primary} />
                     </View>
                     <View style={styles.reservationInfo}>
-                      <Text style={styles.stationName}>
+                      <Text style={[styles.stationName, { color: themeColors.textPrimary }]}>
                         {station?.name || 'Unknown Station'}
                       </Text>
-                      <Text style={styles.chargerType}>
+                      <Text style={[styles.chargerType, { color: themeColors.textSecondary }]}>
                         {chargerType?.name || 'Charger'} • {charger?.power_kw || 0} kW
                       </Text>
                     </View>
                     <View style={[
                       styles.statusBadge,
-                      isActive && styles.statusActive,
-                      reservation.status === 'cancelled' && styles.statusCancelled,
+                      { backgroundColor: isDark ? '#374151' : colors.neutral[200] },
+                      isActive && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : colors.primary[100] },
+                      reservation.status === 'cancelled' && { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : colors.status.error + '20' },
                     ]}>
                       <Text style={[
                         styles.statusText,
-                        isActive && styles.statusTextActive,
-                        reservation.status === 'cancelled' && styles.statusTextCancelled,
+                        { color: themeColors.textSecondary },
+                        isActive && { color: themeColors.primary },
+                        reservation.status === 'cancelled' && { color: colors.status.error },
                       ]}>
-                        {isActive ? 'Upcoming' : reservation.status === 'cancelled' ? 'Cancelled' : 'Completed'}
+                        {statusLabel}
                       </Text>
                     </View>
                   </View>
 
-                  <View style={styles.divider} />
+                  <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                   <View style={styles.reservationDetails}>
                     <View style={styles.detailRow}>
-                      <Ionicons name="calendar-outline" size={18} color={colors.neutral[500]} />
-                      <Text style={styles.detailText}>
+                      <Ionicons name="calendar-outline" size={18} color={themeColors.textSecondary} />
+                      <Text style={[styles.detailText, { color: themeColors.textPrimary }]}>
                         {formatReservationDate(reservation.start_time)}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Ionicons name="time-outline" size={18} color={colors.neutral[500]} />
-                      <Text style={styles.detailText}>
+                      <Ionicons name="time-outline" size={18} color={themeColors.textSecondary} />
+                      <Text style={[styles.detailText, { color: themeColors.textPrimary }]}>
                         {formatReservationTime(reservation.start_time, reservation.end_time)}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Ionicons name="location-outline" size={18} color={colors.neutral[500]} />
-                      <Text style={styles.detailText} numberOfLines={1}>
+                      <Ionicons name="location-outline" size={18} color={themeColors.textSecondary} />
+                      <Text style={[styles.detailText, { color: themeColors.textSecondary }]} numberOfLines={1}>
                         {station?.address || 'Address unavailable'}, {station?.city || ''}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Ionicons name="pricetag-outline" size={18} color={colors.neutral[500]} />
-                      <Text style={styles.detailText}>
+                      <Ionicons name="pricetag-outline" size={18} color={themeColors.textSecondary} />
+                      <Text style={[styles.detailText, { color: themeColors.primary, fontWeight: '600' }]}>
                         ₹{charger?.price_per_kwh || 0}/kWh
                       </Text>
                     </View>
@@ -293,12 +337,12 @@ export default function ReservationsScreen() {
                         title="Navigate"
                         variant="outline"
                         size="sm"
-                        leftIcon={<Ionicons name="navigate" size={16} color={colors.primary[500]} />}
+                        leftIcon={<Ionicons name="navigate" size={16} color={themeColors.primary} />}
                         style={styles.actionButton}
                         onPress={() => handleNavigate(reservation)}
                       />
                       <Button
-                        title={cancelLoading ? 'Cancelling...' : 'Cancel'}
+                        title={cancelLoading ? 'Cancelling...' : t('support.cancel', 'Cancel')}
                         variant="ghost"
                         size="sm"
                         style={styles.actionButton}
@@ -348,16 +392,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral[100],
     alignItems: 'center',
   },
-  tabActive: {
-    backgroundColor: colors.primary[500],
-  },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.neutral[600],
-  },
-  tabTextActive: {
-    color: colors.white,
   },
   scrollView: {
     flex: 1,
@@ -417,22 +455,10 @@ const styles = StyleSheet.create({
     borderRadius: spacing.radius.full,
     backgroundColor: colors.neutral[200],
   },
-  statusActive: {
-    backgroundColor: colors.primary[100],
-  },
-  statusCancelled: {
-    backgroundColor: colors.status.error + '20',
-  },
   statusText: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.neutral[600],
-  },
-  statusTextActive: {
-    color: colors.primary[700],
-  },
-  statusTextCancelled: {
-    color: colors.status.error,
   },
   divider: {
     height: 1,

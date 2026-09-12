@@ -1,0 +1,581 @@
+/**
+ * EcoVolt Localization & Translation Hook
+ * Supports English and Hindi (हिन्दी) across the entire application.
+ */
+
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import * as SecureStore from 'expo-secure-store';
+
+export type LanguageCode = 'en' | 'hi';
+
+const LANGUAGE_STORAGE_KEY = 'ecovolt_language_preference';
+
+// Comprehensive English -> Hindi Dictionary covering all UI terms in EcoVolt Finder
+export const translations: Record<LanguageCode, Record<string, string>> = {
+  en: {
+    // Tab Navigation
+    'tab.home': 'Home',
+    'tab.reservations': 'Reservations',
+    'tab.saved': 'Saved',
+    'tab.profile': 'Profile',
+    'tab.leaderboard': 'Leaderboard',
+
+    // Profile Screen & Headers
+    'profile.title': 'Profile',
+    'profile.verified_driver': 'Verified EcoVolt Driver',
+    'profile.edit': 'Edit',
+    'profile.green_tier': 'GREEN DRIVER TIER',
+    'profile.green_pts': 'Green Pts',
+    'profile.rank': 'Rank',
+    'profile.clean_power': 'Clean Power',
+    'profile.co2_saved': 'CO₂ Saved',
+    'profile.eco_impact_standing': 'Eco Impact & Standing',
+    'profile.leaderboard_green_score': 'Leaderboard & Green Score',
+    'profile.view_rankings': 'View Rankings',
+    'profile.badges_achievements': 'Badges & Achievements',
+    'profile.unlocked': 'Unlocked',
+    'profile.badges': 'Badges',
+    'profile.live_grid': 'West India · IN-WE Grid',
+    'profile.renewable_now': 'Renewable now',
+    'profile.carbon_free': 'carbon-free',
+    'profile.lifetime_impact': 'Your Lifetime Green Impact',
+    'profile.co2_avoided': 'CO₂ avoided',
+    'profile.from_renewables': 'from renewables',
+    'profile.saved_green_windows': 'saved (green windows)',
+    'profile.solar': 'Solar',
+    'profile.wind': 'Wind',
+    'profile.hydro': 'Hydro',
+    'profile.coal_gas': 'Coal+Gas',
+    
+    // Workspace Portals
+    'portal.title': 'Workspace Portals',
+    'portal.station_manager': 'Station Manager Hub',
+    'portal.station_manager_desc': 'Occupancy & Pricing',
+    'portal.admin_console': 'Network Admin Console',
+    'portal.admin_console_desc': 'Network Health',
+
+    // Account Section
+    'account.title': 'Account',
+    'account.edit_profile': 'Edit Profile',
+    'account.personal_info': 'Personal Info',
+    'account.my_vehicles': 'My Vehicles',
+    'account.no_vehicles': 'No Vehicles',
+    'account.payment_methods': 'Payment Methods',
+    'account.upi_wallet': 'UPI / Wallet',
+    'account.charging_history': 'Charging History',
+
+    // Preferences Section
+    'pref.title': 'Preferences',
+    'pref.notifications': 'Notifications & Alerts',
+    'pref.enabled': 'Enabled',
+    'pref.appearance': 'Appearance & Theme',
+    'pref.theme_sub': 'Dark / Light',
+    'pref.language': 'Language',
+    'pref.lang_name': 'English',
+
+    // Support Section
+    'support.title': 'Support & Legal',
+    'support.help_center': 'Help Center & FAQ',
+    'support.help_center_sub': 'Guides & Tips',
+    'support.contact_us': 'Contact Us & 24/7 Hotline',
+    'support.contact_sub': 'Support',
+    'support.terms_privacy': 'Terms & Privacy Policy',
+    'support.terms_sub': 'Legal',
+    'support.sign_out': 'Sign Out',
+    'support.sign_out_confirm': 'Are you sure you want to sign out?',
+    'support.cancel': 'Cancel',
+    'support.app_version': 'VoltSpot v1.0.0',
+
+    // Edit Profile Modal
+    'edit_profile.title': 'Edit Profile',
+    'edit_profile.save': 'Save',
+    'edit_profile.full_name': 'Full Name',
+    'edit_profile.enter_full_name': 'Enter your full name',
+    'edit_profile.email_address': 'Email Address',
+    'edit_profile.phone_number': 'Phone Number',
+    'edit_profile.account_security': 'Account Security',
+    'edit_profile.security_desc': 'Your email is used for booking confirmations and smart solar charging alerts.',
+    'edit_profile.save_btn': 'Save Profile Changes',
+    'edit_profile.success': 'Your profile details have been successfully saved.',
+    'edit_profile.success_title': 'Profile Updated',
+
+    // Payment Methods Modal
+    'payment.title': 'Payment Methods',
+    'payment.smart_wallet': 'EcoVolt Smart Wallet',
+    'payment.auto_discount': 'AUTO-DISCOUNT',
+    'payment.avail_balance': 'Available Balance',
+    'payment.wallet_sub': 'Locked at renewable charging slot rates · 0% transaction fees',
+    'payment.auto_pay': 'Auto-Pay Green Windows',
+    'payment.auto_pay_desc': 'Instantly settle sessions from wallet to unlock max dynamic solar discounts',
+    'payment.upi_accounts': 'UPI Accounts (VPA)',
+    'payment.add_upi': '+ Add UPI',
+    'payment.saved_cards': 'Saved Credit & Debit Cards',
+    'payment.link_upi': 'Link New UPI ID',
+    'payment.enter_upi': 'Enter your UPI ID (e.g. mobile@upi or username@bank)',
+    'payment.link_upi_btn': 'Link UPI',
+    'payment.set_default': 'Set Default',
+    'payment.default_pill': 'DEFAULT',
+    'payment.primary_pill': 'PRIMARY',
+
+    // Appearance Modal
+    'appearance.title': 'Appearance & Theme',
+    'appearance.done': 'Done',
+    'appearance.theme_mode': 'Theme Mode',
+    'appearance.system_default': 'System Default',
+    'appearance.system_desc': 'Syncs automatically with device settings',
+    'appearance.dark_onyx': 'Dark Onyx (Eco Battery)',
+    'appearance.dark_desc': 'High energy efficiency on OLED screens',
+    'appearance.crisp_light': 'Crisp Daylight',
+    'appearance.light_desc': 'Optimal contrast in bright outdoor sunlight',
+    'appearance.eco_accent': 'Eco Accent Palette',
+    'appearance.volt_emerald': 'Volt Emerald',
+    'appearance.cyber_teal': 'Cyber Teal',
+    'appearance.solar_gold': 'Solar Gold',
+    'appearance.electric_indigo': 'Electric Indigo',
+    'appearance.map_style': 'Live Charging Map Style',
+    'appearance.eco_hybrid': 'Eco Hybrid Grid',
+    'appearance.eco_hybrid_desc': 'Highlights renewable zones & solar charging clusters',
+    'appearance.minimal': 'Minimalist Clean',
+    'appearance.minimal_desc': 'Low distractions, fast rendering',
+    'appearance.satellite': '3D Satellite Terrain',
+    'appearance.satellite_desc': 'High-definition satellite overhead view',
+    'appearance.high_contrast': 'High Contrast Live Grid',
+    'appearance.contrast_desc': 'Enhances readability of dynamic greenness bands and tariff charts',
+
+    // Language Modal
+    'lang.title': 'Select Language',
+    'lang.subtitle': 'Choose your preferred interface and tariff announcement language',
+    'lang.english': 'English',
+    'lang.hindi': 'हिन्दी (Hindi)',
+    'lang.english_region': 'English (India) · National Default',
+    'lang.hindi_region': 'हिन्दी (भारत) · राष्ट्रीय भाषा',
+    'lang.saved_title': 'Language Updated',
+    'lang.saved_desc': 'App language updated successfully.',
+
+    // Help Center Modal
+    'help.title': 'Help Center & FAQ',
+    'help.search_placeholder': 'Search FAQs, charging tips, errors...',
+    'help.roadside': '24/7 Roadside & Charger Support',
+    'help.roadside_sub': 'Instant assistance for gun lock or station errors',
+    'help.all_topics': 'All Topics',
+    'help.green_pricing': '🌱 Green Pricing',
+    'help.connectors': '🔌 Connectors',
+    'help.billing': '💳 Billing',
+    'help.troubleshooting': '🛠 Troubleshooting',
+    'help.faq_title': 'Frequently Asked Questions',
+    'help.still_questions': 'Still have questions?',
+    'help.still_questions_desc': 'Our team is available 24/7 to help you with reservations, charger troubleshooting, and rebates.',
+    'help.send_message': 'Send Us a Message',
+
+    // Contact Us Modal
+    'contact.title': 'Contact Support',
+    'contact.hotline': '24/7 Hotline',
+    'contact.email_support': 'Email Support',
+    'contact.category_title': 'What is your inquiry regarding?',
+    'contact.cat_charging': '⚡ Session & Charging',
+    'contact.cat_billing': '💳 Billing & Discounts',
+    'contact.cat_hardware': '🛠 Station & Connector',
+    'contact.cat_general': '💬 General / Feedback',
+    'contact.subject': 'Subject',
+    'contact.description': 'Detailed Description',
+    'contact.submit': 'Submit Support Request',
+    'contact.success_title': 'Support Ticket Created!',
+    'contact.back_profile': 'Back to Profile',
+
+    // Home Screen
+    'home.greeting': 'Hello',
+    'home.subtitle': 'Find your nearest charging station',
+    'home.search_placeholder': 'Search stations, locations...',
+    'home.available_now': 'Available Now',
+    'home.solar_green': 'Solar & Green Hours',
+    'home.quick_book': 'Quick Book',
+    'home.chargers_near_you': 'EV Chargers Near You',
+    'home.view_all': 'View All',
+    'home.filter': 'Filters',
+    'home.renewable_grid': 'Renewable Grid',
+    'home.tap_directions': 'Tap for Directions',
+
+    // Reservations Screen
+    'reservations.title': 'My Bookings & History',
+    'reservations.active_tab': 'Active & Scheduled',
+    'reservations.past_tab': 'Past Receipts',
+    'reservations.no_active': 'No Active Reservations',
+    'reservations.no_active_desc': 'Book a charging slot at your preferred station to guarantee availability.',
+    'reservations.no_past': 'No Past Charging Sessions',
+    'reservations.no_past_desc': 'Your completed charging sessions and receipts will appear here.',
+    'reservations.find_stations': 'Find Charging Stations',
+    'reservations.start_charging': '⚡ Start Charging',
+    'reservations.cancel_booking': 'Cancel Reservation',
+    'reservations.cancel_confirm': 'Are you sure you want to cancel this reservation?',
+    'reservations.today': 'Today',
+    'reservations.tomorrow': 'Tomorrow',
+    'reservations.status_reserved': 'Reserved',
+    'reservations.status_active': 'Charging Active',
+    'reservations.status_completed': 'Completed',
+    'reservations.status_cancelled': 'Cancelled',
+    'reservations.status_expired': 'Expired',
+    'reservations.locked_rate': 'Locked Rate',
+    'reservations.total_billed': 'Total Billed',
+    'reservations.view_station': 'View Station',
+
+    // Saved Screen
+    'saved.title': 'Saved Stations',
+    'saved.subtitle': 'saved station(s)',
+    'saved.no_saved': 'No Saved Stations',
+    'saved.no_saved_desc': 'Bookmark your frequently used charging stations for quick access.',
+    'saved.find_stations': 'Find Stations',
+    'saved.remove_title': 'Remove Saved Station',
+    'saved.remove_confirm': 'Remove this station from your saved list?',
+
+    // Station Card & General Components
+    'card.available': 'Available',
+    'card.unavailable': 'Occupied',
+    'card.book_slot': 'Book Slot',
+    'card.from': 'From',
+    'card.renewable': 'Renewable',
+    'card.chargers': 'chargers',
+    'card.reviews': 'reviews',
+    'card.min': 'min',
+
+    // Charging Screen
+    'charging.title': 'Charging Session',
+    'charging.ready': 'Ready to charge',
+    'charging.in_progress': 'Charging in progress...',
+    'charging.duration': 'Duration',
+    'charging.energy': 'Energy',
+    'charging.cost': 'Cost',
+    'charging.charger_power': 'Charger Power',
+    'charging.rate': 'Rate',
+    'charging.est_range': 'Est. Range Added',
+    'charging.clean_grid': 'Clean Energy Grid',
+    'charging.co2_avoided': 'CO₂ Avoided',
+    'charging.start_btn': '⚡ Start Charging Session',
+    'charging.end_btn': 'End Charging Session',
+    'charging.start_alert_title': 'Start Charging',
+    'charging.start_alert_desc': 'Make sure your vehicle is properly connected to the charger before starting.',
+    'charging.end_alert_title': 'End Charging Session',
+    'charging.end_alert_desc': 'Are you sure you want to end your charging session now?',
+    'charging.continue': 'Continue Charging',
+    'charging.complete_title': 'Charging Complete! 🎉',
+    'charging.complete_sub': 'Thank you for driving clean and powering the green revolution with EcoVolt! 🌿⚡',
+    'charging.delivered': 'Delivered',
+    'charging.total_cost': 'Total Cost',
+    'charging.ecopoints': 'EcoPoints',
+    'charging.receipt_note': 'A dynamic session receipt and sweet eco-credit alert have been saved in your notifications!',
+    'charging.view_reservations': 'View All Reservations',
+    'charging.go_home': 'Go to Home',
+  },
+  hi: {
+    // Tab Navigation
+    'tab.home': 'होम',
+    'tab.reservations': 'बुकिंग्स',
+    'tab.saved': 'सहेजे गए',
+    'tab.profile': 'प्रोफ़ाइल',
+    'tab.leaderboard': 'लीडरबोर्ड',
+
+    // Profile Screen & Headers
+    'profile.title': 'प्रोफ़ाइल',
+    'profile.verified_driver': 'सत्यापित इकोवोल्ट ड्राइवर',
+    'profile.edit': 'संपादित करें',
+    'profile.green_tier': 'ग्रीन ड्राइवर स्तर',
+    'profile.green_pts': 'ग्रीन पॉइंट्स',
+    'profile.rank': 'रैंक',
+    'profile.clean_power': 'स्वच्छ ऊर्जा',
+    'profile.co2_saved': 'CO₂ बचत',
+    'profile.eco_impact_standing': 'पर्यावरण प्रभाव और स्थिति',
+    'profile.leaderboard_green_score': 'लीडरबोर्ड और ग्रीन स्कोर',
+    'profile.view_rankings': 'रैंकिंग देखें',
+    'profile.badges_achievements': 'बैज और उपलब्धियां',
+    'profile.unlocked': 'अनलॉक किया गया',
+    'profile.badges': 'बैज',
+    'profile.live_grid': 'पश्चिम भारत · IN-WE ग्रिड',
+    'profile.renewable_now': 'नवीकरणीय ऊर्जा अभी',
+    'profile.carbon_free': 'कार्बन-मुक्त',
+    'profile.lifetime_impact': 'आपका आजीवन हरित प्रभाव',
+    'profile.co2_avoided': 'CO₂ रोका गया',
+    'profile.from_renewables': 'नवीकरणीय स्रोतों से',
+    'profile.saved_green_windows': 'बचत (हरित समय)',
+    'profile.solar': 'सोलर',
+    'profile.wind': 'पवन',
+    'profile.hydro': 'जलविद्युत',
+    'profile.coal_gas': 'कोयला+गैस',
+
+    // Workspace Portals
+    'portal.title': 'वर्कस्पेस पोर्टल्स',
+    'portal.station_manager': 'स्टेशन प्रबंधक हब',
+    'portal.station_manager_desc': 'ऑक्यूपेंसी और दर निर्धारण',
+    'portal.admin_console': 'नेटवर्क एडमिन कंसोल',
+    'portal.admin_console_desc': 'नेटवर्क स्थिति',
+
+    // Account Section
+    'account.title': 'खाता',
+    'account.edit_profile': 'प्रोफ़ाइल संपादित करें',
+    'account.personal_info': 'व्यक्तिगत जानकारी',
+    'account.my_vehicles': 'मेरे वाहन',
+    'account.no_vehicles': 'कोई वाहन नहीं',
+    'account.payment_methods': 'भुगतान विधियां',
+    'account.upi_wallet': 'यूपीआई / वॉलेट',
+    'account.charging_history': 'चार्जिंग इतिहास',
+
+    // Preferences Section
+    'pref.title': 'प्राथमिकताएं',
+    'pref.notifications': 'सूचनाएं और अलर्ट',
+    'pref.enabled': 'सक्षम',
+    'pref.appearance': 'दिखावट और थीम',
+    'pref.theme_sub': 'डार्क / लाइट',
+    'pref.language': 'भाषा',
+    'pref.lang_name': 'हिन्दी',
+
+    // Support Section
+    'support.title': 'सहायता और नियम',
+    'support.help_center': 'सहायता केंद्र और प्रश्नोत्तर',
+    'support.help_center_sub': 'गाइड और सुझाव',
+    'support.contact_us': 'संपर्क करें और 24/7 हेल्पलाइन',
+    'support.contact_sub': 'सहायता',
+    'support.terms_privacy': 'नियम और गोपनीयता नीति',
+    'support.terms_sub': 'कानूनी',
+    'support.sign_out': 'साइन आउट करें',
+    'support.sign_out_confirm': 'क्या आप वाकई साइन आउट करना चाहते हैं?',
+    'support.cancel': 'रद्द करें',
+    'support.app_version': 'VoltSpot v1.0.0',
+
+    // Edit Profile Modal
+    'edit_profile.title': 'प्रोफ़ाइल संपादित करें',
+    'edit_profile.save': 'सहेजें',
+    'edit_profile.full_name': 'पूरा नाम',
+    'edit_profile.enter_full_name': 'अपना पूरा नाम दर्ज करें',
+    'edit_profile.email_address': 'ईमेल पता',
+    'edit_profile.phone_number': 'फ़ोन नंबर',
+    'edit_profile.account_security': 'खाता सुरक्षा',
+    'edit_profile.security_desc': 'आपकी ईमेल का उपयोग बुकिंग पुष्टि और स्मार्ट सोलर चार्जिंग अलर्ट के लिए किया जाता है।',
+    'edit_profile.save_btn': 'प्रोफ़ाइल परिवर्तन सहेजें',
+    'edit_profile.success': 'आपकी प्रोफ़ाइल जानकारी सफलतापूर्वक सहेजी गई है।',
+    'edit_profile.success_title': 'प्रोफ़ाइल अपडेट हुई',
+
+    // Payment Methods Modal
+    'payment.title': 'भुगतान विधियां',
+    'payment.smart_wallet': 'इकोवोल्ट स्मार्ट वॉलेट',
+    'payment.auto_discount': 'ऑटो-छूट',
+    'payment.avail_balance': 'उपलब्ध बैलेंस',
+    'payment.wallet_sub': 'नवीकरणीय चार्जिंग स्लॉट दरों पर लॉक · 0% लेनदेन शुल्क',
+    'payment.auto_pay': 'ग्रीन विंडो में ऑटो-पे',
+    'payment.auto_pay_desc': 'अधिकतम सोलर छूट पाने के लिए वॉलेट से तुरंत भुगतान करें',
+    'payment.upi_accounts': 'यूपीआई खाते (VPA)',
+    'payment.add_upi': '+ यूपीआई जोड़ें',
+    'payment.saved_cards': 'सहेजे गए क्रेडिट और डेबिट कार्ड',
+    'payment.link_upi': 'नया यूपीआई जोड़ें',
+    'payment.enter_upi': 'अपना यूपीआई आईडी दर्ज करें (उदा. mobile@upi)',
+    'payment.link_upi_btn': 'यूपीआई लिंक करें',
+    'payment.set_default': 'डिफ़ॉल्ट बनाएं',
+    'payment.default_pill': 'डिफ़ॉल्ट',
+    'payment.primary_pill': 'मुख्य',
+
+    // Appearance Modal
+    'appearance.title': 'दिखावट और थीम',
+    'appearance.done': 'पूर्ण',
+    'appearance.theme_mode': 'थीम मोड',
+    'appearance.system_default': 'सिस्टम डिफ़ॉल्ट',
+    'appearance.system_desc': 'डिवाइस सेटिंग्स के अनुसार स्वचालित रूप से सिंक होता है',
+    'appearance.dark_onyx': 'डार्क ओनिक्स (बैटरी बचत)',
+    'appearance.dark_desc': 'OLED स्क्रीन पर उच्च ऊर्जा दक्षता',
+    'appearance.crisp_light': 'उज्ज्वल दिन का प्रकाश (लाइट)',
+    'appearance.light_desc': 'तेज धूप में सबसे स्पष्ट कंट्रास्ट',
+    'appearance.eco_accent': 'इको एक्सेंट रंग',
+    'appearance.volt_emerald': 'वोल्ट पन्ना (Emerald)',
+    'appearance.cyber_teal': 'साइबर टील',
+    'appearance.solar_gold': 'सोलर गोल्ड',
+    'appearance.electric_indigo': 'इलेक्ट्रिक इंडिगो',
+    'appearance.map_style': 'लाइव चार्जिंग मैप स्टाइल',
+    'appearance.eco_hybrid': 'इको हाइब्रिड ग्रिड',
+    'appearance.eco_hybrid_desc': 'नवीकरणीय क्षेत्रों और सौर चार्जिंग क्लस्टरों को हाइलाइट करता है',
+    'appearance.minimal': 'मिनिमलिस्ट क्लीन',
+    'appearance.minimal_desc': 'सरल और तेज़ रेंडरिंग',
+    'appearance.satellite': '3D सैटेलाइट व्यू',
+    'appearance.satellite_desc': 'उच्च गुणवत्ता वाला सैटेलाइट दृश्य',
+    'appearance.high_contrast': 'उच्च कंट्रास्ट लाइव ग्रिड',
+    'appearance.contrast_desc': 'ग्रिड और टैरिफ चार्ट की स्पष्टता बढ़ाता है',
+
+    // Language Modal
+    'lang.title': 'भाषा चुनें',
+    'lang.subtitle': 'अपनी पसंदीदा इंटरफ़ेस भाषा चुनें',
+    'lang.english': 'English (अंग्रेज़ी)',
+    'lang.hindi': 'हिन्दी (Hindi)',
+    'lang.english_region': 'English (India) · National Default',
+    'lang.hindi_region': 'हिन्दी (भारत) · राष्ट्रीय भाषा',
+    'lang.saved_title': 'भाषा अपडेट हो गई',
+    'lang.saved_desc': 'ऐप की भाषा सफलतापूर्वक बदल दी गई है।',
+
+    // Help Center Modal
+    'help.title': 'सहायता केंद्र और प्रश्नोत्तर',
+    'help.search_placeholder': 'प्रश्न, चार्जिंग टिप्स, त्रुटियां खोजें...',
+    'help.roadside': '24/7 रोडसाइड और चार्जर सहायता',
+    'help.roadside_sub': 'गन लॉक या स्टेशन त्रुटि के लिए त्वरित सहायता',
+    'help.all_topics': 'सभी विषय',
+    'help.green_pricing': '🌱 हरित मूल्य निर्धारण',
+    'help.connectors': '🔌 कनेक्टर्स',
+    'help.billing': '💳 बिलिंग',
+    'help.troubleshooting': '🛠 समस्या निवारण',
+    'help.faq_title': 'अक्सर पूछे जाने वाले प्रश्न',
+    'help.still_questions': 'क्या आपके पास अब भी प्रश्न हैं?',
+    'help.still_questions_desc': 'हमारी टीम बुकिंग और चार्जर समस्या निवारण के लिए 24/7 उपलब्ध है।',
+    'help.send_message': 'हमें संदेश भेजें',
+
+    // Contact Us Modal
+    'contact.title': 'सहायता से संपर्क करें',
+    'contact.hotline': '24/7 हेल्पलाइन',
+    'contact.email_support': 'ईमेल सहायता',
+    'contact.category_title': 'आपकी पूछताछ किस संबंध में है?',
+    'contact.cat_charging': '⚡ सत्र और चार्जिंग',
+    'contact.cat_billing': '💳 बिलिंग और छूट',
+    'contact.cat_hardware': '🛠 स्टेशन और कनेक्टर',
+    'contact.cat_general': '💬 सामान्य / फीडबैक',
+    'contact.subject': 'विषय',
+    'contact.description': 'विस्तृत विवरण',
+    'contact.submit': 'सहायता अनुरोध सबमिट करें',
+    'contact.success_title': 'सहायता टिकट बनाया गया!',
+    'contact.back_profile': 'प्रोफ़ाइल पर वापस जाएं',
+
+    // Home Screen
+    'home.greeting': 'नमस्ते',
+    'home.subtitle': 'अपना निकटतम चार्जिंग स्टेशन खोजें',
+    'home.search_placeholder': 'स्टेशन, स्थान खोजें...',
+    'home.available_now': 'अभी उपलब्ध',
+    'home.solar_green': 'सौर और हरित समय',
+    'home.quick_book': 'त्वरित बुकिंग',
+    'home.chargers_near_you': 'आपके आस-पास ईवी चार्जर',
+    'home.view_all': 'सभी देखें',
+    'home.filter': 'फ़िल्टर',
+    'home.renewable_grid': 'नवीकरणीय ग्रिड',
+    'home.tap_directions': 'दिशा-निर्देश देखें',
+
+    // Reservations Screen
+    'reservations.title': 'मेरी बुकिंग्स और इतिहास',
+    'reservations.active_tab': 'सक्रिय और निर्धारित',
+    'reservations.past_tab': 'पिछली रसीदें',
+    'reservations.no_active': 'कोई सक्रिय बुकिंग नहीं',
+    'reservations.no_active_desc': 'उपलब्धता सुनिश्चित करने के लिए अपने पसंदीदा स्टेशन पर चार्जिंग स्लॉट बुक करें।',
+    'reservations.no_past': 'कोई पिछला सत्र नहीं',
+    'reservations.no_past_desc': 'आपके पूर्ण किए गए चार्जिंग सत्र और रसीदें यहां दिखाई देंगी।',
+    'reservations.find_stations': 'चार्जिंग स्टेशन खोजें',
+    'reservations.start_charging': '⚡ चार्जिंग शुरू करें',
+    'reservations.cancel_booking': 'बुकिंग रद्द करें',
+    'reservations.cancel_confirm': 'क्या आप वाकई इस बुकिंग को रद्द करना चाहते हैं?',
+    'reservations.today': 'आज',
+    'reservations.tomorrow': 'कल',
+    'reservations.status_reserved': 'आरक्षित',
+    'reservations.status_active': 'चार्जिंग सक्रिय',
+    'reservations.status_completed': 'पूर्ण',
+    'reservations.status_cancelled': 'रद्द किया गया',
+    'reservations.status_expired': 'समाप्त',
+    'reservations.locked_rate': 'लॉक की गई दर',
+    'reservations.total_billed': 'कुल बिल',
+    'reservations.view_station': 'स्टेशन देखें',
+
+    // Saved Screen
+    'saved.title': 'सहेजे गए स्टेशन',
+    'saved.subtitle': 'सहेजे गए स्टेशन',
+    'saved.no_saved': 'कोई सहेजा गया स्टेशन नहीं',
+    'saved.no_saved_desc': 'त्वरित पहुंच के लिए अपने पसंदीदा स्टेशनों को बुकमार्क करें।',
+    'saved.find_stations': 'स्टेशन खोजें',
+    'saved.remove_title': 'सहेजा गया स्टेशन हटाएं',
+    'saved.remove_confirm': 'क्या आप इस स्टेशन को अपनी सहेजी गई सूची से हटाना चाहते हैं?',
+
+    // Station Card & General Components
+    'card.available': 'उपलब्ध',
+    'card.unavailable': 'व्यस्त',
+    'card.book_slot': 'स्लॉट बुक करें',
+    'card.from': 'से',
+    'card.renewable': 'नवीकरणीय',
+    'card.chargers': 'चार्जर',
+    'card.reviews': 'समीक्षाएं',
+    'card.min': 'मिनट',
+
+    // Charging Screen
+    'charging.title': 'चार्जिंग सत्र',
+    'charging.ready': 'चार्ज करने के लिए तैयार',
+    'charging.in_progress': 'चार्जिंग जारी है...',
+    'charging.duration': 'अवधि',
+    'charging.energy': 'ऊर्जा',
+    'charging.cost': 'लागत',
+    'charging.charger_power': 'चार्जर पावर',
+    'charging.rate': 'दर',
+    'charging.est_range': 'अनुमानित रेंज जुड़ी',
+    'charging.clean_grid': 'स्वच्छ ऊर्जा ग्रिड',
+    'charging.co2_avoided': 'CO₂ बचत',
+    'charging.start_btn': '⚡ चार्जिंग सत्र शुरू करें',
+    'charging.end_btn': 'चार्जिंग सत्र समाप्त करें',
+    'charging.start_alert_title': 'चार्जिंग शुरू करें',
+    'charging.start_alert_desc': 'शुरू करने से पहले सुनिश्चित करें कि आपका वाहन चार्जर से सही ढंग से जुड़ा हुआ है।',
+    'charging.end_alert_title': 'चार्जिंग सत्र समाप्त करें',
+    'charging.end_alert_desc': 'क्या आप वाकई अपना चार्जिंग सत्र समाप्त करना चाहते हैं?',
+    'charging.continue': 'चार्जिंग जारी रखें',
+    'charging.complete_title': 'चार्जिंग पूर्ण! 🎉',
+    'charging.complete_sub': 'इकोवोल्ट के साथ स्वच्छ ऊर्जा अपनाने और हरित क्रांति में योगदान देने के लिए धन्यवाद! 🌿⚡',
+    'charging.delivered': 'प्रदान की गई',
+    'charging.total_cost': 'कुल लागत',
+    'charging.ecopoints': 'इकोपॉइंट्स',
+    'charging.receipt_note': 'एक गतिशील सत्र रसीद और हरित क्रेडिट अलर्ट आपकी सूचनाओं में सहेज दिया गया है!',
+    'charging.view_reservations': 'सभी बुकिंग्स देखें',
+    'charging.go_home': 'होम पर जाएं',
+  },
+};
+
+interface LanguageContextType {
+  language: LanguageCode;
+  setLanguage: (lang: LanguageCode) => Promise<void>;
+  t: (key: string, fallback?: string) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [language, setLanguageState] = useState<LanguageCode>('en');
+
+  useEffect(() => {
+    async function loadLanguage() {
+      try {
+        const saved = await SecureStore.getItemAsync(LANGUAGE_STORAGE_KEY);
+        if (saved === 'en' || saved === 'hi') {
+          setLanguageState(saved);
+        }
+      } catch {}
+    }
+    loadLanguage();
+  }, []);
+
+  const setLanguage = useCallback(async (lang: LanguageCode) => {
+    setLanguageState(lang);
+    try {
+      await SecureStore.setItemAsync(LANGUAGE_STORAGE_KEY, lang);
+    } catch {}
+  }, []);
+
+  const t = useCallback(
+    (key: string, fallback?: string): string => {
+      const dict = translations[language];
+      if (dict && dict[key]) {
+        return dict[key];
+      }
+      // Fallback to English dictionary
+      if (translations.en[key]) {
+        return translations.en[key];
+      }
+      return fallback || key;
+    },
+    [language]
+  );
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+};
+
+export function useLanguage() {
+  const ctx = useContext(LanguageContext);
+  if (!ctx) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return ctx;
+}
