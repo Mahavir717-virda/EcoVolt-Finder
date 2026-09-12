@@ -8,12 +8,21 @@ import { useFavoriteStatus } from '@/hooks/useFavorites';
 import { usePlacePhotos } from '@/hooks/usePlacePhotos';
 import { useStation } from '@/hooks/useStations';
 import { getStationImageSource } from '@/constants/stationImages';
+import {
+  getLiveGridSnapshot,
+  getGridForecast,
+  getDynamicPriceQuote,
+  getBestChargingWindow,
+  greennessColor,
+  greennessBandLabel,
+} from '@/lib/gridData';
 import type { Charger } from '@/types/database.types';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+
 import {
     ActivityIndicator,
     Dimensions,
@@ -93,6 +102,26 @@ export default function StationDetailScreen() {
     station?.name,
     station?.image_url
   );
+
+  // ── Grid & pricing data (mock, mirrors ML service output) ────────────────
+  const liveGrid = useMemo(() => getLiveGridSnapshot('IN-WE'), []);
+  const forecast = useMemo(() => getGridForecast('IN-WE'), []);
+  const bestWindow = useMemo(() => getBestChargingWindow('IN-WE'), []);
+  const gridColor = greennessColor(liveGrid.renewablePct);
+  const gridBandLabel = greennessBandLabel(liveGrid.band);
+
+  // Breakdown percentages
+  const bkdTotal = Object.values(liveGrid.breakdown).reduce((a, b) => a + b, 0);
+  const bkd = liveGrid.breakdown;
+  const solarPct  = bkdTotal > 0 ? Math.round((bkd.solar / bkdTotal) * 100) : 0;
+  const windPct   = bkdTotal > 0 ? Math.round((bkd.wind / bkdTotal) * 100) : 0;
+  const hydroPct  = bkdTotal > 0 ? Math.round((bkd.hydro / bkdTotal) * 100) : 0;
+  const nuclearPct= bkdTotal > 0 ? Math.round((bkd.nuclear / bkdTotal) * 100) : 0;
+  const coalPct   = bkdTotal > 0 ? Math.round(((bkd.coal + bkd.gas) / bkdTotal) * 100) : 0;
+
+  // Current IST hour for forecast highlighting
+  const currentISTHour = Math.floor((new Date().getUTCHours() + 5.5) % 24);
+
 
   const handleNavigate = () => {
     if (!station) return;
@@ -184,6 +213,11 @@ export default function StationDetailScreen() {
     const statusConfig = CHARGER_STATUS_CONFIG[charger.status];
     const isAvailable = charger.status === 'available';
 
+    // Dynamic pricing breakdown for this charger
+    const priceQuote = getDynamicPriceQuote(charger.id, charger.price_per_kwh);
+    const touColor = priceQuote.touAdjustment < 0 ? '#0E8E4F' : priceQuote.touAdjustment > 0 ? '#E2732B' : colors.neutral[500];
+    const touPrefix = priceQuote.touAdjustment < 0 ? '−' : priceQuote.touAdjustment > 0 ? '+' : '';
+
     return (
       <Card key={charger.id} style={styles.chargerCard}>
         <View style={styles.chargerHeader}>
@@ -212,9 +246,37 @@ export default function StationDetailScreen() {
             <Ionicons name="speedometer-outline" size={16} color={colors.neutral[500]} />
             <Text style={styles.detailText}>{charger.power_kw} kW</Text>
           </View>
-          <View style={styles.detailItem}>
-            <Ionicons name="pricetag-outline" size={16} color={colors.neutral[500]} />
-            <Text style={styles.detailText}>₹{charger.price_per_kwh}/kWh</Text>
+        </View>
+
+        {/* Dynamic Pricing Breakdown */}
+        <View style={styles.priceBreakdown}>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Base tariff ({priceQuote.provider})</Text>
+            <Text style={styles.priceVal}>₹{priceQuote.baseTariff.toFixed(2)}/kWh</Text>
+          </View>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Service markup</Text>
+            <Text style={styles.priceVal}>+₹{priceQuote.providerMarkup.toFixed(2)}/kWh</Text>
+          </View>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>
+              {priceQuote.touAdjustment < 0 ? '🌿 Green discount (now)' : priceQuote.touAdjustment > 0 ? '⚡ Peak surcharge' : 'No ToU adjustment'}
+            </Text>
+            <Text style={[styles.priceVal, { color: touColor }]}>
+              {priceQuote.touAdjustment !== 0 ? `${touPrefix}₹${Math.abs(priceQuote.touAdjustment).toFixed(2)}/kWh` : '—'}
+            </Text>
+          </View>
+          <View style={styles.priceDivider} />
+          <View style={styles.priceRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.priceFinalLabel}>Final price</Text>
+              {priceQuote.isEstimate && (
+                <View style={styles.estimateBadge}>
+                  <Text style={styles.estimateBadgeText}>estimate</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.priceFinal}>₹{priceQuote.finalPrice.toFixed(2)}/kWh</Text>
           </View>
         </View>
 
@@ -229,6 +291,7 @@ export default function StationDetailScreen() {
       </Card>
     );
   };
+
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -420,6 +483,130 @@ export default function StationDetailScreen() {
             leftIcon={<Ionicons name="navigate-outline" size={18} color={colors.primary[500]} />}
           />
         </View>
+
+        {/* ── Greenness Gauge Section ── */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Live Grid Greenness</Text>
+            <View style={[styles.qualityBadge, { backgroundColor: '#0FB8C920' }]}>
+              <View style={[styles.qualityDot, { backgroundColor: '#0FB8C9' }]} />
+              <Text style={[styles.qualityText, { color: '#0FB8C9' }]}>{liveGrid.quality.toUpperCase()}</Text>
+            </View>
+          </View>
+          <Text style={styles.sectionSubtitle}>{liveGrid.zoneName}</Text>
+
+          {/* Big percentage + band */}
+          <View style={styles.gaugeRow}>
+            <View style={styles.gaugeCircle}>
+              <View style={[styles.gaugeCircleInner, { borderColor: gridColor }]}>
+                <Text style={[styles.gaugePct, { color: gridColor }]}>{liveGrid.renewablePct.toFixed(0)}%</Text>
+                <Text style={styles.gaugeLabel}>renewable</Text>
+              </View>
+            </View>
+            <View style={styles.gaugeInfo}>
+              <View style={[styles.bandPill, { backgroundColor: gridColor + '20', borderColor: gridColor + '50' }]}>
+                <Text style={[styles.bandPillText, { color: gridColor }]}>{gridBandLabel}</Text>
+              </View>
+              <View style={styles.gaugeStatRow}>
+                <Text style={styles.gaugeStatKey}>Carbon-free</Text>
+                <Text style={styles.gaugeStatVal}>{liveGrid.carbonFreePct.toFixed(0)}%</Text>
+              </View>
+              <View style={styles.gaugeStatRow}>
+                <Text style={styles.gaugeStatKey}>Carbon intensity</Text>
+                <Text style={styles.gaugeStatVal}>{liveGrid.carbonIntensity} gCO₂/kWh</Text>
+              </View>
+              <Text style={styles.gaugeNote}>Renewable ≠ Carbon-free (nuclear excluded)</Text>
+            </View>
+          </View>
+
+          {/* Stacked source bar */}
+          <Text style={[styles.sectionTitle, { fontSize: 13, marginTop: 16, marginBottom: 8 }]}>Grid Mix Right Now</Text>
+          <View style={styles.stackBar}>
+            {solarPct > 0  && <View style={[styles.stackSegment, { flex: solarPct,   backgroundColor: '#F59E0B' }]} />}
+            {windPct > 0   && <View style={[styles.stackSegment, { flex: windPct,    backgroundColor: '#0FB8C9' }]} />}
+            {hydroPct > 0  && <View style={[styles.stackSegment, { flex: hydroPct,   backgroundColor: '#3B82F6' }]} />}
+            {nuclearPct > 0 && <View style={[styles.stackSegment, { flex: nuclearPct, backgroundColor: '#8B5CF6' }]} />}
+            {coalPct > 0   && <View style={[styles.stackSegment, { flex: coalPct,    backgroundColor: '#6B7280' }]} />}
+          </View>
+          <View style={styles.stackLegend}>
+            <View style={styles.stackLegendItem}>
+              <View style={[styles.stackLegendDot, { backgroundColor: '#F59E0B' }]} />
+              <Text style={styles.stackLegendText}>Solar {solarPct}%</Text>
+            </View>
+            <View style={styles.stackLegendItem}>
+              <View style={[styles.stackLegendDot, { backgroundColor: '#0FB8C9' }]} />
+              <Text style={styles.stackLegendText}>Wind {windPct}%</Text>
+            </View>
+            <View style={styles.stackLegendItem}>
+              <View style={[styles.stackLegendDot, { backgroundColor: '#3B82F6' }]} />
+              <Text style={styles.stackLegendText}>Hydro {hydroPct}%</Text>
+            </View>
+            <View style={styles.stackLegendItem}>
+              <View style={[styles.stackLegendDot, { backgroundColor: '#8B5CF6' }]} />
+              <Text style={styles.stackLegendText}>Nuclear {nuclearPct}%</Text>
+            </View>
+            <View style={styles.stackLegendItem}>
+              <View style={[styles.stackLegendDot, { backgroundColor: '#6B7280' }]} />
+              <Text style={styles.stackLegendText}>Coal+Gas {coalPct}%</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ── 24h Forecast Strip ── */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>24h Renewable Forecast</Text>
+            <View style={[styles.qualityBadge, { backgroundColor: '#E0A81E20' }]}>
+              <Text style={[styles.qualityText, { color: '#E0A81E' }]}>ESTIMATE</Text>
+            </View>
+          </View>
+
+          {/* Best window callout */}
+          <View style={styles.bestWindowCard}>
+            <Ionicons name="flash" size={16} color="#0E8E4F" />
+            <Text style={styles.bestWindowText}>
+              Best window: <Text style={{ color: '#0E8E4F', fontWeight: '700' }}>{bestWindow.label}</Text>
+              {' '}· {bestWindow.renewablePct.toFixed(0)}% renewable
+              {bestWindow.savingsRs > 0 ? ` · saves ~₹${bestWindow.savingsRs}/session` : ''}
+            </Text>
+          </View>
+
+          {/* Forecast bars */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.forecastScroll}>
+            <View style={styles.forecastRow}>
+              {forecast.map((point) => {
+                const barColor = greennessColor(point.renewablePct);
+                const isCurrent = point.hourIST === currentISTHour;
+                const barHeight = Math.max(12, Math.round((point.renewablePct / 100) * 56));
+                return (
+                  <View key={point.hourIST} style={styles.forecastBarWrap}>
+                    {point.isRecommended && (
+                      <View style={styles.recommendedDot} />
+                    )}
+                    <View style={[
+                      styles.forecastBarOuter,
+                      isCurrent && styles.forecastBarCurrent,
+                      point.isRecommended && styles.forecastBarBest,
+                    ]}>
+                      <View style={[
+                        styles.forecastBarInner,
+                        { height: barHeight, backgroundColor: barColor },
+                      ]} />
+                    </View>
+                    <Text style={[styles.forecastBarLabel, isCurrent && { color: '#0FB8C9' }]}>
+                      {point.hourIST % 3 === 0 ? point.label.split(' ')[0] : ''}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+          <View style={styles.forecastScaleLegend}>
+            <Text style={styles.forecastScaleText}>◼ Highlighted = best charging window</Text>
+            <Text style={styles.forecastScaleText}>◉ = Now</Text>
+          </View>
+        </View>
+
 
         {/* Chargers Section */}
         <View style={styles.chargersSection}>
@@ -903,5 +1090,266 @@ const styles = StyleSheet.create({
   noChargersText: {
     fontSize: 14,
     color: colors.neutral[500],
+  },
+
+  // ── Section Card wrapper ───────────────────────────────────────────────
+  sectionCard: {
+    backgroundColor: colors.white,
+    marginHorizontal: 0,
+    marginBottom: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: colors.neutral[400],
+    marginBottom: 14,
+  },
+  qualityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  qualityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  qualityText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+
+  // ── Greenness Gauge ────────────────────────────────────────────────────
+  gaugeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    marginBottom: 4,
+  },
+  gaugeCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#F3F6F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gaugeCircleInner: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    borderWidth: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gaugePct: {
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 28,
+  },
+  gaugeLabel: {
+    fontSize: 10,
+    color: colors.neutral[400],
+    fontWeight: '500',
+  },
+  gaugeInfo: {
+    flex: 1,
+    gap: 6,
+  },
+  bandPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  bandPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  gaugeStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  gaugeStatKey: {
+    fontSize: 12,
+    color: colors.neutral[500],
+  },
+  gaugeStatVal: {
+    fontSize: 12,
+    color: colors.neutral[700],
+    fontWeight: '600',
+  },
+  gaugeNote: {
+    fontSize: 10,
+    color: colors.neutral[400],
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+
+  // ── Stacked source bar ─────────────────────────────────────────────────
+  stackBar: {
+    flexDirection: 'row',
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  stackSegment: {
+    height: '100%',
+  },
+  stackLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  stackLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  stackLegendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  stackLegendText: {
+    fontSize: 12,
+    color: colors.neutral[500],
+  },
+
+  // ── 24h Forecast Strip ─────────────────────────────────────────────────
+  bestWindowCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#E3F3E9',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 14,
+  },
+  bestWindowText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.neutral[700],
+    lineHeight: 18,
+  },
+  forecastScroll: {
+    marginBottom: 8,
+  },
+  forecastRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingVertical: 4,
+    gap: 3,
+  },
+  forecastBarWrap: {
+    alignItems: 'center',
+    width: 22,
+  },
+  recommendedDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#0E8E4F',
+    marginBottom: 3,
+  },
+  forecastBarOuter: {
+    width: 14,
+    height: 64,
+    borderRadius: 4,
+    backgroundColor: '#EAF0EA',
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  forecastBarCurrent: {
+    borderWidth: 1.5,
+    borderColor: '#0FB8C9',
+  },
+  forecastBarBest: {
+    borderWidth: 1.5,
+    borderColor: '#0E8E4F',
+  },
+  forecastBarInner: {
+    width: '100%',
+    borderRadius: 4,
+  },
+  forecastBarLabel: {
+    fontSize: 9,
+    color: colors.neutral[400],
+    marginTop: 3,
+    fontWeight: '500',
+  },
+  forecastScaleLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  forecastScaleText: {
+    fontSize: 10,
+    color: colors.neutral[400],
+  },
+
+  // ── Dynamic Pricing Breakdown ──────────────────────────────────────────
+  priceBreakdown: {
+    backgroundColor: '#F8FAF8',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    gap: 6,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceLabel: {
+    fontSize: 13,
+    color: colors.neutral[600],
+    flex: 1,
+    marginRight: 8,
+  },
+  priceVal: {
+    fontSize: 13,
+    color: colors.neutral[700],
+    fontWeight: '500',
+  },
+  priceDivider: {
+    height: 1,
+    backgroundColor: colors.neutral[200],
+    marginVertical: 4,
+  },
+  priceFinalLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.neutral[800],
+  },
+  priceFinal: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0E8E4F',
+  },
+  estimateBadge: {
+    backgroundColor: '#E0A81E20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  estimateBadgeText: {
+    fontSize: 10,
+    color: '#E0A81E',
+    fontWeight: '600',
   },
 });

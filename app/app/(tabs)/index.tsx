@@ -5,12 +5,13 @@
 
 import { FadeIn, ScaleIn, SlideIn } from '@/components/animations';
 import { WebViewMap } from '@/components/map';
+import { StationCard } from '@/components/station';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { useNearbyStations, useStations } from '@/hooks/useStations';
 import { useUserLocation } from '@/hooks/useUserLocation';
+import { getLiveGridSnapshot, greennessColor, greennessBandLabel } from '@/lib/gridData';
 import { spacing } from '@/styles/spacing';
-import { formatDistance } from '@/utils/distance';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -24,6 +25,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -102,6 +104,19 @@ export default function HomeScreen() {
     longitude: userCoords.longitude,
   }), [userCoords.latitude, userCoords.longitude]);
 
+  // Live grid snapshot (mock data, mirrors ML service)
+  const liveGrid = useMemo(() => getLiveGridSnapshot('IN-WE'), []);
+  const gridColor = greennessColor(liveGrid.renewablePct);
+  const gridBandLabel = greennessBandLabel(liveGrid.band);
+
+  // Breakdown pct for display
+  const breakdownTotal = Object.values(liveGrid.breakdown).reduce((a, b) => a + b, 0);
+  const bkd = liveGrid.breakdown;
+  const solarPct = breakdownTotal > 0 ? Math.round((bkd.solar / breakdownTotal) * 100) : 0;
+  const windPct = breakdownTotal > 0 ? Math.round((bkd.wind / breakdownTotal) * 100) : 0;
+  const hydroPct = breakdownTotal > 0 ? Math.round((bkd.hydro / breakdownTotal) * 100) : 0;
+  const coalPct = breakdownTotal > 0 ? Math.round(((bkd.coal + bkd.gas) / breakdownTotal) * 100) : 0;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -133,6 +148,68 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary[500]]} />
         }
       >
+        {/* ── Live Grid Banner ── */}
+        <View style={styles.gridBanner}>
+          <View style={styles.gridBannerTop}>
+            <View style={styles.gridBannerLeft}>
+              <View style={[styles.liveIndicator, { backgroundColor: '#0FB8C9' }]} />
+              <Text style={styles.gridBannerZone}>{liveGrid.zoneName}</Text>
+            </View>
+            <View style={[styles.gridBandBadge, { backgroundColor: gridColor + '20', borderColor: gridColor + '40' }]}>
+              <Text style={[styles.gridBandText, { color: gridColor }]}>{gridBandLabel}</Text>
+            </View>
+          </View>
+
+          {/* Big renewable number + bar */}
+          <View style={styles.gridMainRow}>
+            <View>
+              <Text style={[styles.gridPct, { color: gridColor }]}>{liveGrid.renewablePct.toFixed(0)}%</Text>
+              <Text style={styles.gridPctLabel}>Renewable now</Text>
+            </View>
+            <View style={styles.gridStats}>
+              <Text style={styles.gridStatLine}>
+                <Text style={styles.gridStatLabel}>Carbon  </Text>
+                <Text style={styles.gridStatValue}>{liveGrid.carbonIntensity} g CO₂/kWh</Text>
+              </Text>
+              <Text style={styles.gridStatLine}>
+                <Text style={styles.gridStatLabel}>Carbon-free  </Text>
+                <Text style={styles.gridStatValue}>{liveGrid.carbonFreePct.toFixed(0)}%</Text>
+              </Text>
+            </View>
+          </View>
+
+          {/* Stacked bar */}
+          <View style={styles.gridBar}>
+            {solarPct > 0 && <View style={[styles.gridBarSegment, { flex: solarPct, backgroundColor: '#F59E0B' }]} />}
+            {windPct > 0 && <View style={[styles.gridBarSegment, { flex: windPct, backgroundColor: '#0FB8C9' }]} />}
+            {hydroPct > 0 && <View style={[styles.gridBarSegment, { flex: hydroPct, backgroundColor: '#3B82F6' }]} />}
+            {coalPct > 0 && <View style={[styles.gridBarSegment, { flex: coalPct, backgroundColor: '#6B7280' }]} />}
+            {(100 - solarPct - windPct - hydroPct - coalPct) > 0 && (
+              <View style={[styles.gridBarSegment, { flex: 100 - solarPct - windPct - hydroPct - coalPct, backgroundColor: '#A3B18A' }]} />
+            )}
+          </View>
+
+          {/* Legend */}
+          <View style={styles.gridLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#F59E0B' }]} />
+              <Text style={styles.legendText}>Solar {solarPct}%</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#0FB8C9' }]} />
+              <Text style={styles.legendText}>Wind {windPct}%</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#3B82F6' }]} />
+              <Text style={styles.legendText}>Hydro {hydroPct}%</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#6B7280' }]} />
+              <Text style={styles.legendText}>Coal+Gas {coalPct}%</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Fallback Location Notice if GPS pending or permission not given */}
         {isFallback && (
           <TouchableOpacity 
@@ -210,46 +287,12 @@ export default function HomeScreen() {
             </View>
           ) : (
             stations.slice(0, 5).map((station) => (
-              <TouchableOpacity
+              <StationCard
                 key={station.id}
-                style={styles.stationCard}
+                station={station}
+                distance={(station as any).distance ?? undefined}
                 onPress={() => handleStationPress(station.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.stationIconContainer}>
-                  <Ionicons name="flash" size={24} color={colors.primary[500]} />
-                </View>
-                <View style={styles.stationInfo}>
-                  <Text style={styles.stationName}>{station.name}</Text>
-                  <Text style={styles.stationAddress} numberOfLines={1}>
-                    {station.address}
-                  </Text>
-                  <View style={styles.stationMeta}>
-                    <View style={styles.metaItem}>
-                      <Ionicons name="location" size={14} color={colors.neutral[400]} />
-                      <Text style={styles.metaText}>
-                        {(station as any).distance ? formatDistance((station as any).distance) : station.city}
-                      </Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <Ionicons name="flash" size={14} color={colors.neutral[400]} />
-                      <Text style={styles.metaText}>
-                        {station.available_chargers || 0} available
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.stationStatus}>
-                  <Text style={[
-                    styles.availabilityText,
-                    (station.available_chargers || 0) > 0 ? styles.available : styles.unavailable
-                  ]}>
-                    {station.available_chargers || 0}/{station.total_chargers || 0}
-                  </Text>
-                  <Text style={styles.availabilityLabel}>Available</Text>
-                  <Ionicons name="chevron-forward" size={20} color={colors.neutral[400]} />
-                </View>
-              </TouchableOpacity>
+              />
             ))
           )}
           </View>
@@ -511,5 +554,112 @@ const styles = StyleSheet.create({
     color: colors.neutral[400],
     marginTop: spacing.sm,
     textAlign: 'center',
+  },
+
+  // ── Grid Live Banner ───────────────────────────────────────────────────
+  gridBanner: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: '#08150F',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#0E2018',
+  },
+  gridBannerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  gridBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  liveIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  gridBannerZone: {
+    fontSize: 12,
+    color: '#8A998F',
+    fontWeight: '500',
+  },
+  gridBandBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  gridBandText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  gridMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  gridPct: {
+    fontSize: 42,
+    fontWeight: '700',
+    lineHeight: 46,
+  },
+  gridPctLabel: {
+    fontSize: 11,
+    color: '#8A998F',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  gridStats: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  gridStatLine: {
+    flexDirection: 'row',
+  },
+  gridStatLabel: {
+    fontSize: 12,
+    color: '#4C5C54',
+  },
+  gridStatValue: {
+    fontSize: 12,
+    color: '#8A998F',
+    fontWeight: '500',
+  },
+  gridBar: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 10,
+    backgroundColor: '#0E2018',
+  },
+  gridBarSegment: {
+    height: '100%',
+  },
+  gridLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  legendText: {
+    fontSize: 11,
+    color: '#8A998F',
+    fontWeight: '500',
   },
 });

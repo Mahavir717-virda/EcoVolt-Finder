@@ -6,8 +6,9 @@
 import { colors } from '@/constants/colors';
 import { spacing } from '@/styles/spacing';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
+    Pressable,
     StyleSheet,
     Text,
     TextInput,
@@ -39,6 +40,7 @@ export function Input({
   style,
   ...props
 }: InputProps) {
+  const inputRef = useRef<TextInput>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
@@ -55,7 +57,10 @@ export function Input({
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       
-      <View style={inputContainerStyles}>
+      <Pressable 
+        style={inputContainerStyles} 
+        onPress={() => inputRef.current?.focus()}
+      >
         {leftIcon && (
           <Ionicons
             name={leftIcon}
@@ -66,6 +71,7 @@ export function Input({
         )}
         
         <TextInput
+          ref={inputRef}
           style={[styles.input, leftIcon && styles.inputWithLeftIcon, style]}
           placeholderTextColor={colors.neutral[400]}
           onFocus={() => setIsFocused(true)}
@@ -96,7 +102,7 @@ export function Input({
             <Ionicons name={rightIcon} size={20} color={colors.neutral[400]} />
           </TouchableOpacity>
         )}
-      </View>
+      </Pressable>
       
       {error && <Text style={styles.error}>{error}</Text>}
       {hint && !error && <Text style={styles.hint}>{hint}</Text>}

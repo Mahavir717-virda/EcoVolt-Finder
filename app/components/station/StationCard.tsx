@@ -1,20 +1,42 @@
 import { Card, Skeleton } from '@/components/ui';
 import { colors } from '@/constants/colors';
+import { getStationImageSource } from '@/constants/stationImages';
 import type { Station } from '@/types/database.types';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Image } from 'expo-image';
 
-import { getStationImageSource } from '@/constants/stationImages';
+// Map charger connector types to MaterialCommunityIcons names
+const CONNECTOR_ICONS: Record<string, string> = {
+  ccs: 'ev-plug-ccs2',
+  chademo: 'ev-plug-chademo',
+  type2: 'ev-plug-type2',
+  j1772: 'ev-plug-type1',
+  tesla: 'ev-plug-tesla',
+  nacs: 'ev-plug-tesla',
+};
+
+function getConnectorIcons(station: Station): string[] {
+  const amenities = station.amenities ?? [];
+  const found: string[] = [];
+  for (const a of amenities) {
+    const key = a.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (CONNECTOR_ICONS[key]) found.push(CONNECTOR_ICONS[key]);
+  }
+  if (found.length === 0) {
+    return ['ev-plug-ccs2', 'ev-plug-chademo', 'ev-plug-type2'];
+  }
+  return [...new Set(found)].slice(0, 3);
+}
 
 interface StationCardProps {
   station: Station;
   distance?: number; // in km
   onPress?: () => void;
-  onFavorite?: () => void;
-  isFavorite?: boolean;
+  onSave?: () => void;
+  isSaved?: boolean;
   variant?: 'default' | 'compact';
 }
 
@@ -22,8 +44,8 @@ export function StationCard({
   station,
   distance,
   onPress,
-  onFavorite,
-  isFavorite = false,
+  onSave,
+  isSaved = false,
   variant = 'default',
 }: StationCardProps) {
   const [isImageLoading, setIsImageLoading] = useState(true);
@@ -39,8 +61,10 @@ export function StationCard({
     }
   };
 
-  const availabilityPercentage = 
-    (station.available_chargers / station.total_chargers) * 100;
+  const availabilityPercentage =
+    station.total_chargers > 0
+      ? (station.available_chargers / station.total_chargers) * 100
+      : 0;
 
   const getAvailabilityColor = () => {
     if (availabilityPercentage >= 50) return colors.status.success;
@@ -48,6 +72,9 @@ export function StationCard({
     return colors.status.error;
   };
 
+  const isAvailable = station.available_chargers > 0;
+
+  // ── Compact variant ──
   if (variant === 'compact') {
     return (
       <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
@@ -79,250 +106,334 @@ export function StationCard({
     );
   }
 
+  // ── Default variant (reference design) ──
   const imageSource =
-    station.image_url && station.image_url.startsWith('http') && !station.image_url.includes('unsplash')
+    station.image_url &&
+    station.image_url.startsWith('http') &&
+    !station.image_url.includes('unsplash')
       ? { uri: station.image_url }
       : getStationImageSource(station.id || station.name);
 
+  const distanceKm = distance !== undefined ? distance : null;
+  const driveMinutes =
+    distanceKm !== null ? Math.round(distanceKm * 3.5 + 2) : null;
+
+  const connectorIcons = getConnectorIcons(station);
+  const reviewCount = Math.max(5, Math.floor((station.rating ?? 3.5) * 35 + 10));
+
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-      <Card style={styles.card}>
-        {/* Station Image with Skeleton Loader */}
-        <View style={styles.imageContainer}>
-          {isImageLoading && (
-            <Skeleton
-              width="100%"
-              height={140}
-              borderRadius={0}
-              style={StyleSheet.absoluteFillObject}
-            />
-          )}
-          <Image
-            source={imageSource}
-            style={styles.image}
-            contentFit="cover"
-            transition={150}
-            cachePolicy="memory-disk"
-            priority="high"
-            onLoadStart={() => setIsImageLoading(true)}
-            onLoad={() => setIsImageLoading(false)}
-            onError={() => setIsImageLoading(false)}
-          />
-
-          {/* Favorite Button */}
-          {onFavorite && (
-            <TouchableOpacity
-              style={styles.favoriteButton}
-              onPress={(e) => {
-                e.stopPropagation();
-                onFavorite();
-              }}
-            >
-              <Ionicons
-                name={isFavorite ? 'heart' : 'heart-outline'}
-                size={22}
-                color={isFavorite ? colors.status.error : colors.white}
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.85} style={styles.cardWrapper}>
+      <View style={styles.card}>
+        {/* ── Top Row: Thumbnail + Info + Bookmark ── */}
+        <View style={styles.topRow}>
+          {/* Thumbnail */}
+          <View style={styles.thumbnailContainer}>
+            {isImageLoading && (
+              <Skeleton
+                width={90}
+                height={90}
+                borderRadius={12}
+                style={StyleSheet.absoluteFillObject}
               />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Content */}
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.name} numberOfLines={1}>
-              {station.name}
-            </Text>
-            {station.rating && (
-              <View style={styles.ratingContainer}>
-                <Ionicons name="star" size={14} color={colors.status.warning} />
-                <Text style={styles.rating}>{station.rating.toFixed(1)}</Text>
-              </View>
             )}
+            <Image
+              source={imageSource}
+              style={styles.thumbnail}
+              contentFit="cover"
+              transition={150}
+              cachePolicy="memory-disk"
+              priority="high"
+              onLoadStart={() => setIsImageLoading(true)}
+              onLoad={() => setIsImageLoading(false)}
+              onError={() => setIsImageLoading(false)}
+            />
           </View>
 
-          <View style={styles.addressRow}>
-            <Ionicons name="location-outline" size={14} color={colors.neutral[500]} />
-            <Text style={styles.address} numberOfLines={1}>
-              {station.address}
-            </Text>
-          </View>
+          {/* Station details */}
+          <View style={styles.infoContainer}>
+            {/* Name + Bookmark */}
+            <View style={styles.nameRow}>
+              <Text style={styles.stationName} numberOfLines={2}>
+                {station.name}
+              </Text>
+              <TouchableOpacity
+                style={styles.bookmarkButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onSave?.();
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                  size={22}
+                  color={isSaved ? colors.primary[600] : colors.neutral[400]}
+                />
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.footer}>
-            {/* Availability */}
-            <View style={styles.availability}>
-              <View style={[styles.availabilityIndicator, { backgroundColor: getAvailabilityColor() }]} />
-              <Text style={styles.availabilityText}>
-                <Text style={{ fontWeight: '600' }}>{station.available_chargers}</Text>
-                /{station.total_chargers} available
+            {/* Address */}
+            <View style={styles.addressRow}>
+              <Ionicons name="location-outline" size={13} color={colors.neutral[400]} />
+              <Text style={styles.addressText} numberOfLines={2}>
+                {station.address}
               </Text>
             </View>
 
-            {/* Greenness Indicator */}
-            {station.greenness_score !== undefined && (
-              <View style={styles.greenBadge}>
-                <Ionicons name="leaf" size={12} color="#10B981" />
-                <Text style={styles.greenText}>{station.greenness_score}% Clean</Text>
-              </View>
-            )}
-
-            {/* Distance */}
-            {distance !== undefined && (
-              <View style={styles.distanceContainer}>
-                <Ionicons name="navigate-outline" size={14} color={colors.primary[500]} />
-                <Text style={styles.distanceValue}>
-                  {distance < 1 ? `${(distance * 1000).toFixed(0)}m` : `${distance.toFixed(1)}km`}
+            {/* Rating */}
+            {station.rating != null && (
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={14} color="#F59E0B" />
+                <Text style={styles.ratingText}>
+                  {station.rating.toFixed(1)}{' '}
+                  <Text style={styles.reviewCount}>({reviewCount} review{reviewCount !== 1 ? 's' : ''})</Text>
                 </Text>
               </View>
             )}
           </View>
+        </View>
 
-          {/* Amenities Preview */}
-          {station.amenities && station.amenities.length > 0 && (
-            <View style={styles.amenities}>
-              {station.amenities.slice(0, 4).map((amenity, index) => (
-                <View key={index} style={styles.amenityBadge}>
-                  <Text style={styles.amenityText}>
-                    {amenity.charAt(0).toUpperCase() + amenity.slice(1)}
-                  </Text>
-                </View>
-              ))}
-              {station.amenities.length > 4 && (
-                <Text style={styles.moreAmenities}>
-                  +{station.amenities.length - 4}
-                </Text>
-              )}
+        {/* ── Divider ── */}
+        <View style={styles.divider} />
+
+        {/* ── Mid Row: Distance · Time · Availability ── */}
+        <View style={styles.midRow}>
+          {distanceKm !== null && (
+            <View style={styles.badge}>
+              <Ionicons name="location" size={13} color={colors.primary[600]} />
+              <Text style={styles.badgeText}>
+                {distanceKm < 1
+                  ? `${(distanceKm * 1000).toFixed(0)} m`
+                  : `${distanceKm.toFixed(1)} km`}
+              </Text>
             </View>
           )}
+          {driveMinutes !== null && (
+            <View style={styles.badge}>
+              <Ionicons name="car-outline" size={13} color={colors.primary[600]} />
+              <Text style={styles.badgeText}>{driveMinutes} min</Text>
+            </View>
+          )}
+          <View
+            style={[
+              styles.availabilityBadge,
+              { backgroundColor: isAvailable ? '#DCFCE7' : '#FEE2E2' },
+            ]}
+          >
+            <Text
+              style={[
+                styles.availabilityBadgeText,
+                { color: isAvailable ? colors.primary[700] : colors.status.error },
+              ]}
+            >
+              {isAvailable ? 'Available' : 'Unavailable'}
+            </Text>
+          </View>
         </View>
-      </Card>
+
+        {/* ── Divider ── */}
+        <View style={styles.divider} />
+
+        {/* ── Bottom Row: Connector Icons + Charger Count ── */}
+        <View style={styles.bottomRow}>
+          <View style={styles.connectorRow}>
+            {connectorIcons.map((iconName, i) => (
+              <View key={i} style={styles.connectorIcon}>
+                <MaterialCommunityIcons
+                  name={iconName as any}
+                  size={22}
+                  color={colors.neutral[600]}
+                />
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity onPress={handlePress} style={styles.chargerCountBtn}>
+            <Text style={styles.chargerCountText}>
+              {station.total_chargers} charger{station.total_chargers !== 1 ? 's' : ''} {'>'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Book Slot Button ── */}
+        <TouchableOpacity
+          style={[styles.bookBtn, !isAvailable && styles.bookBtnDisabled]}
+          onPress={handlePress}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.bookBtnText}>Book Slot</Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
+  cardWrapper: {
+    marginBottom: 14,
+  },
   card: {
-    padding: 0,
-    overflow: 'hidden',
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  imageContainer: {
-    width: '100%',
-    height: 140,
-    backgroundColor: colors.neutral[200],
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  image: {
-    width: '100%',
-    height: 140,
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: 140,
-    backgroundColor: colors.neutral[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  favoriteButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    padding: 16,
-  },
-  header: {
+
+  // ── Top Row ──
+  topRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+    gap: 12,
+    marginBottom: 12,
   },
-  name: {
+  thumbnailContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.neutral[200],
+  },
+  thumbnail: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+  },
+  infoContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  stationName: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '600',
-    color: colors.neutral[800],
-    marginRight: 8,
+    fontWeight: '700',
+    color: colors.neutral[900],
+    lineHeight: 21,
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  rating: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.neutral[700],
+  bookmarkButton: {
+    paddingTop: 1,
   },
   addressRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 4,
-    marginBottom: 12,
-  },
-  address: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.neutral[500],
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  availability: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  availabilityIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  availabilityText: {
-    fontSize: 13,
-    color: colors.neutral[600],
-  },
-  distanceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  distanceValue: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.primary[600],
-  },
-  amenities: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
     marginTop: 4,
   },
-  amenityBadge: {
+  addressText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.neutral[500],
+    lineHeight: 16,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  ratingText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral[800],
+  },
+  reviewCount: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.neutral[500],
+  },
+
+  // ── Divider ──
+  divider: {
+    height: 1,
     backgroundColor: colors.neutral[100],
-    paddingHorizontal: 8,
+    marginVertical: 10,
+  },
+
+  // ── Mid Row ──
+  midRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary[50],
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary[700],
+  },
+  availabilityBadge: {
+    marginLeft: 'auto',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  availabilityBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // ── Bottom Row ──
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  connectorRow: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  connectorIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: colors.neutral[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chargerCountBtn: {
     paddingVertical: 4,
-    borderRadius: 4,
   },
-  amenityText: {
-    fontSize: 11,
-    color: colors.neutral[600],
+  chargerCountText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary[600],
   },
-  moreAmenities: {
-    fontSize: 11,
-    color: colors.neutral[400],
-    paddingVertical: 4,
+
+  // ── Book Slot Button ──
+  bookBtn: {
+    backgroundColor: colors.primary[500],
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 12,
   },
-  // Compact variant
+  bookBtnDisabled: {
+    backgroundColor: colors.neutral[300],
+  },
+  bookBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.white,
+    letterSpacing: 0.3,
+  },
+
+  // ── Compact variant ──
   compactCard: {
     padding: 12,
   },
@@ -361,20 +472,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary[500],
     marginTop: 2,
-  },
-  greenBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  greenText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#059669',
   },
 });
 
