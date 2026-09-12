@@ -278,12 +278,12 @@ export const RouteComparisonCard: React.FC<RouteComparisonCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: radii.xl,
+    borderRadius: radii.card,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: spacing.sm,
-    ...shadows.e2,
+    ...shadows.sheet,
   },
   headerRow: {
     flexDirection: 'row',
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   titleText: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_700Bold',
   },
   columnsContainer: {
     flexDirection: 'row',
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: 4,
   },
   recommendedCard: {
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4FAF6',
   },
   chosenCard: {
-    borderColor: colors.line,
+    borderColor: colors.border,
   },
   unreachableCard: {
     backgroundColor: '#FDF4F2',
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   },
   costDivider: {
     height: 1,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
     marginVertical: 2,
   },
   totalLabel: {
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   totalNum: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
     fontSize: 15,
   },
   reasonBanner: {

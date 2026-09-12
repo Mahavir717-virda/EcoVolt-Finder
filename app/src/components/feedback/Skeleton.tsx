@@ -73,14 +73,20 @@ export const SkeletonCard: React.FC<{ reduceMotion?: boolean; style?: ViewStyle 
 }) => {
   return (
     <View style={[styles.cardContainer, style]}>
-      <View style={styles.cardHeader}>
-        <Skeleton width="60%" height={20} borderRadius={radii.sm} reduceMotion={reduceMotion} />
-        <Skeleton width={48} height={20} borderRadius={radii.pill} reduceMotion={reduceMotion} />
+      {/* thumb + header row */}
+      <View style={styles.cardTopRow}>
+        <Skeleton width={72} height={72} borderRadius={radii.thumbnail} reduceMotion={reduceMotion} />
+        <View style={styles.cardHeaderLines}>
+          <Skeleton width="70%" height={16} borderRadius={radii.sm} reduceMotion={reduceMotion} />
+          <Skeleton width="90%" height={12} borderRadius={radii.sm} reduceMotion={reduceMotion} />
+          <Skeleton width="50%" height={12} borderRadius={radii.sm} reduceMotion={reduceMotion} />
+        </View>
       </View>
-      <Skeleton width="90%" height={14} borderRadius={radii.sm} reduceMotion={reduceMotion} />
+      {/* connector row */}
       <View style={styles.cardFooter}>
-        <Skeleton width="30%" height={16} borderRadius={radii.sm} reduceMotion={reduceMotion} />
-        <Skeleton width="25%" height={16} borderRadius={radii.sm} reduceMotion={reduceMotion} />
+        <Skeleton width={40} height={40} borderRadius={radii.pill} reduceMotion={reduceMotion} />
+        <Skeleton width={40} height={40} borderRadius={radii.pill} reduceMotion={reduceMotion} />
+        <Skeleton width="30%" height={40} borderRadius={radii.input} reduceMotion={reduceMotion} />
       </View>
     </View>
   );
@@ -109,10 +115,20 @@ const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: colors.surface,
     padding: spacing.base,
-    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
+    borderRadius: radii.card,
     gap: spacing.sm,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+  },
+  cardHeaderLines: {
+    flex: 1,
+    gap: 6,
+    paddingTop: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -121,7 +137,7 @@ const styles = StyleSheet.create({
   },
   cardFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: spacing.sm,
     alignItems: 'center',
     marginTop: spacing.xs,
   },

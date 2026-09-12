@@ -7,11 +7,18 @@ import {
   PricingControlScreen,
   ManagerAnalyticsScreen,
 } from '../screens/manager';
+import { ProfileScreen } from '../screens/driver';
 import { colors } from '../theme/tokens';
+import { Ionicons } from '@expo/vector-icons';
+import { TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const Stack = createNativeStackNavigator<ManagerStackParamList>();
 
 export const ManagerNavigator: React.FC = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<ManagerStackParamList>>();
+
   return (
     <Stack.Navigator
       initialRouteName="ManagerDashboard"
@@ -20,6 +27,14 @@ export const ManagerNavigator: React.FC = () => {
         headerTintColor: colors.ink,
         headerTitleStyle: { fontFamily: 'SpaceGrotesk_600SemiBold' },
         contentStyle: { backgroundColor: colors.canvas },
+        headerRight: () => (
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('Profile')}
+            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand + '20', justifyContent: 'center', alignItems: 'center' }}
+          >
+            <Ionicons name="person" size={18} color={colors.brand} />
+          </TouchableOpacity>
+        ),
       }}
     >
       <Stack.Screen
@@ -51,6 +66,11 @@ export const ManagerNavigator: React.FC = () => {
         name="ManagerAnalytics"
         component={ManagerAnalyticsScreen}
         options={{ title: 'Station Analytics' }}
+      />
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ title: 'Profile' }}
       />
     </Stack.Navigator>
   );

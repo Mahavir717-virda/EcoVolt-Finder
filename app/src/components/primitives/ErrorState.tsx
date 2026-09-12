@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
   },
   badge: {
     backgroundColor: '#FDECEC',
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   title: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_700Bold',
   },
   message: {
     maxWidth: 320,

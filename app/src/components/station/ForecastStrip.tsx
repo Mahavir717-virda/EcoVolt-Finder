@@ -177,12 +177,12 @@ export const ForecastStrip: React.FC<ForecastStripProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: radii.xl,
+    borderRadius: radii.card,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: spacing.sm,
-    ...shadows.e1,
+    ...shadows.card,
   },
   headerRow: {
     flexDirection: 'row',
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sectionTitle: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_700Bold',
   },
   recommendBanner: {
     backgroundColor: colors.brandTint,
@@ -233,11 +233,11 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   pctLabel: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_700Bold',
     fontSize: 10,
   },
   pctLabelBold: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   barTrack: {
     height: 58,
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 4,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: colors.border,
   },
   legendItem: {
     flexDirection: 'row',

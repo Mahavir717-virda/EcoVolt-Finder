@@ -126,14 +126,14 @@ export const ProfileScreen: React.FC = () => {
         {/* 1. Driver Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarCircle}>
-            <Text variant="h2" color="#FFFFFF" style={styles.avatarLetter}>
+            <Text variant="sectionLabel" color="#FFFFFF" style={styles.avatarLetter}>
               {user?.name ? user.name.charAt(0).toUpperCase() : 'D'}
             </Text>
           </View>
 
           <View style={styles.driverMetaCol}>
             <View style={styles.nameRow}>
-              <Text variant="title" style={styles.driverName}>
+              <Text variant="cardTitle" style={styles.driverName}>
                 {user?.name || 'Deep Pathak'}
               </Text>
               <Chip
@@ -157,7 +157,7 @@ export const ProfileScreen: React.FC = () => {
         >
           <View style={styles.impactHeader}>
             <View style={styles.impactTitleCol}>
-              <Text variant="title" style={styles.impactTitle}>
+              <Text variant="cardTitle" style={styles.impactTitle}>
                 Lifetime Green Impact →
               </Text>
               <Text variant="micro" color={colors.ink3}>
@@ -177,7 +177,7 @@ export const ProfileScreen: React.FC = () => {
               <Text variant="micro" color={colors.ink3}>
                 CO₂ Avoided
               </Text>
-              <Text variant="h2" color={colors.brand} style={styles.impactVal}>
+              <Text variant="sectionLabel" color={colors.brand} style={styles.impactVal}>
                 {impact.co2AvoidedKg.toFixed(1)}{' '}
                 <Text variant="micro" color={colors.ink3}>
                   kg
@@ -191,7 +191,7 @@ export const ProfileScreen: React.FC = () => {
               <Text variant="micro" color={colors.ink3}>
                 ₹ Saved vs Sticker
               </Text>
-              <Text variant="h2" color={colors.volt} style={styles.impactVal}>
+              <Text variant="sectionLabel" color={colors.brand} style={styles.impactVal}>
                 ₹{Math.round(impact.savedVsSticker)}
               </Text>
             </View>
@@ -202,7 +202,7 @@ export const ProfileScreen: React.FC = () => {
               <Text variant="micro" color={colors.ink3}>
                 Avg Greenness
               </Text>
-              <Text variant="h2" color={colors.brand} style={styles.impactVal}>
+              <Text variant="sectionLabel" color={colors.brand} style={styles.impactVal}>
                 {Math.round(impact.avgRenewablePct)}%
               </Text>
             </View>
@@ -218,13 +218,13 @@ export const ProfileScreen: React.FC = () => {
           <View style={styles.bookingsNavLeft}>
             <Text style={styles.bookingsNavIcon}>📅</Text>
             <View>
-              <Text variant="title">My Bookings & History</Text>
+              <Text variant="cardTitle">My Bookings & History</Text>
               <Text variant="caption" color={colors.ink2}>
                 View scheduled slots, active sessions & past receipts
               </Text>
             </View>
           </View>
-          <Text variant="title" color={colors.brand}>
+          <Text variant="cardTitle" color={colors.brand}>
             →
           </Text>
         </TouchableOpacity>
@@ -232,7 +232,7 @@ export const ProfileScreen: React.FC = () => {
         {/* 3. My EV Garage Header */}
         <View style={styles.garageHeader}>
           <View style={styles.titleCol}>
-            <Text variant="h2" style={styles.sectionTitle}>
+            <Text variant="sectionLabel" style={styles.sectionTitle}>
               My EV Garage
             </Text>
             <Text variant="caption" color={colors.ink2}>
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     ...shadows.e1,
   },
   avatarCircle: {
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarLetter: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   driverMetaCol: {
     flex: 1,
@@ -335,14 +335,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   driverName: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   impactCard: {
     backgroundColor: colors.surface,
     borderRadius: radii.xl,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: spacing.sm,
     ...shadows.e1,
   },
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   impactTitle: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_600SemiBold',
   },
   impactGrid: {
     flexDirection: 'row',
@@ -372,13 +372,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   impactVal: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
     fontSize: 20,
   },
   impactDivider: {
     width: 1,
     height: 32,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
   },
   garageHeader: {
     flexDirection: 'row',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sectionTitle: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   addBtn: {
     height: 40,
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     paddingVertical: spacing.xl,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
   },
   vehiclesList: {
     gap: spacing.base,
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

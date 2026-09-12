@@ -142,12 +142,12 @@ export const TrueCostCard: React.FC<TrueCostCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: radii.xl,
+    borderRadius: radii.card,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     gap: spacing.sm,
-    ...shadows.e1,
+    ...shadows.card,
   },
   headerRow: {
     flexDirection: 'row',
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sectionTitle: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_700Bold',
   },
   mathContainer: {
     flexDirection: 'row',
@@ -169,19 +169,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.sm + 2,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
   },
   costBlock: {
     flex: 1,
     gap: 2,
   },
   costValue: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
     fontSize: 15,
   },
   operatorSign: {
     paddingHorizontal: 4,
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Manrope_700Bold',
   },
   totalBlock: {
     alignItems: 'flex-end',
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
   },
   totalValue: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
     fontSize: 18,
   },
   stickerBanner: {

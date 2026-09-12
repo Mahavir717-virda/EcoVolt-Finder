@@ -298,7 +298,7 @@ export const RouteCompareScreen: React.FC = () => {
         {/* Chosen Route Polyline (Electric Volt Teal) */}
         <Polyline
           coordinates={chosenRouteCoords}
-          strokeColor={colors.volt}
+          strokeColor={colors.brand}
           strokeWidth={4}
         />
 
@@ -324,7 +324,7 @@ export const RouteCompareScreen: React.FC = () => {
 
         <View style={styles.topStatsCard}>
           <View style={styles.statsLeft}>
-            <Text variant="title" style={styles.statsTitle}>
+            <Text variant="cardTitle" style={styles.statsTitle}>
               {chosenRec.distanceKm} km · {chosenRec.travelMinutes} mins drive
             </Text>
             <Text variant="micro" color={colors.ink2}>
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     ...shadows.e2,
   },
   statsLeft: {
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statsTitle: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   originMarker: {
     width: 24,
@@ -417,13 +417,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.volt,
+    borderColor: colors.brand,
   },
   originMarkerInner: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.volt,
+    backgroundColor: colors.brand,
   },
   bottomCardContainer: {
     position: 'absolute',

@@ -78,7 +78,7 @@ export const ImpactScreen: React.FC = () => {
         <View style={styles.header}>
           <View style={styles.headerTitleRow}>
             <View style={styles.headerTitleCol}>
-              <Text variant="h1" style={styles.screenTitle}>
+              <Text variant="screenTitle" style={styles.screenTitle}>
                 My Green Impact
               </Text>
               <Text variant="caption" color={colors.ink2}>
@@ -129,14 +129,14 @@ export const ImpactScreen: React.FC = () => {
                     <Chip
                       label="SMART SAVINGS"
                       variant="subtle"
-                      color={colors.volt}
-                      backgroundColor={colors.voltTint}
+                      color={colors.brand}
+                      backgroundColor={colors.brandTint}
                     />
                   </View>
 
-                  <Text variant="display" color={colors.ink} style={styles.heroDisplayNumber}>
+                  <Text variant="bigNumeral" color={colors.ink} style={styles.heroDisplayNumber}>
                     ₹{Math.round(impact.savedVsSticker)}
-                    <Text variant="title" color={colors.ink2}>
+                    <Text variant="cardTitle" color={colors.ink2}>
                       {' '}
                       saved
                     </Text>
@@ -153,7 +153,7 @@ export const ImpactScreen: React.FC = () => {
                       <Text variant="micro" color={colors.ink3}>
                         CO₂ EMISSIONS AVOIDED
                       </Text>
-                      <Text variant="h1" color={colors.brand} style={styles.tabularNum}>
+                      <Text variant="screenTitle" color={colors.brand} style={styles.tabularNum}>
                         {impact.co2AvoidedKg.toFixed(1)}{' '}
                         <Text variant="caption" color={colors.ink2}>
                           kg
@@ -167,7 +167,7 @@ export const ImpactScreen: React.FC = () => {
                       <Text variant="micro" color={colors.ink3}>
                         AVG RENEWABLE SHARE
                       </Text>
-                      <Text variant="h1" color={colors.brand} style={styles.tabularNum}>
+                      <Text variant="screenTitle" color={colors.brand} style={styles.tabularNum}>
                         {Math.round(impact.avgRenewablePct)}% ☀️
                       </Text>
                     </View>
@@ -177,7 +177,7 @@ export const ImpactScreen: React.FC = () => {
                 {/* 2. RENEWABLE SHARE VISUAL COMPONENT */}
                 <Card elevation="e1" style={styles.visualCard}>
                   <View style={styles.visualHeader}>
-                    <Text variant="title" style={styles.visualTitle}>
+                    <Text variant="cardTitle" style={styles.visualTitle}>
                       Energy Source Mix Achieved
                     </Text>
                     <Text variant="caption" color={colors.ink2}>
@@ -224,7 +224,7 @@ export const ImpactScreen: React.FC = () => {
 
                 {/* 3. ENVIRONMENTAL EQUIVALENTS CARD */}
                 <Card elevation="e0" style={styles.equivalentsCard}>
-                  <Text variant="title" style={styles.equivSectionTitle}>
+                  <Text variant="cardTitle" style={styles.equivSectionTitle}>
                     Real-World Environmental Equivalents
                   </Text>
                   <Text variant="caption" color={colors.ink2} style={styles.equivSub}>
@@ -238,7 +238,7 @@ export const ImpactScreen: React.FC = () => {
                         <Text style={styles.equivIcon}>🌲</Text>
                       </View>
                       <View style={styles.equivTextCol}>
-                        <Text variant="bodyMedium" style={styles.tabularNum}>
+                        <Text variant="body" style={styles.tabularNum}>
                           {treesEquivalent} Mature Trees
                         </Text>
                         <Text variant="caption" color={colors.ink2}>
@@ -255,7 +255,7 @@ export const ImpactScreen: React.FC = () => {
                         <Text style={styles.equivIcon}>⚡</Text>
                       </View>
                       <View style={styles.equivTextCol}>
-                        <Text variant="bodyMedium" style={styles.tabularNum}>
+                        <Text variant="body" style={styles.tabularNum}>
                           {cleanKmDriven.toLocaleString()} km Clean Driving
                         </Text>
                         <Text variant="caption" color={colors.ink2}>
@@ -272,7 +272,7 @@ export const ImpactScreen: React.FC = () => {
                         <Text style={styles.equivIcon}>💡</Text>
                       </View>
                       <View style={styles.equivTextCol}>
-                        <Text variant="bodyMedium" style={styles.tabularNum}>
+                        <Text variant="body" style={styles.tabularNum}>
                           {ledHoursPowered.toLocaleString()} Hours
                         </Text>
                         <Text variant="caption" color={colors.ink2}>
@@ -290,7 +290,7 @@ export const ImpactScreen: React.FC = () => {
                       <Text variant="caption" color={colors.ink3}>
                         TOTAL DELIVERED
                       </Text>
-                      <Text variant="h2" color={colors.ink} style={styles.tabularNum}>
+                      <Text variant="sectionLabel" color={colors.ink} style={styles.tabularNum}>
                         {impact.totalKwh.toFixed(1)}{' '}
                         <Text variant="caption" color={colors.ink2}>
                           kWh
@@ -304,7 +304,7 @@ export const ImpactScreen: React.FC = () => {
                       <Text variant="caption" color={colors.ink3}>
                         SESSIONS COMPLETED
                       </Text>
-                      <Text variant="h2" color={colors.ink} style={styles.tabularNum}>
+                      <Text variant="sectionLabel" color={colors.ink} style={styles.tabularNum}>
                         {impact.totalSessions}
                       </Text>
                     </View>
@@ -315,7 +315,7 @@ export const ImpactScreen: React.FC = () => {
                       <Text variant="caption" color={colors.ink3}>
                         TOTAL SPENT
                       </Text>
-                      <Text variant="h2" color={colors.brand} style={styles.tabularNum}>
+                      <Text variant="sectionLabel" color={colors.brand} style={styles.tabularNum}>
                         ₹{Math.round(impact.totalSpent)}
                       </Text>
                     </View>
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
   },
   heroDivider: {
     height: 1,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
     marginVertical: spacing.sm,
   },
   heroStatsRow: {
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   heroStatDivider: {
     width: 1,
     height: 36,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
     marginHorizontal: spacing.sm,
   },
 
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
   },
   equivDivider: {
     height: 1,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
     marginVertical: 4,
   },
 
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   totalDivider: {
     width: 1,
     height: 28,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
   },
 
   // Action

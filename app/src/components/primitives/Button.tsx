@@ -1,16 +1,15 @@
 import React from 'react';
 import {
-  TouchableOpacity,
   StyleSheet,
   ViewStyle,
   TextStyle,
-  View,
+  ActivityIndicator,
 } from 'react-native';
 import { colors, radii, spacing } from '../../theme/tokens';
 import { Text } from './Text';
-import { Spinner } from '../feedback/Spinner';
+import { ScalePressable } from './Pressable';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'outline' | 'ghost' | 'danger' | 'secondary';
 
 export interface ButtonProps {
   label: string;
@@ -37,10 +36,12 @@ export const Button: React.FC<ButtonProps> = ({
 }) => {
   const isDisabled = disabled || busy;
 
-  const getContainerStyle = (): ViewStyle => {
+  const containerStyle = (): ViewStyle => {
+    if (disabled) return styles.disabledContainer;
     switch (variant) {
+      case 'outline':
       case 'secondary':
-        return styles.secondaryContainer;
+        return styles.outlineContainer;
       case 'ghost':
         return styles.ghostContainer;
       case 'danger':
@@ -51,11 +52,12 @@ export const Button: React.FC<ButtonProps> = ({
     }
   };
 
-  const getLabelColor = (): string => {
+  const labelColor = (): string => {
     if (disabled) return colors.ink3;
     switch (variant) {
+      case 'outline':
       case 'secondary':
-        return colors.ink;
+        return colors.brand;
       case 'ghost':
         return colors.brand;
       case 'danger':
@@ -66,10 +68,10 @@ export const Button: React.FC<ButtonProps> = ({
     }
   };
 
-  const getSpinnerColor = (): string => {
+  const spinnerColor = (): string => {
     switch (variant) {
+      case 'outline':
       case 'secondary':
-        return colors.ink;
       case 'ghost':
         return colors.brand;
       default:
@@ -78,51 +80,53 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
+    <ScalePressable
       onPress={onPress}
       disabled={isDisabled}
-      style={[
-        styles.base,
-        getContainerStyle(),
-        disabled ? styles.disabledContainer : undefined,
-        style,
-      ]}
+      style={[styles.base, containerStyle(), style ?? {}]}
     >
-      <View style={styles.contentRow}>
+      <React.Fragment>
+        {/* Busy spinner replaces icon slot only — label always visible */}
         {busy ? (
-          <Spinner size="small" color={getSpinnerColor()} style={styles.spinner} />
+          <ActivityIndicator
+            size="small"
+            color={spinnerColor()}
+            style={styles.spinner}
+          />
         ) : (
-          leftIcon && <View style={styles.icon}>{leftIcon}</View>
+          leftIcon != null && leftIcon
         )}
         <Text
-          variant="bodyMedium"
-          color={getLabelColor()}
-          style={labelStyle ? [styles.labelText, labelStyle] : styles.labelText}
+          variant="sectionLabel"
+          color={labelColor()}
+          style={[styles.labelText, labelStyle]}
         >
           {label}
         </Text>
-        {!busy && rightIcon && <View style={styles.icon}>{rightIcon}</View>}
-      </View>
-    </TouchableOpacity>
+        {!busy && rightIcon != null && rightIcon}
+      </React.Fragment>
+    </ScalePressable>
   );
 };
 
 const styles = StyleSheet.create({
   base: {
-    height: 48,
-    borderRadius: radii.md,
+    height: 52,
+    borderRadius: radii.button, // 14 — rectangular-rounded, NOT pill
     paddingHorizontal: spacing.lg,
     justifyContent: 'center',
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    // No shadow on buttons (per spec)
   },
   primaryContainer: {
     backgroundColor: colors.brand,
   },
-  secondaryContainer: {
-    backgroundColor: colors.surfaceSunken,
-    borderWidth: 1,
-    borderColor: colors.line,
+  outlineContainer: {
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.brand,
   },
   ghostContainer: {
     backgroundColor: 'transparent',
@@ -132,23 +136,16 @@ const styles = StyleSheet.create({
   },
   disabledContainer: {
     backgroundColor: colors.surfaceSunken,
-    borderColor: colors.line,
-  },
-  contentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   spinner: {
     marginRight: 4,
   },
-  icon: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   labelText: {
-    fontWeight: '600',
-    fontFamily: 'Manrope_600SemiBold',
+    fontWeight: '700',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 15,
+    lineHeight: 20,
   },
 });

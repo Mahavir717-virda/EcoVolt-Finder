@@ -90,7 +90,7 @@ export const VehiclesScreen: React.FC = () => {
         {/* Header Title & Add Button */}
         <View style={styles.headerRow}>
           <View style={styles.titleCol}>
-            <Text variant="h2" style={styles.pageTitle}>
+            <Text variant="sectionLabel" style={styles.pageTitle}>
               My EV Garage
             </Text>
             <Text variant="caption" color={colors.ink2}>
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   pageTitle: {
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   addBtn: {
     height: 40,
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     paddingVertical: spacing.xxl,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     ...shadows.e1,
   },
   vehiclesList: {

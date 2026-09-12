@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     padding: 4,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
   },
   segment: {
     flex: 1,
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   },
   activeSegment: {
     backgroundColor: colors.surface,
-    ...shadows.e1,
+    ...shadows.card,
   },
   icon: {
     justifyContent: 'center',
