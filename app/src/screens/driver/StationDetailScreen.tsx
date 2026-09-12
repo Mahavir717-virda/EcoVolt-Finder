@@ -4,8 +4,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -174,7 +174,10 @@ export const StationDetailScreen: React.FC = () => {
               <Image
                 source={getStationImageSource(station.id || station.name)}
                 style={styles.heroImage}
-                resizeMode="cover"
+                contentFit="cover"
+                transition={150}
+                cachePolicy="memory-disk"
+                priority="high"
               />
               <View style={styles.heroBadge}>
                 <Chip

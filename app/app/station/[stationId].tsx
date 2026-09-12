@@ -18,7 +18,6 @@ import {
     ActivityIndicator,
     Dimensions,
     FlatList,
-    Image,
     Modal,
     Platform,
     ScrollView,
@@ -27,6 +26,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -278,7 +278,10 @@ export default function StationDetailScreen() {
                       : getStationImageSource(station?.id || station?.name)
                   } 
                   style={styles.stationImage}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  transition={150}
+                  cachePolicy="memory-disk"
+                  priority="high"
                 />
               </TouchableOpacity>
               
@@ -338,9 +341,11 @@ export default function StationDetailScreen() {
                 ]}
               >
                 <Image 
-                  source={{ uri: photo }} 
+                  source={photo && photo.startsWith('http') ? { uri: photo } : getStationImageSource(station?.id || station?.name)} 
                   style={styles.thumbnailImage}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  transition={100}
+                  cachePolicy="memory-disk"
                 />
               </TouchableOpacity>
             ))}

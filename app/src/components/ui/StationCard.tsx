@@ -3,10 +3,10 @@ import {
   View,
   StyleSheet,
   ViewStyle,
-  Image,
   ImageSourcePropType,
   TouchableOpacity,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
 import { Text } from '../primitives/Text';
 import { PillTag } from '../primitives/PillTag';
@@ -80,7 +80,9 @@ export const StationCard: React.FC<StationCardProps> = ({
           <Image
             source={resolvedThumb}
             style={styles.thumb}
-            resizeMode="cover"
+            contentFit="cover"
+            transition={100}
+            cachePolicy="memory-disk"
           />
           {/* Bookmark icon */}
           {onBookmark != null && (

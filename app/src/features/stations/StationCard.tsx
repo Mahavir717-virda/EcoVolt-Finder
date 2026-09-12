@@ -4,8 +4,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ViewStyle,
-  Image,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { StationWithMeta } from './types';
 import { formatConnectorName, formatProviderName } from './utils';
 import {
@@ -67,7 +67,9 @@ export const StationCard: React.FC<StationCardProps> = ({
         <Image
           source={getStationImageSource(station.id || station.name)}
           style={styles.stationThumb}
-          resizeMode="cover"
+          contentFit="cover"
+          transition={100}
+          cachePolicy="memory-disk"
         />
         <View style={styles.headerLeft}>
           <Text
