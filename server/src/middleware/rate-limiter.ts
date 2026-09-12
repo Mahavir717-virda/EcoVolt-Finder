@@ -2,7 +2,7 @@ import rateLimit from 'express-rate-limit';
 
 export const baseRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // Limit each IP to 300 requests per windowMs
+  max: 5000, // Generous limit for multi-device live sync & polling
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   handler: (_req, res) => {

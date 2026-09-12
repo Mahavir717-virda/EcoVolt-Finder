@@ -487,19 +487,11 @@ export default function ReservationDetailScreen() {
           {reservationStatus === 'upcoming' && (
             <>
               <Button
-                title="⚡ Check In / Start Charging Session"
+                title={t('charging.start_btn', '⚡ Start Charging Session')}
                 variant="primary"
-                onPress={handleSendReminder}
-                loading={sendingReminder}
-                fullWidth
-                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
-              />
-              <Button
-                title="⚡ Check In / Start Charging Now"
-                variant="outline"
                 onPress={handleStartCharging}
                 fullWidth
-                style={{ marginBottom: 8 }}
+                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
               />
               <Button
                 title={t('support.cancel', 'Cancel Reservation')}
@@ -515,18 +507,19 @@ export default function ReservationDetailScreen() {
           {reservationStatus === 'in-progress' && (
             <>
               <Button
-                title={t('charging.start_btn', '⚡ Start Charging Session')}
+                title={t('charging.start_btn', '⚡ View / Resume Charging Session')}
                 variant="primary"
                 onPress={handleStartCharging}
                 fullWidth
-                style={{ marginBottom: 8 }}
+                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
               />
               <Button
-                title="🔔 Send Status Reminder"
-                variant="outline"
-                onPress={handleSendReminder}
-                loading={sendingReminder}
+                title={t('support.cancel', 'Cancel Reservation')}
+                variant="ghost"
+                onPress={handleCancel}
+                loading={cancelling}
                 fullWidth
+                style={styles.cancelButton}
               />
             </>
           )}

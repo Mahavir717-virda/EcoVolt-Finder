@@ -8,6 +8,7 @@ from __future__ import annotations
 from app.classify.metrics import (
     band_from_pct,
     carbon_free_percentage,
+    compute_carbon_intensity,
     compute_metrics,
     renewable_percentage,
 )

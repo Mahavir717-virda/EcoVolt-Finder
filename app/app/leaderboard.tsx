@@ -96,7 +96,7 @@ export default function LeaderboardScreen() {
   }
 
   const userRank = profileData?.rank || leaderboardData?.currentUserRank?.rank || 1;
-  const totalUsers = profileData?.totalUsers || leaderboardData?.currentUserRank?.totalUsers || 6;
+  const totalUsers = profileData?.totalUsers || leaderboardData?.currentUserRank?.totalUsers || (leaderboardData?.leaderboard?.length || 1);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

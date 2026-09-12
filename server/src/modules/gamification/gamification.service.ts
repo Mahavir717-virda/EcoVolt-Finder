@@ -316,9 +316,19 @@ export class GamificationService {
     const { currentUserRank } = await this.getLeaderboard(userId);
 
     // Real world environmental conversions
-    const treesEquivalent = Math.max(1, Math.round(co2AvoidedKg / 21)); // 21 kg CO2/tree/year
+    const treesEquivalent = co2AvoidedKg > 0 ? Math.max(1, Math.round(co2AvoidedKg / 21)) : 0; // 21 kg CO2/tree/year
     const cleanKmDriven = Math.round(cleanKwh * 5.8); // 5.8 km/kWh standard EV
     const ledHoursPowered = Math.round(cleanKwh * 100);
+
+    // Calculate lifetime green window monetary savings vs standard non-green peak grid rate (₹18.00/kWh)
+    const totalSavingsInr = Math.round(
+      sessions.reduce((sum, s) => {
+        const kwh = s.energyKwh || 0;
+        const actualCost = s.cost || 0;
+        const standardCost = kwh * 18.0;
+        return sum + Math.max(0, standardCost - actualCost);
+      }, 0)
+    );
 
     const avatarInitial = user.name ? user.name.charAt(0).toUpperCase() : 'U';
 
@@ -340,6 +350,7 @@ export class GamificationService {
       treesEquivalent,
       cleanKmDriven,
       ledHoursPowered,
+      totalSavingsInr,
       badges,
       rank: currentUserRank.rank,
       totalUsers: currentUserRank.totalUsers,

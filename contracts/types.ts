@@ -274,6 +274,7 @@ export interface GamificationProfile {
   treesEquivalent:    number
   cleanKmDriven:      number
   ledHoursPowered:    number
+  totalSavingsInr:    number
   badges:             Badge[]
   rank:               number
   totalUsers:         number

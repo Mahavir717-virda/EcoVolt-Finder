@@ -3,7 +3,7 @@
  * User profile and settings with dynamic Theme and Hindi/English translation
  */
 
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Alert,
   ScrollView,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useLiveGrid } from '@/hooks/useLiveGrid';
@@ -102,15 +102,16 @@ export default function ProfileScreen() {
       .catch(() => {});
   }, [hydrateVehicles]);
 
+  // Live grid snapshot for the Green Impact card
+  const { liveGrid, refresh: refreshLiveGrid } = useLiveGrid('IN-WE');
+
   // Live refresh on focus whenever user visits profile
   useFocusEffect(
     useCallback(() => {
       refreshGamification();
-    }, [refreshGamification])
+      refreshLiveGrid();
+    }, [refreshGamification, refreshLiveGrid])
   );
-
-  // Live grid snapshot for the Green Impact card
-  const { liveGrid } = useLiveGrid('IN-WE');
   const gridColor = greennessColor(liveGrid.renewablePct);
   const gridBandLabel = greennessBandLabel(liveGrid.band);
   const bkdTotal = Object.values(liveGrid.breakdown).reduce((a, b) => a + b, 0);
@@ -287,15 +288,21 @@ export default function ProfileScreen() {
           <Text style={styles.greenLifetimeTitle}>{t('profile.lifetime_impact', 'Your Lifetime Green Impact')}</Text>
           <View style={styles.greenLifetimeRow}>
             <View style={styles.greenLifetimeStat}>
-              <Text style={styles.greenLifetimeVal}>48.5 kg</Text>
+              <Text style={styles.greenLifetimeVal}>
+                {gamification ? `${gamification.co2AvoidedKg} kg` : '0.0 kg'}
+              </Text>
               <Text style={styles.greenLifetimeKey}>{t('profile.co2_avoided', 'CO₂ avoided')}</Text>
             </View>
             <View style={styles.greenLifetimeStat}>
-              <Text style={styles.greenLifetimeVal}>218 kWh</Text>
+              <Text style={styles.greenLifetimeVal}>
+                {gamification ? `${gamification.cleanKwh} kWh` : '0 kWh'}
+              </Text>
               <Text style={styles.greenLifetimeKey}>{t('profile.from_renewables', 'from renewables')}</Text>
             </View>
             <View style={styles.greenLifetimeStat}>
-              <Text style={[styles.greenLifetimeVal, { color: '#10B981' }]}>₹312</Text>
+              <Text style={[styles.greenLifetimeVal, { color: '#10B981' }]}>
+                {gamification ? `₹${gamification.totalSavingsInr || 0}` : '₹0'}
+              </Text>
               <Text style={styles.greenLifetimeKey}>{t('profile.saved_green_windows', 'saved (green windows)')}</Text>
             </View>
           </View>
