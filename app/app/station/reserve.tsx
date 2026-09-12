@@ -4,9 +4,9 @@ import { CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { useCharger } from '@/hooks/useChargers';
-import { useCreateReservation } from '@/hooks/useReservations';
+import { useCreateReservation, useStationAvailability } from '@/hooks/useReservations';
 
-import { getUserVehicles } from '@/services/users.service';
+import { useVehiclesStore } from '@/src/features/vehicles/vehiclesStore';
 
 import { getDynamicPriceQuote, greennessColor } from '@/lib/gridData';
 
@@ -52,43 +52,97 @@ export default function ReserveScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(30);
-  const [vehicleId, setVehicleId] = useState<string | null>(null);
   
-  // Load user's first vehicle on mount
+  const { availability, loading: availabilityLoading } = useStationAvailability(stationId || null, selectedDate);
+  
+  // Fully reactive synchronized vehicle state
+  const vehicles = useVehiclesStore(state => state.vehicles);
+  const activeVehicleId = useVehiclesStore(state => state.activeVehicleId);
+  const hydrateVehicles = useVehiclesStore(state => state.hydrate);
+  
+  const [vehicleId, setVehicleId] = useState<string | null>(activeVehicleId);
+
+  // Sync component state when activeVehicleId changes from store
   React.useEffect(() => {
-    if (user?.id) {
-      getUserVehicles(user.id).then((vehicles) => {
-        if (vehicles.length > 0) {
-          setVehicleId(vehicles[0].id);
-        }
-      }).catch(() => {});
+    if (activeVehicleId) {
+      setVehicleId(activeVehicleId);
+    } else if (vehicles.length > 0 && !vehicleId) {
+      setVehicleId(vehicles[0].id);
     }
-  }, [user?.id]);
+  }, [activeVehicleId, vehicles]);
+
+  // Load user's vehicles on mount directly via the store so it is in sync
+  React.useEffect(() => {
+    hydrateVehicles();
+  }, [hydrateVehicles, user?.id]);
   
   const chargerType = charger ? CHARGER_TYPES[charger.charger_type] : null;
   const connectorType = charger ? CONNECTOR_TYPES[charger.connector_type] : null;
 
   const chargerTypeInfo = chargerType || {
-    name: 'Fast DC',
-    description: 'Direct Current Fast Charging',
+    name: charger ? (charger.charger_type === 'dc_fast' ? 'DC Fast Charging' : 'Level 2 AC') : 'EV Charger',
+    description: charger ? `${charger.power_kw} kW Charging Point` : 'Charging Point',
     icon: 'flash',
-    speed: 'Up to 60 kW',
-    typicalTime: '20-60 mins',
+    speed: charger ? `${charger.power_kw} kW` : 'Standard Speed',
+    typicalTime: charger && charger.power_kw >= 50 ? '20-60 mins' : '2-6 hrs',
     color: colors.primary[500],
   };
   const connectorTypeInfo = connectorType || {
-    name: 'CCS2 (Combined Charging System)',
-    shortName: 'CCS2',
+    name: charger ? (charger.connector_type ? charger.connector_type.toUpperCase().replace('_', ' ') : 'Standard Connector') : 'Connector',
+    shortName: charger ? (charger.connector_type ? charger.connector_type.toUpperCase().replace('_', ' ') : 'Connector') : 'Connector',
     icon: 'flash-outline',
-    compatibleWith: ['Tata', 'MG', 'Hyundai', 'Kia'],
+    compatibleWith: [],
   };
 
   const isLoading = chargerLoading || reservationLoading;
 
   // Generate available time slots
   const timeSlots = useMemo(() => {
-    return generateTimeSlots(selectedDate, 15); // 15-minute intervals
-  }, [selectedDate]);
+    const rawSlots = generateTimeSlots(selectedDate, 15); // 15-minute intervals
+    
+    if (!availability || !availability.connectors || !charger) return rawSlots.map(time => ({ time, available: true }));
+    
+    const connectorType = charger.connector_type;
+    const connector = availability.connectors.find((c: any) => c.type === connectorType);
+    const totalCount = connector?.totalCount || 1;
+    
+    const totalStationPlugs = availability.connectors.reduce((acc: number, c: any) => acc + c.totalCount, 0);
+    const peakCap = Math.max(1, Math.floor(totalStationPlugs * 0.8));
+
+    return rawSlots.map(time => {
+      // Parse slot time
+      const [timeStr, ampm] = time.split(' ');
+      let [hours, minutes] = timeStr.split(':').map(Number);
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      
+      const slotStart = new Date(selectedDate);
+      slotStart.setHours(hours, minutes, 0, 0);
+      const slotEnd = new Date(slotStart.getTime() + selectedDuration * 60 * 1000);
+
+      const hourLocal = (slotStart.getUTCHours() + 5 + Math.floor((slotStart.getUTCMinutes() + 30) / 60)) % 24;
+      const isPeakHour = hourLocal >= 18 && hourLocal <= 22; // 6pm to 10pm IST
+
+      let overlappingForConnector = 0;
+      let overlappingForStation = 0;
+
+      availability.bookings.forEach((b: any) => {
+        const bStart = new Date(b.windowStart);
+        const bEnd = new Date(b.windowEnd);
+        
+        // Overlap logic: bookingStart < slotEnd AND bookingEnd > slotStart
+        if (bStart < slotEnd && bEnd > slotStart) {
+          overlappingForStation++;
+          if (b.connectorType === connectorType) {
+            overlappingForConnector++;
+          }
+        }
+      });
+
+      const isBooked = overlappingForConnector >= totalCount || (isPeakHour && overlappingForStation >= peakCap);
+      return { time, available: !isBooked };
+    });
+  }, [selectedDate, selectedDuration, availability, charger]);
 
   // Live dynamic price quote — synced with grid green-energy ToU
   const priceQuote = useMemo(() => {
@@ -136,14 +190,17 @@ export default function ReserveScreen() {
       Alert.alert(
         'No Vehicle Found',
         'Please add a vehicle to your profile before making a reservation.',
-        [{ text: 'Go to Profile', onPress: () => router.push('/(tabs)/profile') }, { text: 'Cancel' }]
+        [{ text: 'Add Vehicle', onPress: () => router.push('/vehicles') }, { text: 'Cancel' }]
       );
       return;
     }
 
     try {
-      // Parse selected time
-      const [hours, minutes] = selectedTime.split(':').map(Number);
+      // Parse selected time (robust for "14:30" or "02:30 PM")
+      const [timePart, ampm] = selectedTime.split(' ');
+      let [hours, minutes] = timePart.split(':').map(Number);
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
       const startTime = new Date(selectedDate);
       startTime.setHours(hours, minutes, 0, 0);
       
@@ -282,6 +339,45 @@ export default function ReserveScreen() {
           )}
         </Card>
 
+        {/* Vehicle Selection */}
+        <View style={styles.section}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Select Vehicle</Text>
+            {vehicles.length === 0 && (
+              <TouchableOpacity onPress={() => router.push('/vehicles')}>
+                <Text style={{ color: colors.primary[600], fontWeight: '600' }}>+ Add Vehicle</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {vehicles.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 12 }}
+            >
+              {vehicles.map((v) => {
+                const isSelected = vehicleId === v.id;
+                return (
+                  <TouchableOpacity
+                    key={v.id}
+                    style={[styles.durationItem, isSelected && styles.durationItemSelected]}
+                    onPress={() => setVehicleId(v.id)}
+                  >
+                    <Text style={[styles.durationText, isSelected && styles.durationTextSelected]}>
+                      {v.model || 'Unknown EV'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <View style={{ padding: 16, backgroundColor: colors.neutral[100], borderRadius: 8, alignItems: 'center' }}>
+              <Text style={{ color: colors.neutral[600] }}>No vehicles found in your garage.</Text>
+            </View>
+          )}
+        </View>
+
         {/* Date Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Select Date</Text>
@@ -315,15 +411,26 @@ export default function ReserveScreen() {
           <Text style={styles.sectionTitle}>Select Start Time</Text>
           <View style={styles.timeGrid}>
             {timeSlots.map((slot) => {
-              const isSelected = selectedTime === slot;
+              const isSelected = selectedTime === slot.time;
+              const isAvailable = slot.available;
+              
               return (
                 <TouchableOpacity
-                  key={slot}
-                  style={[styles.timeSlot, isSelected && styles.timeSlotSelected]}
-                  onPress={() => setSelectedTime(slot)}
+                  key={slot.time}
+                  disabled={!isAvailable}
+                  style={[
+                    styles.timeSlot, 
+                    isSelected && styles.timeSlotSelected,
+                    !isAvailable && styles.timeSlotDisabled,
+                  ]}
+                  onPress={() => isAvailable && setSelectedTime(slot.time)}
                 >
-                  <Text style={[styles.timeText, isSelected && styles.timeTextSelected]}>
-                    {slot}
+                  <Text style={[
+                    styles.timeText, 
+                    isSelected && styles.timeTextSelected,
+                    !isAvailable && styles.timeTextDisabled,
+                  ]}>
+                    {slot.time}
                   </Text>
                 </TouchableOpacity>
               );
@@ -595,6 +702,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[500],
     borderColor: colors.primary[500],
   },
+  timeSlotDisabled: {
+    backgroundColor: colors.neutral[100],
+    borderColor: colors.neutral[200],
+    opacity: 0.6,
+  },
   timeText: {
     fontSize: 14,
     color: colors.neutral[700],
@@ -602,6 +714,10 @@ const styles = StyleSheet.create({
   },
   timeTextSelected: {
     color: colors.white,
+  },
+  timeTextDisabled: {
+    color: colors.neutral[400],
+    textDecorationLine: 'line-through',
   },
   durationGrid: {
     flexDirection: 'row',

@@ -1,14 +1,16 @@
 import { Router } from 'express';
 import { VehiclesController } from './vehicles.controller';
-import { requireAuth } from '../../middleware/auth.middleware';
+import { requireAuth, optionalAuth } from '../../middleware/auth.middleware';
 
 const router = Router();
 
-router.use(requireAuth);
+// Read routes: optionalAuth allows authenticated users + query param lookups
+router.get('/', optionalAuth, VehiclesController.listVehicles);
+router.get('/:id', optionalAuth, VehiclesController.getVehicle);
 
-router.get('/', VehiclesController.listVehicles);
-router.post('/', VehiclesController.createVehicle);
-router.patch('/:id', VehiclesController.updateVehicle);
-router.delete('/:id', VehiclesController.deleteVehicle);
+// Mutation routes: require valid JWT
+router.post('/', requireAuth, VehiclesController.createVehicle);
+router.patch('/:id', requireAuth, VehiclesController.updateVehicle);
+router.delete('/:id', requireAuth, VehiclesController.deleteVehicle);
 
 export const vehiclesRouter = router;

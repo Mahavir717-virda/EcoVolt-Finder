@@ -39,7 +39,7 @@ export default function ReservationDetailScreen() {
 
   // Extract nested data
   const charger = (reservation as any)?.charger;
-  const station = charger?.station;
+  const station = (reservation as any)?.station || charger?.station;
 
   // Fetch Google Places photos
   const { photos, loading: photosLoading } = usePlacePhotos(
@@ -56,11 +56,15 @@ export default function ReservationDetailScreen() {
 
   // Get duration from reservation (with type assertion)
   const reservationData = reservation as any;
-  const durationMinutes = reservationData?.duration_minutes || 0;
+  const durationMinutes =
+    reservationData?.duration_minutes ||
+    (reservation?.start_time && reservation?.end_time
+      ? Math.max(15, Math.round((new Date(reservation.end_time).getTime() - new Date(reservation.start_time).getTime()) / 60000))
+      : 60);
   
   // Calculate estimated cost: power_kw * hours * price_per_kwh
   // If not stored in DB, calculate from charger data
-  const storedEstimatedCost = reservationData?.estimated_cost;
+  const storedEstimatedCost = reservationData?.estimated_cost || reservationData?.total_price;
   const calculatedCost = charger?.power_kw && charger?.price_per_kwh && durationMinutes
     ? (charger.power_kw * (durationMinutes / 60) * charger.price_per_kwh)
     : 0;

@@ -66,5 +66,9 @@ export async function getActiveReservationCount(_userId: string): Promise<number
   return all.filter((r) => r.status === 'active' || (r.status as any) === 'reserved').length;
 }
 
+export async function getStationAvailability(stationId: string, date: string): Promise<any> {
+  return await apiRequest<any>(`/bookings/station/${stationId}/availability?date=${date}`, { method: 'GET' });
+}
+
 
 export type { ReservationWithDetails };

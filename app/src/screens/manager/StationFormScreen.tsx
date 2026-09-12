@@ -116,13 +116,10 @@ export const StationFormScreen: React.FC = () => {
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     },
-    onError: () => {
-      // Fallback for mock demo
-      queryClient.invalidateQueries({ queryKey: ['manager', 'stations'] });
+    onError: (err: any) => {
       Alert.alert(
-        isEditing ? 'Station Updated' : 'Station Created',
-        `Charging hub "${name}" has been saved.`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        'Error',
+        err?.message || (isEditing ? 'Failed to update station.' : 'Failed to create station.')
       );
     },
   });

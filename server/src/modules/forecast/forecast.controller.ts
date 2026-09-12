@@ -31,7 +31,6 @@ export const getForecast = async (req: Request, res: Response, next: NextFunctio
 export const getLiveGrid = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { zoneId, stationId } = req.query;
-
     let targetZoneId = (zoneId as string) || 'IN-WE';
 
     if (stationId) {
@@ -46,8 +45,8 @@ export const getLiveGrid = async (req: Request, res: Response, next: NextFunctio
       targetZoneId = station.zone.id;
     }
 
-    const liveGrid = await mlClient.getLiveGrid(targetZoneId);
-    return res.status(200).json(liveGrid);
+    const live = await mlClient.getLiveGrid(targetZoneId);
+    return res.status(200).json(live);
   } catch (error) {
     next(error);
   }

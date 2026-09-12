@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConnectorType, VehicleClass } from '@contracts/enums';
 import { Vehicle } from '@contracts/types';
 import {
@@ -49,6 +50,7 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
   onSave,
 }) => {
   const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const sheetHeight = Math.min(Math.round(windowHeight * 0.88), 750);
   const isEditing = !!initialVehicle;
 
@@ -315,7 +317,7 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
       </ScrollView>
 
       {/* Save Button */}
-      <View style={styles.footerRow}>
+      <View style={[styles.footerRow, { paddingBottom: insets.bottom || spacing.sm }]}>
         <Button
           label={isEditing ? 'Save Changes' : 'Add to Garage'}
           variant="primary"

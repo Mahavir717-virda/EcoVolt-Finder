@@ -1,13 +1,13 @@
 import { ImageSourcePropType } from 'react-native';
 
 export const STATION_IMAGE_MAP: Record<string, ImageSourcePropType> = {
-  'station-001': require('../../../assets/images/stations/station-001.jpg'),
-  'station-002': require('../../../assets/images/stations/station-002.jpg'),
-  'station-003': require('../../../assets/images/stations/station-003.jpg'),
-  'station-004': require('../../../assets/images/stations/station-004.jpg'),
-  'station-005': require('../../../assets/images/stations/station-005.jpg'),
-  'station-006': require('../../../assets/images/stations/station-006.jpg'),
-  'default': require('../../../assets/images/stations/default.jpg'),
+  'station-001': require('../../assets/images/stations/station-001.jpg'),
+  'station-002': require('../../assets/images/stations/station-002.jpg'),
+  'station-003': require('../../assets/images/stations/station-003.jpg'),
+  'station-004': require('../../assets/images/stations/station-004.jpg'),
+  'station-005': require('../../assets/images/stations/station-005.jpg'),
+  'station-006': require('../../assets/images/stations/station-006.jpg'),
+  'default': require('../../assets/images/stations/default.jpg'),
 };
 
 export function getStationImageSource(stationIdOrName?: string | null): ImageSourcePropType {

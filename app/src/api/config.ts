@@ -35,8 +35,9 @@ const extra = Constants.expoConfig?.extra || {};
 export const ENV = {
   API_BASE_URL: resolveApiBaseUrl(),
   USE_MOCKS:
-    extra.useMocks === true ||
-    process.env.EXPO_PUBLIC_USE_MOCKS === 'true' ||
-    process.env.USE_MOCKS === 'true',
+    (extra.useMocks === true ||
+      process.env.EXPO_PUBLIC_USE_MOCKS === 'true' ||
+      process.env.USE_MOCKS === 'true') &&
+    process.env.USE_MOCKS !== 'false',
   GOOGLE_MAPS_API_KEY: (extra.googleMapsApiKey as string) || '',
 };

@@ -107,9 +107,7 @@ export default function LeaderboardScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.neutral[900]} />
         </TouchableOpacity>
         <Text style={styles.navTitle}>Green Impact & Rank</Text>
-        <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-          <Ionicons name="share-social-outline" size={20} color={colors.primary[600]} />
-        </TouchableOpacity>
+        <View style={{ width: 38 }} />
       </View>
 
       <ScrollView

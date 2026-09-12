@@ -12,7 +12,7 @@ export interface VehicleFormData {
 
 export const CAR_DEFAULTS: VehicleFormData = {
   vehicleClass: VehicleClass.CAR,
-  model: 'Tata Nexon EV Max',
+  model: '',
   batteryKwh: 40.5,
   efficiencyWhKm: 140,
   connectors: [ConnectorType.CCS2, ConnectorType.TYPE2_AC],
@@ -21,7 +21,7 @@ export const CAR_DEFAULTS: VehicleFormData = {
 
 export const BIKE_DEFAULTS: VehicleFormData = {
   vehicleClass: VehicleClass.BIKE,
-  model: 'Ather 450X',
+  model: '',
   batteryKwh: 3.7,
   efficiencyWhKm: 40,
   connectors: [

@@ -19,7 +19,7 @@ import { pricingRouter } from './modules/pricing/pricing.router';
 import { bookingsRouter } from './modules/bookings/bookings.router';
 import { sessionsRouter } from './modules/sessions/sessions.router';
 import { recommendationsRouter } from './modules/recommendations/recommendations.router';
-import { forecastRouter } from './modules/forecast/forecast.router';
+import { forecastRouter, gridRouter } from './modules/forecast/forecast.router';
 import { impactRouter, analyticsRouter } from './modules/analytics/analytics.router';
 import { gamificationRouter } from './modules/gamification/gamification.router';
 import { notificationsRouter } from './modules/notifications/notifications.router';
@@ -85,7 +85,7 @@ export const createApp = (): Express => {
     { path: '/sessions', router: sessionsRouter },
     { path: '/recommendations', router: recommendationsRouter },
     { path: '/forecast', router: forecastRouter },
-    { path: '/grid', router: forecastRouter },
+    { path: '/grid', router: gridRouter },
     { path: '/impact', router: impactRouter },
     { path: '/gamification', router: gamificationRouter },
     { path: '/analytics', router: analyticsRouter },

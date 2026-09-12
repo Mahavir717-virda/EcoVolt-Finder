@@ -5,6 +5,9 @@ export const forecastRouter = Router();
 
 // GET /forecast?zoneId&stationId
 forecastRouter.get('/', getForecast);
-
-// GET /forecast/live?zoneId&stationId
+forecastRouter.get('/forecast', getForecast);
 forecastRouter.get('/live', getLiveGrid);
+
+export const gridRouter = Router();
+gridRouter.get('/live', getLiveGrid);
+gridRouter.get('/forecast', getForecast);

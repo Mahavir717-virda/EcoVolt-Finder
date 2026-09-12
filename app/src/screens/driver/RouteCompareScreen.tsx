@@ -99,7 +99,7 @@ export const RouteCompareScreen: React.FC = () => {
       operatorName: 'Green Drive Pvt Ltd',
       provider: PowerProvider.TORRENT,
       connectors: [{ type: ConnectorType.CCS2, powerKw: 60, available: 2, total: 3 }],
-      greenness: { renewablePct: 85, band: GreennessBand.VERY_HIGH, quality: DataQuality.MOCK },
+      greenness: { renewablePct: 85, band: GreennessBand.VERY_HIGH, quality: DataQuality.LIVE },
       priceFrom: 6.2,
     };
 
@@ -113,16 +113,7 @@ export const RouteCompareScreen: React.FC = () => {
     }
     return (
       allStations[0] ||
-      chosenStation || {
-        id: 'station-001',
-        name: 'Torrent Charging Hub – CG Road',
-        location: { lat: 23.0370, lng: 72.5622 },
-        operatorName: 'Green Drive Pvt Ltd',
-        provider: PowerProvider.TORRENT,
-        connectors: [{ type: ConnectorType.CCS2, powerKw: 60, available: 2, total: 3 }],
-        greenness: { renewablePct: 85, band: GreennessBand.VERY_HIGH, quality: DataQuality.MOCK },
-        priceFrom: 6.2,
-      }
+      chosenStation
     );
   };
 
