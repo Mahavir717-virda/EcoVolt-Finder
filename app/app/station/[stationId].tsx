@@ -1,4 +1,5 @@
 import { Badge, Button, Card, Skeleton } from '@/components/ui';
+import { ConnectorIcon } from '@/components/ui/ConnectorIcon';
 import { CHARGER_STATUS_CONFIG, CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
@@ -213,12 +214,17 @@ export default function StationDetailScreen() {
       <Card key={charger.id} style={styles.chargerCard}>
         <View style={styles.chargerHeader}>
           <View style={styles.chargerInfo}>
-            <View style={[styles.chargerIcon, { backgroundColor: chargerType.color + '20' }]}>
-              <Ionicons name="flash" size={20} color={chargerType.color} />
+            {/* Custom SVG connector icon */}
+            <View style={[styles.chargerIcon, { backgroundColor: chargerType.color + '18' }]}>
+              <ConnectorIcon
+                chargerType={charger.charger_type}
+                connectorType={charger.connector_type}
+                size={44}
+              />
             </View>
-            <View>
-              <Text style={styles.chargerType}>{chargerType.name}</Text>
-              <Text style={styles.connectorType}>{connectorType.name}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.chargerType}>{chargerType.name} · {connectorType.name}</Text>
+              <Text style={styles.chargerPower}>⚡ {charger.power_kw} kW</Text>
             </View>
           </View>
           <Badge 
@@ -230,13 +236,6 @@ export default function StationDetailScreen() {
           >
             {statusConfig.label}
           </Badge>
-        </View>
-        
-        <View style={styles.chargerDetails}>
-          <View style={styles.detailItem}>
-            <Ionicons name="speedometer-outline" size={16} color={colors.neutral[500]} />
-            <Text style={styles.detailText}>{charger.power_kw} kW</Text>
-          </View>
         </View>
 
         {/* Dynamic Pricing Breakdown */}
@@ -299,11 +298,16 @@ export default function StationDetailScreen() {
           {favoriteLoading ? (
             <ActivityIndicator size="small" color={colors.neutral[500]} />
           ) : (
-            <Ionicons 
-              name={isFavorite ? 'heart' : 'heart-outline'} 
-              size={24} 
-              color={isFavorite ? colors.status.error : colors.neutral[800]} 
-            />
+            <View style={[styles.saveBtn, isFavorite && styles.saveBtnActive]}>
+              <Ionicons
+                name={isFavorite ? 'bookmark' : 'bookmark-outline'}
+                size={18}
+                color={isFavorite ? colors.white : colors.primary[500]}
+              />
+              <Text style={[styles.saveBtnText, isFavorite && styles.saveBtnTextActive]}>
+                {isFavorite ? 'Saved' : 'Save'}
+              </Text>
+            </View>
           )}
         </TouchableOpacity>
       </View>
@@ -694,8 +698,31 @@ const styles = StyleSheet.create({
     color: colors.neutral[800],
   },
   favoriteButton: {
-    padding: 8,
-    marginRight: -8,
+    padding: 4,
+    marginRight: -4,
+  },
+  saveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.primary[500],
+    backgroundColor: 'transparent',
+  },
+  saveBtnActive: {
+    backgroundColor: colors.primary[500],
+    borderColor: colors.primary[500],
+  },
+  saveBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary[500],
+  },
+  saveBtnTextActive: {
+    color: colors.white,
   },
   content: {
     flex: 1,
@@ -1018,9 +1045,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   chargerInfo: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginRight: 8,
   },
   chargerIcon: {
     width: 44,
@@ -1342,5 +1371,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#E0A81E',
     fontWeight: '600',
+  },
+
+  // ── Connector / charger card ───────────────────────────────────────────
+  chargerPower: {
+    fontSize: 12,
+    color: colors.neutral[500],
+    fontWeight: '500',
+    marginTop: 4,
   },
 });

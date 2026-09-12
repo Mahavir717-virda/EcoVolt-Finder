@@ -4,9 +4,13 @@
  */
 
 import { EmptyState } from '@/components/common';
+import { StationCard } from '@/components/station';
 import { colors } from '@/constants/colors';
+import { applyFiltersToStations, useFilters } from '@/hooks/useFilters';
 import { useStations } from '@/hooks/useStations';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import { spacing } from '@/styles/spacing';
+import { calculateDistance } from '@/utils/distance';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -24,21 +28,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const { coords: userCoords } = useUserLocation();
   const { stations, loading, refresh, search } = useStations({ autoFetch: true });
+  const { filters, activeFiltersCount, resetFilters } = useFilters();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Filter stations based on search query
+  // First apply global filters, then apply local search query
   const filteredStations = useMemo(() => {
-    if (!searchQuery.trim()) return stations;
-    
+    // Step 1: apply global filters (charger type, connector, price, available-only)
+    const afterFilters = applyFiltersToStations(stations as any[], filters) as typeof stations;
+
+    // Step 2: apply text search on top
+    if (!searchQuery.trim()) return afterFilters;
     const query = searchQuery.toLowerCase();
-    return stations.filter(station => 
+    return afterFilters.filter(station =>
       station.name.toLowerCase().includes(query) ||
       station.city.toLowerCase().includes(query) ||
       station.address.toLowerCase().includes(query)
     );
-  }, [stations, searchQuery]);
+  }, [stations, filters, searchQuery]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -52,57 +61,43 @@ export default function ExploreScreen() {
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
-    if (text.trim()) {
-      search(text);
-    } else {
-      refresh();
-    }
   };
 
-  const renderStationCard = ({ item: station }: { item: typeof stations[0] }) => (
-    <TouchableOpacity
-      style={styles.stationCard}
-      onPress={() => handleStationPress(station.id)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.stationIconContainer}>
-        <Ionicons name="flash" size={28} color={colors.primary[500]} />
-      </View>
-      <View style={styles.stationInfo}>
-        <Text style={styles.stationName} numberOfLines={1}>{station.name}</Text>
-        <Text style={styles.stationAddress} numberOfLines={1}>
-          {station.address}, {station.city}
-        </Text>
-        <View style={styles.stationMeta}>
-          <View style={styles.metaItem}>
-            <Ionicons name="flash-outline" size={14} color={colors.status.success} />
-            <Text style={styles.metaText}>
-              {station.available_chargers}/{station.total_chargers} available
-            </Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Ionicons name="star" size={14} color={colors.accent[500]} />
-            <Text style={styles.metaText}>{station.rating?.toFixed(1) || 'N/A'}</Text>
-          </View>
-        </View>
-      </View>
-      <View style={styles.stationArrow}>
-        <Ionicons name="chevron-forward" size={20} color={colors.neutral[400]} />
-      </View>
-    </TouchableOpacity>
-  );
+  const handleFilterPress = () => {
+    router.push('/modal/filters');
+  };
+
+  const renderStationCard = ({ item: station }: { item: typeof stations[0] }) => {
+    let distance: number | undefined = undefined;
+    if (userCoords.latitude && userCoords.longitude) {
+      distance = calculateDistance(
+        { latitude: userCoords.latitude, longitude: userCoords.longitude },
+        { latitude: station.latitude, longitude: station.longitude }
+      );
+    }
+    
+    return (
+      <StationCard
+        station={station}
+        distance={distance}
+        onPress={() => handleStationPress(station.id)}
+      />
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Explore Stations</Text>
-        <Text style={styles.subtitle}>
-          {filteredStations.length} stations found
-        </Text>
+        <View>
+          <Text style={styles.title}>Explore Stations</Text>
+          <Text style={styles.subtitle}>
+            {filteredStations.length} stations found
+          </Text>
+        </View>
       </View>
 
-      {/* Search Bar */}
+      {/* Search Bar + Filter Button */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color={colors.neutral[400]} />
@@ -120,7 +115,33 @@ export default function ExploreScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Filter icon button */}
+        <TouchableOpacity style={styles.filterButton} onPress={handleFilterPress}>
+          <Ionicons
+            name="options-outline"
+            size={22}
+            color={activeFiltersCount > 0 ? colors.primary[500] : colors.neutral[500]}
+          />
+          {activeFiltersCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
+
+      {/* Active filters pill */}
+      {activeFiltersCount > 0 && (
+        <View style={styles.activeFilterRow}>
+          <Text style={styles.activeFilterText}>
+            {activeFiltersCount} filter{activeFiltersCount > 1 ? 's' : ''} active
+          </Text>
+          <TouchableOpacity onPress={resetFilters} style={styles.clearFiltersBtn}>
+            <Text style={styles.clearFiltersText}>Clear</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Stations List */}
       {loading && !refreshing ? (
@@ -146,9 +167,21 @@ export default function ExploreScreen() {
             <EmptyState
               icon="flash-off-outline"
               title="No Stations Found"
-              description={searchQuery ? `No stations match "${searchQuery}"` : "No charging stations available"}
-              actionLabel={searchQuery ? "Clear Search" : undefined}
-              onAction={searchQuery ? () => handleSearch('') : undefined}
+              description={
+                searchQuery
+                  ? `No stations match "${searchQuery}"`
+                  : activeFiltersCount > 0
+                  ? 'No stations match your filters'
+                  : 'No charging stations available'
+              }
+              actionLabel={activeFiltersCount > 0 ? 'Clear Filters' : searchQuery ? 'Clear Search' : undefined}
+              onAction={
+                activeFiltersCount > 0
+                  ? resetFilters
+                  : searchQuery
+                  ? () => handleSearch('')
+                  : undefined
+              }
             />
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -179,10 +212,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
+    gap: spacing.sm,
   },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
@@ -199,6 +236,59 @@ const styles = StyleSheet.create({
     color: colors.neutral[800],
     paddingVertical: 4,
   },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.primary[500],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  activeFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.primary[50],
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary[200],
+  },
+  activeFilterText: {
+    fontSize: 13,
+    color: colors.primary[700],
+    fontWeight: '500',
+  },
+  clearFiltersBtn: {
+    paddingVertical: 2,
+    paddingHorizontal: spacing.sm,
+  },
+  clearFiltersText: {
+    fontSize: 13,
+    color: colors.primary[500],
+    fontWeight: '600',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -212,55 +302,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
-  },
-  stationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-  },
-  stationIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: colors.primary[50],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stationInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
-    gap: 4,
-  },
-  stationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.neutral[800],
-  },
-  stationAddress: {
-    fontSize: 13,
-    color: colors.neutral[500],
-  },
-  stationMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: 4,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 12,
-    color: colors.neutral[600],
-  },
-  stationArrow: {
-    marginLeft: spacing.sm,
   },
   separator: {
     height: spacing.sm,

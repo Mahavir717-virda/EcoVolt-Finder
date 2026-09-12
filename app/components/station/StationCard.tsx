@@ -1,34 +1,40 @@
 import { Card, Skeleton } from '@/components/ui';
+import { ConnectorIcon, CHARGER_COLORS } from '@/components/ui/ConnectorIcon';
 import { colors } from '@/constants/colors';
 import { getStationImageSource } from '@/constants/stationImages';
-import type { Station } from '@/types/database.types';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import type { Station, ConnectorType, ChargerType } from '@/types/database.types';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Map charger connector types to MaterialCommunityIcons names
-const CONNECTOR_ICONS: Record<string, string> = {
-  ccs: 'ev-plug-ccs2',
-  chademo: 'ev-plug-chademo',
-  type2: 'ev-plug-type2',
-  j1772: 'ev-plug-type1',
-  tesla: 'ev-plug-tesla',
-  nacs: 'ev-plug-tesla',
-};
+// Derive connector types from station amenities (fallback to CCS/CHAdeMO/Type2)
+const KNOWN_CONNECTORS: ConnectorType[] = ['ccs', 'chademo', 'type2', 'j1772', 'tesla', 'nacs'];
 
-function getConnectorIcons(station: Station): string[] {
+function getChargerTypeForConnector(connector: ConnectorType): ChargerType {
+  switch (connector) {
+    case 'ccs':
+    case 'chademo':
+      return 'dc_fast';
+    case 'type2':
+    case 'j1772':
+      return 'level_2';
+    case 'tesla':
+    case 'nacs':
+      return 'tesla_supercharger';
+    default:
+      return 'dc_fast';
+  }
+}
+
+function getConnectorList(station: Station): ConnectorType[] {
   const amenities = station.amenities ?? [];
-  const found: string[] = [];
-  for (const a of amenities) {
-    const key = a.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (CONNECTOR_ICONS[key]) found.push(CONNECTOR_ICONS[key]);
-  }
-  if (found.length === 0) {
-    return ['ev-plug-ccs2', 'ev-plug-chademo', 'ev-plug-type2'];
-  }
-  return [...new Set(found)].slice(0, 3);
+  const found = amenities
+    .map((a) => a.toLowerCase().replace(/[^a-z0-9]/g, '') as ConnectorType)
+    .filter((k) => KNOWN_CONNECTORS.includes(k));
+  if (found.length === 0) return ['ccs', 'type2'] as ConnectorType[];
+  return [...new Set(found)].slice(0, 3) as ConnectorType[];
 }
 
 interface StationCardProps {
@@ -118,7 +124,7 @@ export function StationCard({
   const driveMinutes =
     distanceKm !== null ? Math.round(distanceKm * 3.5 + 2) : null;
 
-  const connectorIcons = getConnectorIcons(station);
+  const connectors = getConnectorList(station);
   const reviewCount = Math.max(5, Math.floor((station.rating ?? 3.5) * 35 + 10));
 
   return (
@@ -237,12 +243,12 @@ export function StationCard({
         {/* ── Bottom Row: Connector Icons + Charger Count ── */}
         <View style={styles.bottomRow}>
           <View style={styles.connectorRow}>
-            {connectorIcons.map((iconName, i) => (
-              <View key={i} style={styles.connectorIcon}>
-                <MaterialCommunityIcons
-                  name={iconName as any}
-                  size={22}
-                  color={colors.neutral[600]}
+            {connectors.map((ct) => (
+              <View key={ct} style={styles.connectorIcon}>
+                <ConnectorIcon
+                  chargerType={getChargerTypeForConnector(ct)}
+                  connectorType={ct}
+                  size={26}
                 />
               </View>
             ))}
