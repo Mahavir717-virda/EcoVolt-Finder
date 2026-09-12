@@ -31,6 +31,8 @@ import { ManagerDashboardScreen as ManagerHubScreen } from '@/src/screens/manage
 import AdminConsoleScreen from '../admin';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ManagerHubScreen from '../manager/index';
+
 type TabType = 'active' | 'past';
 
 export default function ReservationsScreen() {
@@ -235,6 +237,7 @@ export default function ReservationsScreen() {
 
       <ScrollView 
         style={styles.scrollView} 
+        contentContainerStyle={{ paddingBottom: 110 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

@@ -240,6 +240,52 @@ export class NotificationsService {
       },
     });
   }
+
+  /**
+   * Manager: Demand Charge Risk Alert
+   */
+  public static async notifyManagerDemandRisk(
+    userId: string,
+    stationId: string,
+    stationName: string,
+    currentLoadKw: number,
+    peakCapKw: number
+  ) {
+    const riskPct = Math.round((currentLoadKw / peakCapKw) * 100);
+    return this.send({
+      userId,
+      type: 'demand_charge_risk',
+      title: `⚠️ Demand Charge Risk: ${stationName}`,
+      body: `Current load (${currentLoadKw.toFixed(1)} kW) has reached ${riskPct}% of transformer capacity (${peakCapKw} kW). Action may be required.`,
+      data: { stationId, stationName, currentLoadKw, peakCapKw, riskPct },
+    });
+  }
+
+  /**
+   * Manager / Driver: Refund Processing
+   */
+  public static async notifyRefundProcessing(userId: string, sessionId: string, amount: number) {
+    return this.send({
+      userId,
+      type: 'refund_processing',
+      title: 'Processing Refund',
+      body: `A refund of ₹${amount.toFixed(2)} is being processed for session ${sessionId.substring(0, 8)}.`,
+      data: { sessionId, amount },
+    });
+  }
+
+  /**
+   * Manager / Driver: Refund Completed
+   */
+  public static async notifyRefundCompleted(userId: string, sessionId: string, amount: number) {
+    return this.send({
+      userId,
+      type: 'refund_completed',
+      title: '✅ Refund Successful',
+      body: `Your refund of ₹${amount.toFixed(2)} for session ${sessionId.substring(0, 8)} has been credited.`,
+      data: { sessionId, amount },
+    });
+  }
 }
 
 export const notificationsService = NotificationsService;

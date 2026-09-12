@@ -52,4 +52,51 @@ export class AnalyticsController {
       next(err);
     }
   }
+
+  /**
+   * GET /analytics/manager/dashboard
+   */
+  public static async getManagerDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+      const dashboard = await AnalyticsService.getManagerDashboard(req.user.sub);
+      res.status(200).json(dashboard);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /analytics/manager/trends
+   */
+  public static async getManagerAnalyticsTrends(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+      const trends = await AnalyticsService.getManagerAnalyticsTrends(req.user.sub);
+      res.status(200).json(trends);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /analytics/manager/export
+   */
+  public static async exportManagerAnalyticsCsv(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+      const csvData = await AnalyticsService.exportManagerAnalyticsCsv(req.user.sub);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="analytics_export.csv"');
+      res.status(200).send(csvData);
+    } catch (err) {
+      next(err);
+    }
+  }
 }

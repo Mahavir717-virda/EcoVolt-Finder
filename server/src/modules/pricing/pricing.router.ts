@@ -13,8 +13,8 @@ const router = Router();
 router.get('/quote', PricingController.getQuote);
 
 // Manager endpoint to update pricing rules
-router.patch(
-  '/rules/:stationId',
+router.put(
+  '/station/:stationId',
   requireAuth,
   requireRole(Role.manager, Role.admin),
   requireStationOwnership,

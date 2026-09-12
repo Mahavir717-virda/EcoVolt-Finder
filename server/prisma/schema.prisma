@@ -129,10 +129,12 @@ model GridZone {
 model Operator {
   id           String     @id @default(uuid())
   userId       String
-  name         String
-  contactEmail String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  name              String
+  contactEmail      String?
+  payoutBankDetails Json?
+  notificationPrefs Json?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   user         User       @relation(fields: [userId], references: [id], onDelete: Restrict)
   stations     Station[]
@@ -169,6 +171,8 @@ model Station {
   @@index([operatorId])
   @@index([zoneId])
   @@map("stations")
+  
+  maxTransformerKw Float @default(150.0)
 }
 
 model Connector {
@@ -267,6 +271,9 @@ model Session {
   cost            Float?         @default(0.0) // Billed at locked price
   avgRenewablePct Float?
   co2AvoidedKg    Float?
+  disputeReason   String?
+  refundStatus    String         @default("none") // none, processing, refunded, failed
+  resolutionNotes String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 

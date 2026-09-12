@@ -40,7 +40,10 @@ export type ManagerStackParamList = {
   PricingControls: { stationId: string };
   LiveSessions: undefined;
   ManagerAnalytics: undefined;
-  Profile: undefined;
+  BookingOversight: undefined;
+  Disputes: undefined;
+  ProfileSettings: undefined;
+  Notifications: undefined;
 };
 
 export type AdminStackParamList = {

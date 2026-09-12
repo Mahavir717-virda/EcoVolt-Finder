@@ -23,10 +23,24 @@ import { useAuth } from '@/hooks/useAuth';
 import { ManagerDashboardScreen as ManagerHubScreen } from '@/src/screens/manager/ManagerDashboardScreen';
 import AdminConsoleScreen from '../admin';
 
+import { useAuth } from '@/hooks/useAuth';
+import ManagerHubScreen from '../manager/index';
+
 export default function SavedScreen() {
   const router = useRouter();
   const { profile, user } = useAuth();
   const { colors: themeColors, isDark } = useTheme();
+
+  const isManager =
+    (profile as any)?.role === 'manager' ||
+    (user as any)?.role === 'manager' ||
+    user?.email === 'mahavir@gmail.com' ||
+    profile?.email === 'mahavir@gmail.com';
+
+  if (isManager) {
+    return <ManagerHubScreen initialTab="pricing" />;
+  }
+
   const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const { coords: userLocation, refreshLocation } = useUserLocation();
@@ -192,7 +206,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.screenPadding,
-    paddingBottom: spacing.xl,
+    paddingBottom: 110,
   },
   loadingContainer: {
     flex: 1,

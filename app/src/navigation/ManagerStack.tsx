@@ -6,11 +6,14 @@ import {
   StationFormScreen,
   PricingControlScreen,
   ManagerAnalyticsScreen,
+  BookingOversightScreen,
+  DisputesScreen,
+  ProfileSettingsScreen,
+  NotificationsScreen,
 } from '../screens/manager';
-import { ProfileScreen } from '../screens/driver';
 import { colors } from '../theme/tokens';
 import { Ionicons } from '@expo/vector-icons';
-import { TouchableOpacity } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -28,12 +31,20 @@ export const ManagerNavigator: React.FC = () => {
         headerTitleStyle: { fontFamily: 'SpaceGrotesk_600SemiBold' },
         contentStyle: { backgroundColor: colors.canvas },
         headerRight: () => (
-          <TouchableOpacity 
-            onPress={() => navigation.navigate('Profile')}
-            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand + '20', justifyContent: 'center', alignItems: 'center' }}
-          >
-            <Ionicons name="person" size={18} color={colors.brand} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('Notifications')}
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand + '20', justifyContent: 'center', alignItems: 'center' }}
+            >
+              <Ionicons name="notifications" size={18} color={colors.brand} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('ProfileSettings')}
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand + '20', justifyContent: 'center', alignItems: 'center' }}
+            >
+              <Ionicons name="person" size={18} color={colors.brand} />
+            </TouchableOpacity>
+          </View>
         ),
       }}
     >
@@ -63,14 +74,29 @@ export const ManagerNavigator: React.FC = () => {
         options={{ title: 'Active Sessions' }}
       />
       <Stack.Screen
+        name="BookingOversight"
+        component={BookingOversightScreen}
+        options={{ title: 'Upcoming Bookings' }}
+      />
+      <Stack.Screen
         name="ManagerAnalytics"
         component={ManagerAnalyticsScreen}
         options={{ title: 'Station Analytics' }}
       />
       <Stack.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ title: 'Profile' }}
+        name="Disputes"
+        component={DisputesScreen}
+        options={{ title: 'Disputes & Refunds' }}
+      />
+      <Stack.Screen
+        name="ProfileSettings"
+        component={ProfileSettingsScreen}
+        options={{ title: 'Settings' }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ title: 'Alerts' }}
       />
     </Stack.Navigator>
   );

@@ -36,6 +36,8 @@ import { getGamificationProfile } from '@/services/gamification.service';
 import AdminConsoleScreen from '../admin';
 import { ManagerDashboardScreen as ManagerHubScreen } from '@/src/screens/manager/ManagerDashboardScreen';
 
+import ManagerHubScreen from '../manager/index';
+
 export default function HomeScreen() {
   const router = useRouter();
   const { profile, user } = useAuth();
@@ -60,7 +62,6 @@ export default function HomeScreen() {
   if (isManager) {
     return <ManagerHubScreen />;
   }
-
   const { t } = useLanguage();
   const { filters, activeFiltersCount } = useFilters();
   const { isFavorited, toggle: toggleFavorite } = useFavorites();
@@ -298,6 +299,7 @@ export default function HomeScreen() {
 
       <ScrollView 
         style={styles.scrollView} 
+        contentContainerStyle={{ paddingBottom: 110 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[themeColors.primary]} tintColor={themeColors.primary} />

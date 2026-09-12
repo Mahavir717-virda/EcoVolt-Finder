@@ -86,10 +86,23 @@ function MenuItem({
   );
 }
 
+import ManagerHubScreen from '../manager/index';
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { profile, user, signOut } = useAuth();
   const { colors, isDark } = useTheme();
+
+  const isManager =
+    (profile as any)?.role === 'manager' ||
+    (user as any)?.role === 'manager' ||
+    user?.email === 'mahavir@gmail.com' ||
+    profile?.email === 'mahavir@gmail.com';
+
+  if (isManager) {
+    return <ManagerHubScreen initialTab="payout" />;
+  }
+
   const { t, language } = useLanguage();
   const [gamification, setGamification] = React.useState<GamificationProfile | null>(null);
 
@@ -165,7 +178,10 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 110 }}
+      >
         {/* Profile Header */}
         <View style={[styles.profileHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <TouchableOpacity
@@ -351,11 +367,7 @@ export default function ProfileScreen() {
               label={t('portal.station_manager', 'Station Manager Hub')}
               value={t('portal.station_manager_desc', 'Occupancy & Pricing')}
               onPress={() => {
-                Alert.alert(
-                  t('portal.station_manager', 'Station Manager Hub'),
-                  'Accessing Station Manager telemetry: 4 Chargers active, ₹6.20/kWh base rate, 94% renewable grid source.',
-                  [{ text: t('common.ok', 'OK') }]
-                );
+                router.push('/manager' as any);
               }}
             />
             <MenuItem

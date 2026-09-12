@@ -4,6 +4,7 @@ import {
   NotFoundError,
   ConflictError,
   BadRequestError,
+  ForbiddenError,
 } from '../../middleware/error-handler';
 import { PricingService } from '../pricing/pricing.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -552,6 +553,75 @@ export class BookingsService {
       message: 'Booking cancelled successfully and slot released',
       refunded: true,
       booking: updated,
+    };
+  }
+
+  /**
+   * Manager: Get upcoming reservations for all owned stations
+   */
+  public static async getManagerUpcomingBookings(userId: string) {
+    const operator = await prisma.operator.findFirst({ where: { userId } });
+    if (!operator) return [];
+
+    const now = new Date();
+    
+    return prisma.booking.findMany({
+      where: {
+        station: { operatorId: operator.id },
+        status: { in: [SessionStatus.reserved, SessionStatus.scheduled] },
+        windowEnd: { gte: new Date(now.getTime() - 15 * 60 * 1000) } // Hasn't expired > 15m ago
+      },
+      include: {
+        station: { select: { name: true } },
+        vehicle: { select: { model: true } },
+        user: { select: { name: true, email: true } }
+      },
+      orderBy: { windowStart: 'asc' },
+    });
+  }
+
+  /**
+   * Manager: Override a stuck connector (e.g. driver didn't show up / connector glitched)
+   * This marks the booking as expired and releases the slot.
+   */
+  public static async overrideStuckConnector(userId: string, bookingId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { station: { include: { operator: true } } },
+    });
+
+    if (!booking) {
+      throw new NotFoundError('Booking not found');
+    }
+
+    if (booking.station.operator.userId !== userId) {
+      throw new ForbiddenError('You do not own the station for this booking');
+    }
+
+    if (booking.status === SessionStatus.completed || booking.status === SessionStatus.cancelled) {
+      throw new BadRequestError(`Cannot override a booking that is already ${booking.status}`);
+    }
+
+    // Mark as expired and release slot
+    const updated = await prisma.$transaction(async (tx) => {
+      const b = await tx.booking.update({
+        where: { id: bookingId },
+        data: { status: SessionStatus.expired },
+      });
+
+      await tx.$executeRaw`
+        UPDATE connectors
+        SET "availableCount" = LEAST("totalCount", "availableCount" + 1),
+            "updatedAt" = now()
+        WHERE id = ${booking.connectorId}
+      `;
+
+      return b;
+    });
+
+    return {
+      message: 'Connector slot released and booking marked as expired',
+      booking: updated
     };
   }
 }

@@ -1,14 +1,15 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
+import { HapticTab } from '@/components/haptic-tab';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useLanguage } from '@/hooks/useLanguage';
-import { CapsuleTabBar } from '@/src/components/navigation/CapsuleTabBar';
 
 export default function TabLayout() {
-  const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const { t } = useLanguage();
   const { isAuthenticated, isLoading, user, profile } = useAuth();
 
@@ -43,56 +44,83 @@ export default function TabLayout() {
       initialRouteName="index"
       tabBar={(props) => (isAdmin || isManager) ? null : <CapsuleTabBar {...props} />}
       screenOptions={{
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: isDark ? colors.textMuted : colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: colors.tabBarBg,
+          borderTopColor: colors.tabBarBorder,
+          paddingTop: 8,
+          height: 88,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+          marginTop: 4,
+        },
         headerShown: false,
-      }}
-    >
-      {/* 1. Reservations (Tab 0) */}
-      <Tabs.Screen
-        name="reservations"
-        options={{
-          title: t('tab.reservations', 'Bookings'),
-        }}
-      />
-
-      {/* 2. Vehicle / EV Garage (Tab 1) */}
-      <Tabs.Screen
-        name="vehicles"
-        options={{
-          title: t('tab.vehicles', 'Vehicle'),
-        }}
-      />
-
-      {/* 3. HOME (Tab 2 - Visual Center) */}
+        tabBarButton: HapticTab,
+      }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: t('tab.home', 'Home'),
+          title: isManager ? 'Manager Hub' : t('tab.home', 'Home'),
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? (isManager ? 'business' : 'map') : (isManager ? 'business-outline' : 'map-outline')} 
+              size={24} 
+              color={color} 
+            />
+          ),
         }}
       />
-
-      {/* 4. Saved (Tab 3) */}
+      <Tabs.Screen
+        name="reservations"
+        options={{
+          title: isManager ? 'Live Sessions' : t('tab.reservations', 'Reservations'),
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? (isManager ? 'flash' : 'calendar') : (isManager ? 'flash-outline' : 'calendar-outline')} 
+              size={24} 
+              color={color} 
+            />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="favorites"
         options={{
-          title: t('tab.saved', 'Saved'),
+          title: isManager ? 'Pricing Engine' : t('tab.saved', 'Saved'),
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? (isManager ? 'pricetag' : 'bookmark') : (isManager ? 'pricetag-outline' : 'bookmark-outline')} 
+              size={24} 
+              color={color} 
+            />
+          ),
         }}
       />
-
-      {/* 5. Profile (Tab 4) */}
       <Tabs.Screen
         name="profile"
         options={{
-          title: t('tab.profile', 'Profile'),
+          title: isManager ? 'Operator Profile' : t('tab.profile', 'Profile'),
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? 'person' : 'person-outline'} 
+              size={24} 
+              color={color} 
+            />
+          ),
         }}
       />
-
-      {/* Hidden Routes */}
+      {/* Hide explore from tabs */}
       <Tabs.Screen
         name="explore"
         options={{
-          href: null,
+          href: null, // Hide from tab bar
         }}
       />
     </Tabs>
   );
 }
+
+

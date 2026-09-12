@@ -319,7 +319,7 @@ export class StationsService {
   /**
    * Create a station (Manager only)
    */
-  public static async createStation(userId: string, input: CreateStationInput) {
+  public static async createStation(userId: string, input: CreateStationInput, ignoreDuplicate: boolean = false) {
     let operator = await prisma.operator.findFirst({
       where: { userId },
     });
@@ -333,6 +333,20 @@ export class StationsService {
           contactEmail: user?.email,
         },
       });
+    }
+
+    if (!ignoreDuplicate) {
+      // Check for nearby duplicates (e.g., within 50m / 0.05km)
+      const existingStations = await prisma.station.findMany({
+        where: { isActive: true },
+        select: { id: true, lat: true, lng: true, name: true }
+      });
+      for (const s of existingStations) {
+        const dist = this.calculateDistance(input.location.lat, input.location.lng, s.lat, s.lng);
+        if (dist < 0.05) {
+          throw new BadRequestError(`Duplicate Warning: Station '${s.name}' exists nearby (${dist * 1000}m). Use ignoreDuplicate=true to bypass.`);
+        }
+      }
     }
 
     return prisma.station.create({
@@ -384,6 +398,16 @@ export class StationsService {
       include: {
         connectors: true,
       },
+    });
+  }
+
+  /**
+   * Update station demand cap (Manager)
+   */
+  public static async updateDemandCap(stationId: string, maxTransformerKw: number) {
+    return prisma.station.update({
+      where: { id: stationId },
+      data: { maxTransformerKw },
     });
   }
 
@@ -467,4 +491,157 @@ export class StationsService {
       data: { status },
     });
   }
+
+  /**
+   * Update connector (Manager, with validation for count reduction)
+   */
+  public static async updateConnector(connectorId: string, input: UpdateConnectorInput) {
+    const connector = await prisma.connector.findUnique({
+      where: { id: connectorId },
+      include: {
+        sessions: {
+          where: { status: 'active' }
+        }
+      }
+    });
+
+    if (!connector) {
+      throw new NotFoundError(`Connector not found`);
+    }
+
+    // Edge Case #15: Prevent count reduction if it would drop below active sessions
+    if (input.totalCount !== undefined && input.totalCount < connector.totalCount) {
+      const activeCount = connector.sessions.length;
+      if (input.totalCount < activeCount) {
+        throw new BadRequestError(`Cannot reduce connector count to ${input.totalCount}. There are currently ${activeCount} active sessions.`);
+      }
+      
+      // Re-adjust availableCount
+      const newAvailable = Math.max(0, input.totalCount - activeCount);
+      input.availableCount = newAvailable;
+    }
+
+    return prisma.connector.update({
+      where: { id: connectorId },
+      data: {
+        ...(input.powerKw !== undefined ? { powerKw: input.powerKw } : {}),
+        ...(input.totalCount !== undefined ? { totalCount: input.totalCount } : {}),
+        ...(input.availableCount !== undefined ? { availableCount: input.availableCount } : {}),
+        ...(input.status !== undefined ? { status: input.status } : {}),
+      },
+    });
+  }
+
+  /**
+   * Get Manager Stations
+   */
+  public static async getManagerStations(userId: string) {
+    const operator = await prisma.operator.findFirst({
+      where: { userId },
+      include: {
+        stations: {
+          include: {
+            operator: true,
+            connectors: true,
+            pricingRules: true,
+            zone: {
+              include: { tariffs: true }
+            },
+            sessions: {
+              where: {
+                startedAt: { gte: new Date(new Date().setHours(0,0,0,0)) }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!operator || !operator.stations) {
+      return [];
+    }
+
+    const stations = operator.stations;
+    
+    // Batch resolve distinct zones
+    const distinctZones = Array.from(new Set(stations.map((s) => s.zoneId)));
+    const zoneForecasts = new Map<string, { renewablePct: number; quality: DataQuality }>();
+    await Promise.all(
+      distinctZones.map(async (zid) => {
+        const fc = await getZoneForecast(zid);
+        zoneForecasts.set(zid, fc);
+      })
+    );
+
+    return stations.map(station => {
+      const forecast = zoneForecasts.get(station.zoneId) || { renewablePct: 55 };
+      const renewableSharePct = forecast.renewablePct;
+      
+      const pricing = station.pricingRules[0] || null;
+      const tariff = station.zone.tariffs.find(t => t.provider === station.provider);
+      
+      const revenueToday = station.sessions.reduce((acc, s) => acc + (s.cost || 0), 0);
+      const energyDeliveredTodayKwh = station.sessions.reduce((acc, s) => acc + (s.energyKwh || 0), 0);
+      
+      const demandRisk = station.maxTransformerKw ? (
+        // Mock currentDemandKw based on active sessions powerKw (simplified)
+        station.connectors.reduce((acc, c) => acc + (c.totalCount - c.availableCount) * c.powerKw, 0)
+        / station.maxTransformerKw >= 0.8 ? 'high' : 'low'
+      ) : 'low';
+      
+      const currentDemandKw = station.connectors.reduce((acc, c) => acc + (c.totalCount - c.availableCount) * c.powerKw, 0);
+
+      return {
+        id: station.id,
+        managerId: userId,
+        name: station.name,
+        address: station.address,
+        location: { lat: station.lat, lng: station.lng },
+        operatorName: station.operator.name,
+        operatorPhone: station.operator.contactEmail || '',
+        provider: station.provider,
+        zoneId: station.zoneId,
+        currentDemandKw,
+        maxTransformerKw: station.maxTransformerKw,
+        demandRisk,
+        revenueToday,
+        energyDeliveredTodayKwh,
+        renewableSharePct,
+        connectors: station.connectors.map(c => ({
+          type: c.type,
+          powerKw: c.powerKw,
+          available: c.availableCount,
+          total: c.totalCount,
+          status: c.status === 'offline' ? 'offline' : 'online'
+        })),
+        pricing: pricing ? {
+          baseTariff: tariff ? tariff.baseRate : 13.0,
+          providerMarkup: pricing.providerMarkup,
+          dynamicGreenDiscount: pricing.enableDynamicDiscount,
+          maxGreenDiscount: pricing.discountMaxKwh
+        } : undefined
+      };
+    });
+  }
+
+  /**
+   * Update connector status by Type for a specific station (bulk updates if multiple)
+   */
+  public static async updateConnectorStatusByType(stationId: string, connectorType: string, status: string) {
+    const connectors = await prisma.connector.findMany({
+      where: { stationId, type: connectorType as ConnectorType }
+    });
+
+    if (connectors.length === 0) {
+      throw new NotFoundError(`Connectors not found`);
+    }
+
+    await prisma.connector.updateMany({
+      where: { stationId, type: connectorType as ConnectorType },
+      data: { status }
+    });
+    
+    return { success: true };
+  }
 }
+

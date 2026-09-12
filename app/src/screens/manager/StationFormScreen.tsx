@@ -86,11 +86,11 @@ export const StationFormScreen: React.FC = () => {
       setLng(String(s.location?.lng || '72.5622'));
       setOperatorName(s.operatorName || 'Green Drive Pvt Ltd');
       setOperatorPhone(s.operatorPhone || '+91-79-4000-1234');
-      setProvider(s.provider || PowerProvider.TORRENT);
+      setProvider((s.provider as any) || PowerProvider.TORRENT);
       setTransformerCapacityKw(String(s.maxTransformerKw || '150'));
       if (s.connectors && s.connectors.length > 0) {
         setConnectors(
-          s.connectors.map((c) => ({
+          s.connectors.map((c: any) => ({
             type: c.type,
             powerKw: c.powerKw,
             count: c.total,

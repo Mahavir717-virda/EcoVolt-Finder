@@ -40,6 +40,18 @@ export class StationsController {
     }
   }
 
+  public static async getManagerStations(req: Request, res: Response, next: NextFunction): Promise<void> {
+    if (!req.user) {
+      return next(new UnauthorizedError('Authentication required'));
+    }
+    try {
+      const stations = await StationsService.getManagerStations(req.user.sub);
+      res.status(200).json(stations);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   public static async createStation(req: Request, res: Response, next: NextFunction): Promise<void> {
     if (!req.user) {
       return next(new UnauthorizedError('Authentication required'));
@@ -51,7 +63,8 @@ export class StationsController {
     }
 
     try {
-      const station = await StationsService.createStation(req.user.sub, parsed.data);
+      const ignoreDuplicate = req.query.ignoreDuplicate === 'true';
+      const station = await StationsService.createStation(req.user.sub, parsed.data, ignoreDuplicate);
       res.status(201).json(station);
     } catch (err) {
       next(err);
@@ -68,6 +81,21 @@ export class StationsController {
       const rawId = req.params.id;
       const stationId = Array.isArray(rawId) ? rawId[0] : rawId;
       const updated = await StationsService.updateStation(stationId, parsed.data);
+      res.status(200).json(updated);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async updateDemandCap(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const rawId = req.params.id;
+      const stationId = Array.isArray(rawId) ? rawId[0] : rawId;
+      const capKw = req.body.maxTransformerKw;
+      if (typeof capKw !== 'number') {
+        throw new ValidationError('Invalid demand cap value', { capKw: { _errors: ['Required number'] } });
+      }
+      const updated = await StationsService.updateDemandCap(stationId, capKw);
       res.status(200).json(updated);
     } catch (err) {
       next(err);
@@ -120,6 +148,39 @@ export class StationsController {
       const rawId = req.params.id;
       const connectorId = Array.isArray(rawId) ? rawId[0] : rawId;
       const updated = await StationsService.updateConnectorStatus(connectorId, status);
+      res.status(200).json(updated);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async updateConnector(req: Request, res: Response, next: NextFunction): Promise<void> {
+    // We would ideally have updateConnectorSchema imported, but I can use it directly if it's there
+    // For safety, let's just pass req.body since validation can be done inside or we import it.
+    // Actually it is not imported here.
+    try {
+      const rawId = req.params.connectorId || req.params.id;
+      const connectorId = Array.isArray(rawId) ? rawId[0] : rawId;
+      const updated = await StationsService.updateConnector(connectorId, req.body);
+      res.status(200).json(updated);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async updateConnectorStatusByType(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const status = req.body.status;
+    if (!status || typeof status !== 'string') {
+      return next(new ValidationError('Invalid status', { status: { _errors: ['Required string'] } }));
+    }
+
+    try {
+      const rawId = req.params.id;
+      const stationId = Array.isArray(rawId) ? rawId[0] : rawId;
+      const rawType = req.params.connectorType;
+      const connectorType = Array.isArray(rawType) ? rawType[0] : rawType;
+      
+      const updated = await StationsService.updateConnectorStatusByType(stationId, connectorType, status);
       res.status(200).json(updated);
     } catch (err) {
       next(err);

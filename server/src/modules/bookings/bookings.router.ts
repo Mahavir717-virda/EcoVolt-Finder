@@ -20,4 +20,11 @@ router.patch('/:id/cancel', BookingsController.cancelBooking);
 router.post('/:id/reminder', BookingsController.triggerReminder);
 router.post('/:id/nudge', BookingsController.triggerReminder);
 
+// ─── Manager Routes ─────────────────────────────────────────────────────────
+import { requireRole } from '../../middleware/auth.middleware';
+import { Role } from '@prisma/client';
+
+router.get('/manager/upcoming', requireRole(Role.manager), BookingsController.getManagerUpcomingBookings);
+router.post('/:id/override-stuck', requireRole(Role.manager, Role.admin), BookingsController.overrideStuckConnector);
+
 export const bookingsRouter = router;
