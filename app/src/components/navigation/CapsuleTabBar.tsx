@@ -64,13 +64,13 @@ const TAB_CONFIG: Record<
   },
   favorites: {
     label: 'Saved',
-    iconActive: 'heart',
-    iconInactive: 'heart-outline',
+    iconActive: 'bookmark',
+    iconInactive: 'bookmark-outline',
   },
   Saved: {
     label: 'Saved',
-    iconActive: 'heart',
-    iconInactive: 'heart-outline',
+    iconActive: 'bookmark',
+    iconInactive: 'bookmark-outline',
   },
   profile: {
     label: 'Profile',
