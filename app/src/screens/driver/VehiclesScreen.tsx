@@ -16,9 +16,12 @@ import {
 } from '../../features/vehicles';
 import { Text, Button, EmptyState, SkeletonCard } from '../../components';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 export const VehiclesScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const {
     vehicles,
     activeVehicleId,
@@ -48,14 +51,6 @@ export const VehiclesScreen: React.FC = () => {
   };
 
   const handleDelete = (vehicle: Vehicle) => {
-    if (vehicles.length <= 1) {
-      Alert.alert(
-        'Cannot Delete',
-        'You must have at least one EV in your garage to calculate range and travel costs.'
-      );
-      return;
-    }
-
     Alert.alert(
       'Remove Vehicle',
       `Are you sure you want to remove ${vehicle.model || 'this vehicle'} from your garage?`,
@@ -84,12 +79,18 @@ export const VehiclesScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + spacing.xxl },
+          { 
+            paddingTop: insets.top + spacing.sm,
+            paddingBottom: insets.bottom + spacing.xxl 
+          },
         ]}
       >
         {/* Header Title & Add Button */}
         <View style={styles.headerRow}>
           <View style={styles.titleCol}>
+            <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: spacing.xs }}>
+              <Ionicons name="arrow-back" size={24} color={colors.ink} />
+            </TouchableOpacity>
             <Text variant="sectionLabel" style={styles.pageTitle}>
               My EV Garage
             </Text>

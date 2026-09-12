@@ -99,7 +99,8 @@ export class StationsController {
 
   public static async getConnector(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const connectorId = req.params.id;
+      const rawId = req.params.id;
+      const connectorId = Array.isArray(rawId) ? rawId[0] : rawId;
       const connector = await StationsService.getConnectorDetail(connectorId);
       res.status(200).json(connector);
     } catch (err) {
@@ -114,7 +115,8 @@ export class StationsController {
     }
 
     try {
-      const connectorId = req.params.id;
+      const rawId = req.params.id;
+      const connectorId = Array.isArray(rawId) ? rawId[0] : rawId;
       const updated = await StationsService.updateConnectorStatus(connectorId, status);
       res.status(200).json(updated);
     } catch (err) {

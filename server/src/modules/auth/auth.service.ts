@@ -39,7 +39,7 @@ export class AuthService {
    * Generate access token (15m expiry)
    */
   public static generateAccessToken(payload: TokenPayload): string {
-    return jwt.sign(payload, env.JWT_SECRET, { expiresIn: '15m' });
+    return jwt.sign(payload, env.JWT_SECRET, { expiresIn: '7d' });
   }
 
   /**
@@ -108,7 +108,6 @@ export class AuthService {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
         role: user.role,
       },
     };

@@ -164,10 +164,8 @@ export const PricingControlsScreen: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['manager', 'stations'] });
       Alert.alert('Pricing Updated', 'Tariffs and 24h ToU schedules have been updated across your network.');
     },
-    onError: () => {
-      // Mock demo fallback
-      queryClient.invalidateQueries({ queryKey: ['manager', 'stations'] });
-      Alert.alert('Pricing Updated', 'Tariffs and 24h ToU schedules have been updated.');
+    onError: (err: any) => {
+      Alert.alert('Error', err?.message || 'Failed to update pricing tariffs.');
     },
   });
 

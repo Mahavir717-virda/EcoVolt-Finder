@@ -9,6 +9,7 @@ import { StationCard } from '@/components/station';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { applyFiltersToStations, useFilters } from '@/hooks/useFilters';
+import { useFavorites } from '@/hooks/useFavorites';
 import { useNearbyStations, useStations } from '@/hooks/useStations';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { getLiveGridSnapshot, greennessColor, greennessBandLabel } from '@/lib/gridData';
@@ -38,6 +39,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useAuth();
   const { filters, activeFiltersCount } = useFilters();
+  const { isFavorited, toggle: toggleFavorite } = useFavorites();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -434,6 +436,8 @@ export default function HomeScreen() {
                 key={station.id}
                 station={station}
                 distance={(station as any).distance ?? undefined}
+                isSaved={isFavorited(station.id)}
+                onSave={() => toggleFavorite(station.id)}
                 onPress={() => handleStationPress(station.id)}
               />
             ))

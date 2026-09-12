@@ -143,7 +143,9 @@ export async function toggleFavorite(_userId: string, stationId: string): Promis
 
 // ─── Vehicles ─────────────────────────────────────────────────────────────────
 
-export async function getUserVehicles(_userId: string): Promise<any[]> {
-  const raw = await apiRequest<any[]>('/vehicles', { method: 'GET' });
-  return raw || [];
+export async function getUserVehicles(userId?: string): Promise<any[]> {
+  const query = userId ? `?userId=${userId}` : '';
+  const raw = await apiRequest<any[]>(`/vehicles${query}`, { method: 'GET' });
+  const list = Array.isArray(raw) ? raw : (raw as any)?.data || (raw as any)?.vehicles || [];
+  return list;
 }

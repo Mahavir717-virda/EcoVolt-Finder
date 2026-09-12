@@ -10,6 +10,47 @@ import { CreateBookingInput } from './bookings.schema';
 
 export class BookingsService {
   /**
+   * Get active reservations for a station on a given date to calculate availability
+   */
+  public static async getStationAvailability(stationId: string, dateStr: string) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dayStart = !isNaN(y) && !isNaN(m) && !isNaN(d)
+      ? new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
+      : new Date(dateStr);
+    
+    // Pad +- 14 hours to safely cover any client local timezone offsets
+    const rangeStart = new Date(dayStart.getTime() - 14 * 3600 * 1000);
+    const rangeEnd = new Date(dayStart.getTime() + 38 * 3600 * 1000);
+
+    const bookings = await prisma.booking.findMany({
+      where: {
+        stationId,
+        status: { in: [SessionStatus.reserved, SessionStatus.scheduled, SessionStatus.active] },
+        AND: [
+          { windowStart: { lt: rangeEnd } },
+          { windowEnd: { gt: rangeStart } },
+        ],
+      },
+      select: {
+        id: true,
+        connectorType: true,
+        windowStart: true,
+        windowEnd: true,
+      },
+    });
+
+    const station = await prisma.station.findUnique({
+      where: { id: stationId },
+      include: { connectors: true },
+    });
+
+    return {
+      bookings,
+      connectors: station?.connectors || [],
+    };
+  }
+
+  /**
    * List all bookings for a user
    */
   public static async listUserBookings(userId: string) {
@@ -37,6 +78,37 @@ export class BookingsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /**
+   * Get a single booking by ID with full details (station, vehicle, connector, session)
+   */
+  public static async getBookingById(userId: string, bookingId: string, role?: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        station: {
+          include: {
+            connectors: true,
+            operator: true,
+          },
+        },
+        vehicle: true,
+        connector: true,
+        session: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundError(`Booking not found with id: ${bookingId}`);
+    }
+
+    // Authorization check: Driver can only view their own bookings
+    if (booking.userId !== userId && role !== 'admin' && role !== 'manager') {
+      throw new NotFoundError(`Booking not found with id: ${bookingId}`);
+    }
+
+    return booking;
   }
 
   /**

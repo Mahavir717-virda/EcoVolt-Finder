@@ -36,8 +36,8 @@ export function adaptEcoVoltStation(raw: any): Station {
   return {
     id: idStr,
     name: raw.name || raw.stationName || 'EcoVolt Green Hub',
-    latitude: raw.location?.lat ?? raw.latitude ?? 23.0370,
-    longitude: raw.location?.lng ?? raw.longitude ?? 72.5622,
+    latitude: raw.location?.lat ?? raw.latitude ?? raw.lat ?? 23.0370,
+    longitude: raw.location?.lng ?? raw.longitude ?? raw.lng ?? 72.5622,
     address: raw.address || `${raw.operatorName || 'Green Grid'}, Ahmedabad`,
     city: raw.city || 'Ahmedabad',
     total_chargers: totalChargers,
@@ -95,7 +95,8 @@ export function adaptEcoVoltChargers(rawStation: any): Charger[] {
 }
 
 export function adaptEcoVoltReservation(raw: any, stationData?: any): ReservationWithDetails {
-  const station = stationData ? adaptEcoVoltStation(stationData) : {
+  const stationRaw = stationData || raw.station;
+  const station = stationRaw ? adaptEcoVoltStation(stationRaw) : {
     id: String(raw.stationId || 'station-001'),
     name: raw.stationName || 'Torrent Charging Hub – CG Road',
     latitude: 23.0370,
@@ -114,16 +115,24 @@ export function adaptEcoVoltReservation(raw: any, stationData?: any): Reservatio
     updated_at: raw.createdAt || new Date().toISOString(),
   };
 
-  const charger: Charger = {
-    id: String(raw.chargerId || `${station.id}-c1`),
+  const rawPrice =
+    typeof raw.lockedPrice === 'object' && raw.lockedPrice !== null
+      ? (raw.lockedPrice.finalPrice ?? raw.lockedPrice.baseTariff ?? 6.2)
+      : raw.lockedPrice;
+  const pricePerKwh = Number(rawPrice) || 6.2;
+  const powerKw = Number(raw.connector?.powerKw || raw.powerKw || 60);
+
+  const charger: Charger & { station?: Station } = {
+    id: String(raw.connectorId || raw.chargerId || `${station.id}-c1`),
     station_id: station.id,
-    charger_type: 'dc_fast',
+    charger_type: powerKw >= 50 ? 'dc_fast' : 'level_2',
     connector_type: raw.connectorType === 'type2_ac' ? 'type2' : 'ccs',
-    power_kw: 60,
-    price_per_kwh: Number(raw.lockedPrice || 6.2),
+    power_kw: powerKw,
+    price_per_kwh: pricePerKwh,
     status: raw.status === 'active' ? 'in_use' : 'available',
     created_at: raw.createdAt || new Date().toISOString(),
     updated_at: raw.createdAt || new Date().toISOString(),
+    station,
   };
 
   let mappedStatus: 'active' | 'completed' | 'cancelled' | 'expired' = 'active';
@@ -132,17 +141,33 @@ export function adaptEcoVoltReservation(raw: any, stationData?: any): Reservatio
   else if (raw.status === 'expired') mappedStatus = 'expired';
   else mappedStatus = 'active';
 
+  const startTime = raw.windowStart || raw.start_time || new Date().toISOString();
+  const endTime = raw.windowEnd || raw.end_time || new Date(Date.now() + 3600000).toISOString();
+  const durationMinutes =
+    Number(raw.durationMinutes || raw.duration_minutes) ||
+    Math.max(15, Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000));
+
+  const calculatedCost =
+    raw.cost != null
+      ? Number(raw.cost)
+      : raw.energyKwh != null
+      ? Number(raw.energyKwh) * pricePerKwh
+      : Number((powerKw * (durationMinutes / 60) * pricePerKwh).toFixed(2));
+
   return {
     id: String(raw.id || `book_${Date.now()}`),
-    user_id: String(raw.userId || 'usr_driver_101'),
+    user_id: String(raw.userId || raw.user_id || 'usr_driver_101'),
     charger_id: charger.id,
-    start_time: raw.windowStart || new Date().toISOString(),
-    end_time: raw.windowEnd || new Date(Date.now() + 3600000).toISOString(),
+    start_time: startTime,
+    end_time: endTime,
+    duration_minutes: durationMinutes,
     status: mappedStatus,
-    total_price: Number(raw.cost || (raw.energyKwh ? raw.energyKwh * (raw.lockedPrice || 6.2) : (raw.lockedPrice || 6.2) * 15)),
+    total_price: calculatedCost,
+    estimated_cost: calculatedCost,
     created_at: raw.createdAt || new Date().toISOString(),
-    updated_at: raw.createdAt || new Date().toISOString(),
+    updated_at: raw.updatedAt || raw.createdAt || new Date().toISOString(),
     station,
     charger,
-  };
+    vehicle: raw.vehicle,
+  } as any;
 }

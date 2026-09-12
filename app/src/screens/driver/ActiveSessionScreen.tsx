@@ -64,41 +64,14 @@ export const ActiveSessionScreen: React.FC = () => {
   const [simulatedKwhOffset, setSimulatedKwhOffset] = useState(0);
 
   // 1. React Query: Poll active session every 3 seconds
-  const sessionQuery = useQuery<ActiveSessionData>({
+  const sessionQuery = useQuery<ActiveSessionData | null>({
     queryKey: ['session', 'active'],
     queryFn: async () => {
       try {
         const res = await http.get<ActiveSessionData>('/sessions/active');
         return res;
       } catch {
-        // Fallback mock baseline if network fails
-        return {
-          id: 'sess_live_101',
-          bookingId: 'book_mock_101',
-          stationId: 'station-001',
-          stationName: 'Torrent Charging Hub – CG Road',
-          connectorType: 'ccs2' as any,
-          vehicleId: 'veh_nexon_1',
-          userId: 'usr_driver_101',
-          status: 'active' as any,
-          startedAt: '2026-09-12T12:05:00+05:30',
-          startChargePct: 42,
-          currentChargePct: 64,
-          targetChargePct: 80,
-          powerKw: 52.4,
-          energyKwh: 14.8,
-          lockedPrice: 6.20,
-          cost: 91.76,
-          avgRenewablePct: 84,
-          co2AvoidedKg: 10.2,
-          connectorOffline: false,
-          gridGreenness: {
-            renewablePct: 85,
-            band: 'very_high' as GreennessBand,
-            quality: 'live' as DataQuality,
-            zoneId: 'IN-WE',
-          },
-        };
+        return null;
       }
     },
     refetchInterval: sessionCompleted ? false : 3000,
@@ -272,15 +245,6 @@ export const ActiveSessionScreen: React.FC = () => {
               }
               style={styles.doneBtn}
             />
-            <Button
-              label="Restart Mock Session"
-              variant="ghost"
-              onPress={() => {
-                setSessionCompleted(false);
-                setIsSimulatedOffline(false);
-                setSimulatedKwhOffset(0);
-              }}
-            />
           </View>
         </ScrollView>
       </View>
@@ -288,6 +252,23 @@ export const ActiveSessionScreen: React.FC = () => {
   }
 
   // ─── ACTIVE CHARGING LIVE VIEW ───────────────────────────
+  if (!rawSession && !sessionQuery.isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: spacing.xl, paddingTop: insets.top }]}>
+        <Text variant="screenTitle" align="center" style={{ marginBottom: spacing.sm }}>
+          No Active Session
+        </Text>
+        <Text variant="body" color={colors.ink2} align="center" style={{ marginBottom: spacing.xl }}>
+          You do not have an ongoing charging session right now.
+        </Text>
+        <Button
+          label="Explore Stations"
+          variant="primary"
+          onPress={() => navigation.navigate('DriverTabs', { screen: 'Explore' })}
+        />
+      </View>
+    );
+  }
   return (
     <View style={styles.container}>
       <ScrollView

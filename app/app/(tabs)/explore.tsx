@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/common';
 import { StationCard } from '@/components/station';
 import { colors } from '@/constants/colors';
 import { applyFiltersToStations, useFilters } from '@/hooks/useFilters';
+import { useFavorites } from '@/hooks/useFavorites';
 import { useStations } from '@/hooks/useStations';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { spacing } from '@/styles/spacing';
@@ -31,6 +32,7 @@ export default function ExploreScreen() {
   const { coords: userCoords } = useUserLocation();
   const { stations, loading, refresh, search } = useStations({ autoFetch: true });
   const { filters, activeFiltersCount, resetFilters } = useFilters();
+  const { isFavorited, toggle: toggleFavorite } = useFavorites();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -80,6 +82,8 @@ export default function ExploreScreen() {
       <StationCard
         station={station}
         distance={distance}
+        isSaved={isFavorited(station.id)}
+        onSave={() => toggleFavorite(station.id)}
         onPress={() => handleStationPress(station.id)}
       />
     );

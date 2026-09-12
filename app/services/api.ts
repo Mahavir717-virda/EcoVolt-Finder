@@ -40,7 +40,18 @@ export async function getStoredUser(): Promise<any | null> {
 
 export async function setStoredUser(user: any): Promise<void> {
   try {
-    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+    if (!user) return;
+    const cleanUser = {
+      id: user.id,
+      name: user.name || user.full_name || user.fullName,
+      email: user.email,
+      phone: user.phone,
+      role: user.role || user.plan_type,
+    };
+    const str = JSON.stringify(cleanUser);
+    if (str.length < 2000) {
+      await SecureStore.setItemAsync(USER_KEY, str);
+    }
   } catch {}
 }
 
@@ -73,6 +84,12 @@ export async function apiRequest<T = any>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        try {
+          const { useAuthStore } = require('../src/features/auth/authStore');
+          useAuthStore.getState().logout();
+        } catch {}
+      }
       // Try to parse a server error message
       let errMsg = `API error ${response.status}`;
       try {

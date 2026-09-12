@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { Vehicle } from '@contracts/types';
-import { VehicleClass } from '@contracts/enums';
+import { VehicleClass, ConnectorType } from '@contracts/enums';
 import { formatConnectorName } from '../stations/utils';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
 import { Text, Chip, LinearProgress } from '../../components';
@@ -23,13 +23,31 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   onDelete,
   style,
 }) => {
-  const isCar = vehicle.vehicleClass === VehicleClass.CAR;
-  const isBatteryFull = vehicle.currentChargePct >= 100;
+  const rawClass = String(vehicle.vehicleClass || (vehicle as any).vehicle_class || 'car').toLowerCase();
+  const isCar = rawClass === 'car';
+  const batteryKwh =
+    Number(vehicle.batteryKwh ?? (vehicle as any).battery_kwh ?? (vehicle as any).batteryCapacityKwh ?? 40.5) || 40.5;
+  const efficiency =
+    Number(vehicle.efficiencyWhKm ?? (vehicle as any).efficiency_wh_km ?? 140) || 140;
+  const currentCharge =
+    Number(vehicle.currentChargePct ?? (vehicle as any).current_charge_pct ?? 50) || 0;
 
-  // Remaining range calculation
-  const remainingKwh = (vehicle.batteryKwh * vehicle.currentChargePct) / 100;
-  const rangeKm = Math.round(((remainingKwh * 1000) / vehicle.efficiencyWhKm) * 10) / 10;
-  const fullRangeKm = Math.round(((vehicle.batteryKwh * 1000) / vehicle.efficiencyWhKm) * 10) / 10;
+  const isBatteryFull = currentCharge >= 100;
+
+  // Remaining range calculation with defensive fallbacks
+  const remainingKwh = (batteryKwh * currentCharge) / 100;
+  const rangeKm = Math.round(((remainingKwh * 1000) / efficiency) * 10) / 10 || 0;
+  const fullRangeKm = Math.round(((batteryKwh * 1000) / efficiency) * 10) / 10 || 0;
+  const modelName =
+    vehicle.model ||
+    (vehicle as any).name ||
+    (vehicle as any).vehicleModel ||
+    (isCar ? 'Electric Car' : 'Electric Scooter');
+  const connectors: (ConnectorType | string)[] = Array.isArray(vehicle.connectors)
+    ? vehicle.connectors
+    : Array.isArray((vehicle as any).connector_types)
+    ? (vehicle as any).connector_types
+    : [];
 
   return (
     <View
@@ -44,7 +62,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         <View style={styles.titleCol}>
           <View style={styles.nameWithBadge}>
             <Text variant="title" style={styles.vehicleName}>
-              {vehicle.model || (isCar ? 'Electric Car' : 'Electric Scooter')}
+              {modelName}
             </Text>
             {isActive && (
               <Chip
@@ -57,7 +75,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             )}
           </View>
           <Text variant="micro" color={colors.ink2}>
-            {isCar ? '🚗 4-Wheeler (Car)' : '🛵 2-Wheeler (Bike)'} · {vehicle.batteryKwh} kWh Pack
+            {isCar ? '🚗 4-Wheeler (Car)' : '🛵 2-Wheeler (Bike)'} · {batteryKwh} kWh Pack
           </Text>
         </View>
 
@@ -86,7 +104,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
               color={isBatteryFull ? colors.brand : colors.ink}
               style={styles.chargePercent}
             >
-              {vehicle.currentChargePct}%
+              {currentCharge}%
             </Text>
           </View>
 
@@ -107,7 +125,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 
         {/* Determinate Battery Progress Bar */}
         <LinearProgress
-          progress={vehicle.currentChargePct}
+          progress={currentCharge}
           color={isBatteryFull ? colors.brand : colors.volt}
           style={styles.batteryBar}
         />
@@ -129,12 +147,12 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             Efficiency:
           </Text>
           <Text variant="micro" color={colors.ink}>
-            {vehicle.efficiencyWhKm} Wh/km
+            {efficiency} Wh/km
           </Text>
         </View>
 
         <View style={styles.connectorTags}>
-          {vehicle.connectors.map((c, i) => (
+          {connectors.map((c, i) => (
             <View key={i} style={styles.connPill}>
               <Text variant="micro" color={colors.ink2}>
                 {formatConnectorName(c)}

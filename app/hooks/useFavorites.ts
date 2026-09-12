@@ -11,7 +11,8 @@ import {
     toggleFavorite,
 } from '@/services/users.service';
 import { Station } from '@/types/database.types';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { useAuth } from './useAuth';
 
 interface FavoriteStation {
@@ -45,9 +46,11 @@ export function useFavorites() {
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    fetchFavorites();
-  }, [fetchFavorites]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchFavorites();
+    }, [fetchFavorites])
+  );
 
   const add = useCallback(async (stationId: string): Promise<boolean> => {
     if (!user?.id) return false;
@@ -123,9 +126,11 @@ export function useFavoriteStatus(stationId: string | null) {
     }
   }, [user?.id, stationId]);
 
-  useEffect(() => {
-    checkStatus();
-  }, [checkStatus]);
+  useFocusEffect(
+    useCallback(() => {
+      checkStatus();
+    }, [checkStatus])
+  );
 
   const toggle = useCallback(async (): Promise<boolean> => {
     if (!user?.id || !stationId) return false;

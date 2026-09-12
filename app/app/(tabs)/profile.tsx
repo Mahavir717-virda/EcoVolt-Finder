@@ -12,6 +12,7 @@ import { GamificationProfile } from '@contracts/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
+import { useVehiclesStore } from '@/src/features/vehicles/vehiclesStore';
 
 import {
     Alert,
@@ -57,11 +58,17 @@ export default function ProfileScreen() {
   const { profile, signOut } = useAuth();
   const [gamification, setGamification] = React.useState<GamificationProfile | null>(null);
 
+  const vehicles = useVehiclesStore((state) => state.vehicles);
+  const activeVehicleId = useVehiclesStore((state) => state.activeVehicleId);
+  const hydrateVehicles = useVehiclesStore((state) => state.hydrate);
+  const activeVehicle = vehicles.find((v) => v.id === activeVehicleId) || vehicles[0];
+
   React.useEffect(() => {
+    hydrateVehicles();
     getGamificationProfile()
       .then((data) => setGamification(data))
       .catch(() => {});
-  }, []);
+  }, [hydrateVehicles]);
 
   // Live grid snapshot for the Green Impact card
   const liveGrid = useMemo(() => getLiveGridSnapshot('IN-WE'), []);
@@ -262,9 +269,9 @@ export default function ProfileScreen() {
             <MenuItem
               icon="car-outline"
               label="My Vehicles"
-              value="Tata Nexon EV"
+              value={activeVehicle ? (activeVehicle.model || 'Active EV') : 'No Vehicles'}
               onPress={() => {
-                Alert.alert('My Vehicles', 'Active: Tata Nexon EV Max (72.5 kWh, CCS2)');
+                router.push('/vehicles');
               }}
             />
             <MenuItem
