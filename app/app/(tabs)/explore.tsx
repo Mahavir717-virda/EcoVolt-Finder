@@ -29,25 +29,47 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function ExploreScreen() {
   const router = useRouter();
   const { coords: userCoords } = useUserLocation();
-  const { stations, loading, refresh, search } = useStations({ autoFetch: true });
+  const { stations, loading, refresh, search } = useStations({ autoFetch: true, userCoords });
   const { filters, activeFiltersCount, resetFilters } = useFilters();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  // First apply global filters, then apply local search query
+  // First apply global filters, then search query, then dynamic distance and sorting
   const filteredStations = useMemo(() => {
     // Step 1: apply global filters (charger type, connector, price, available-only)
-    const afterFilters = applyFiltersToStations(stations as any[], filters) as typeof stations;
+    const afterFilters = applyFiltersToStations(stations as any[], filters) as (typeof stations[0] & { distance?: number })[];
 
     // Step 2: apply text search on top
-    if (!searchQuery.trim()) return afterFilters;
-    const query = searchQuery.toLowerCase();
-    return afterFilters.filter(station =>
-      station.name.toLowerCase().includes(query) ||
-      station.city.toLowerCase().includes(query) ||
-      station.address.toLowerCase().includes(query)
-    );
-  }, [stations, filters, searchQuery]);
+    let result = afterFilters;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(station =>
+        station.name.toLowerCase().includes(query) ||
+        station.city.toLowerCase().includes(query) ||
+        station.address.toLowerCase().includes(query)
+      );
+    }
+
+    // Step 3: compute dynamic distance and sort nearest first
+    return result.map((station) => {
+      let distance: number | undefined = station.distance;
+      if (userCoords.latitude && userCoords.longitude && station.latitude && station.longitude) {
+        distance = calculateDistance(
+          { latitude: userCoords.latitude, longitude: userCoords.longitude },
+          { latitude: station.latitude, longitude: station.longitude }
+        );
+      }
+      return {
+        ...station,
+        distance,
+      };
+    }).sort((a, b) => {
+      if (a.distance !== undefined && b.distance !== undefined) {
+        return a.distance - b.distance;
+      }
+      return 0;
+    });
+  }, [stations, filters, searchQuery, userCoords]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -67,19 +89,11 @@ export default function ExploreScreen() {
     router.push('/modal/filters');
   };
 
-  const renderStationCard = ({ item: station }: { item: typeof stations[0] }) => {
-    let distance: number | undefined = undefined;
-    if (userCoords.latitude && userCoords.longitude) {
-      distance = calculateDistance(
-        { latitude: userCoords.latitude, longitude: userCoords.longitude },
-        { latitude: station.latitude, longitude: station.longitude }
-      );
-    }
-    
+  const renderStationCard = ({ item: station }: { item: typeof stations[0] & { distance?: number } }) => {
     return (
       <StationCard
         station={station}
-        distance={distance}
+        distance={station.distance}
         onPress={() => handleStationPress(station.id)}
       />
     );

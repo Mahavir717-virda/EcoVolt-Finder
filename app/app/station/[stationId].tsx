@@ -7,6 +7,9 @@ import { useChargers } from '@/hooks/useChargers';
 import { useFavoriteStatus } from '@/hooks/useFavorites';
 import { usePlacePhotos } from '@/hooks/usePlacePhotos';
 import { useStation } from '@/hooks/useStations';
+import { useLiveGrid } from '@/hooks/useLiveGrid';
+import { useUserLocation } from '@/hooks/useUserLocation';
+import { calculateDistance, formatDistance, estimateDrivingTime } from '@/utils/distance';
 import { getStationImageSource } from '@/constants/stationImages';
 import {
   getLiveGridSnapshot,
@@ -86,9 +89,30 @@ export default function StationDetailScreen() {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [isPhotoLoading, setIsPhotoLoading] = useState(true);
   
-  // Fetch station data
-  const { station, loading: stationLoading, error: stationError } = useStation(stationId || '');
+  // User live location hook
+  const { coords: userCoords } = useUserLocation();
+
+  // Fetch station data with user location for dynamic distance calculation
+  const { station, loading: stationLoading, error: stationError } = useStation(stationId || '', userCoords);
   
+  // Calculate dynamic distance and driving ETA
+  const dynamicDistanceKm = useMemo(() => {
+    if (userCoords?.latitude && userCoords?.longitude && station?.latitude && station?.longitude) {
+      return calculateDistance(
+        { latitude: userCoords.latitude, longitude: userCoords.longitude },
+        { latitude: station.latitude, longitude: station.longitude }
+      );
+    }
+    return station?.distance ?? null;
+  }, [userCoords, station]);
+
+  const dynamicDriveMinutes = useMemo(() => {
+    if (dynamicDistanceKm !== null) {
+      return estimateDrivingTime(dynamicDistanceKm);
+    }
+    return null;
+  }, [dynamicDistanceKm]);
+
   // Fetch chargers with real-time updates
   const { chargers, loading: chargersLoading } = useChargers(stationId || '');
   
@@ -103,10 +127,19 @@ export default function StationDetailScreen() {
     station?.image_url
   );
 
-  // ── Grid & pricing data (mock, mirrors ML service output) ────────────────
-  const liveGrid = useMemo(() => getLiveGridSnapshot('IN-WE'), []);
-  const forecast = useMemo(() => getGridForecast('IN-WE'), []);
-  const bestWindow = useMemo(() => getBestChargingWindow('IN-WE'), []);
+  // ── Grid & pricing data (dynamic from ML service & backend) ──────────────
+  const { liveGrid, forecast, isLive } = useLiveGrid('IN-WE', stationId);
+  const bestWindow = useMemo(() => {
+    if (forecast && forecast.length > 0) {
+      const best = [...forecast].sort((a, b) => b.renewablePct - a.renewablePct)[0];
+      return {
+        label: best.label,
+        renewablePct: best.renewablePct,
+        savingsRs: Math.round(best.renewablePct * 0.4),
+      };
+    }
+    return getBestChargingWindow('IN-WE');
+  }, [forecast]);
   const gridColor = greennessColor(liveGrid.renewablePct);
   const gridBandLabel = greennessBandLabel(liveGrid.band);
 
@@ -436,9 +469,13 @@ export default function StationDetailScreen() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.stat}>
-              <Ionicons name="battery-charging-outline" size={18} color={colors.neutral[500]} />
-              <Text style={styles.statValue}>{station.total_chargers}</Text>
-              <Text style={styles.statLabel}>Total</Text>
+              <Ionicons name="navigate-outline" size={18} color={colors.primary[600]} />
+              <Text style={styles.statValue}>
+                {dynamicDistanceKm !== null ? formatDistance(dynamicDistanceKm) : '—'}
+              </Text>
+              <Text style={styles.statLabel}>
+                {dynamicDriveMinutes !== null ? `${dynamicDriveMinutes} min drive` : 'Distance'}
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.stat}>
@@ -483,9 +520,12 @@ export default function StationDetailScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Live Grid Greenness</Text>
-            <View style={[styles.qualityBadge, { backgroundColor: '#0FB8C920' }]}>
-              <View style={[styles.qualityDot, { backgroundColor: '#0FB8C9' }]} />
-              <Text style={[styles.qualityText, { color: '#0FB8C9' }]}>{liveGrid.quality.toUpperCase()}</Text>
+            <View style={[styles.qualityBadge, {
+              backgroundColor: isLive ? '#22C55E20' : '#0FB8C920',
+              borderColor: isLive ? '#22C55E40' : '#0FB8C940',
+            }]}>
+              <View style={[styles.qualityDot, { backgroundColor: isLive ? '#22C55E' : '#0FB8C9' }]} />
+              <Text style={[styles.qualityText, { color: isLive ? '#15803D' : '#0FB8C9' }]}>{liveGrid.quality.toUpperCase()}</Text>
             </View>
           </View>
           <Text style={styles.sectionSubtitle}>{liveGrid.zoneName}</Text>
@@ -551,8 +591,12 @@ export default function StationDetailScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>24h Renewable Forecast</Text>
-            <View style={[styles.qualityBadge, { backgroundColor: '#E0A81E20' }]}>
-              <Text style={[styles.qualityText, { color: '#E0A81E' }]}>ESTIMATE</Text>
+            <View style={[styles.qualityBadge, {
+              backgroundColor: isLive ? '#22C55E20' : '#E0A81E20',
+            }]}>
+              <Text style={[styles.qualityText, { color: isLive ? '#15803D' : '#E0A81E' }]}>
+                {isLive ? 'ML LIVE' : 'ESTIMATE'}
+              </Text>
             </View>
           </View>
 

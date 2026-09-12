@@ -205,8 +205,10 @@ export class StationsService {
       };
     });
 
-    const evaluated = evaluatedRaw.filter((s) => s.distanceKm! <= radiusKm);
-
+    let evaluated = evaluatedRaw.filter((s) => s.distanceKm! <= radiusKm);
+    if (evaluated.length === 0 && evaluatedRaw.length > 0) {
+      evaluated = [...evaluatedRaw];
+    }
 
     // Sort results
     if (sort === 'greenest') {
@@ -223,7 +225,7 @@ export class StationsService {
   /**
    * Get full station detail
    */
-  public static async getStationDetail(stationId: string) {
+  public static async getStationDetail(stationId: string, userLat?: number, userLng?: number) {
     const station = await prisma.station.findUnique({
       where: { id: stationId },
       include: {
@@ -251,9 +253,15 @@ export class StationsService {
     const renewablePct = forecast.renewablePct;
     const band = this.getGreennessBand(renewablePct);
 
+    let distanceKm: number | undefined;
+    if (userLat !== undefined && userLng !== undefined && !isNaN(userLat) && !isNaN(userLng)) {
+      distanceKm = this.calculateDistance(userLat, userLng, station.lat, station.lng);
+    }
+
     return {
       ...station,
       priceFrom: Math.round((baseRate + markup) * 10) / 10,
+      distanceKm,
       greenness: {
         zoneId: station.zoneId,
         renewablePct,

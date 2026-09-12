@@ -8,10 +8,10 @@ import { ConnectorType, DataQuality, GreennessBand, VehicleClass } from '../../.
 import { StationRecommendation, StationSummary } from '../../../../contracts/types';
 
 const recommendationsQuerySchema = z.object({
-  originLat: z.string().transform((v) => parseFloat(v)),
-  originLng: z.string().transform((v) => parseFloat(v)),
-  vehicleId: z.string().min(1, 'vehicleId is required'),
-  kwh: z.string().transform((v) => parseFloat(v)),
+  originLat: z.string().optional().transform((v) => (v ? parseFloat(v) : 23.0370)),
+  originLng: z.string().optional().transform((v) => (v ? parseFloat(v) : 72.5622)),
+  vehicleId: z.string().optional(),
+  kwh: z.string().optional().transform((v) => (v ? parseFloat(v) : 18.0)),
 });
 
 export const getRecommendations = async (req: Request, res: Response, next: NextFunction) => {
@@ -27,13 +27,30 @@ export const getRecommendations = async (req: Request, res: Response, next: Next
       throw new BadRequestError('Invalid coordinates or kwh value');
     }
 
-    // 1. Fetch vehicle
-    const vehicle = await prisma.vehicle.findUnique({
-      where: { id: vehicleId },
-    });
+    const lat = originLat;
+    const lng = originLng;
+    const chargeKwh = kwh;
+
+    // 1. Fetch vehicle (by ID, user's vehicle, or standard default)
+    let vehicle = vehicleId
+      ? await prisma.vehicle.findUnique({ where: { id: vehicleId } })
+      : req.user?.sub
+      ? await prisma.vehicle.findFirst({ where: { userId: req.user.sub } })
+      : await prisma.vehicle.findFirst();
 
     if (!vehicle) {
-      throw new NotFoundError('Vehicle not found');
+      vehicle = {
+        id: 'veh-default-01',
+        userId: req.user?.sub || 'usr-default',
+        model: 'Tata Nexon EV Max',
+        vehicleClass: 'car',
+        batteryKwh: 40.5,
+        efficiencyWhKm: 140,
+        connectors: ['ccs2', 'type2_ac'] as any,
+        currentChargePct: 45,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
     }
 
     // 2. Fetch candidate stations (nearest top 25)
@@ -54,7 +71,7 @@ export const getRecommendations = async (req: Request, res: Response, next: Next
     // 3. Compute distance matrix via googleProxy
     const candidateCoords = stations.map((s) => ({ lat: s.lat, lng: s.lng }));
     const distanceResults = await googleProxy.getDistanceMatrix(
-      { lat: originLat, lng: originLng },
+      { lat, lng },
       candidateCoords
     );
 
@@ -68,7 +85,7 @@ export const getRecommendations = async (req: Request, res: Response, next: Next
     }));
 
     const mlRecommendations = await mlClient.getRecommendations({
-      origin: { lat: originLat, lng: originLng },
+      origin: { lat, lng },
       vehicle: {
         vehicleClass: vehicle.vehicleClass as VehicleClass,
         batteryKwh: vehicle.batteryKwh,
@@ -76,7 +93,7 @@ export const getRecommendations = async (req: Request, res: Response, next: Next
         connectors: vehicle.connectors,
         currentChargePct: vehicle.currentChargePct,
       },
-      kwh,
+      kwh: chargeKwh,
       candidateStations,
     });
 
@@ -109,7 +126,7 @@ export const getRecommendations = async (req: Request, res: Response, next: Next
         const vehicleEffKwhKm = vehicle.efficiencyWhKm / 1000;
         const travelEnergyKwh = distInfo.distanceKm * vehicleEffKwhKm;
         const travelCost = Number((travelEnergyKwh * 6.5).toFixed(2));
-        const chargingCost = Number((kwh * 6.5).toFixed(2));
+        const chargingCost = Number((chargeKwh * 6.5).toFixed(2));
         const trueTotalCost = Number((chargingCost + travelCost).toFixed(2));
 
         const batteryRemainingKwh = (vehicle.currentChargePct / 100) * vehicle.batteryKwh;
@@ -123,7 +140,7 @@ export const getRecommendations = async (req: Request, res: Response, next: Next
           station: stationSummary,
           distanceKm: distInfo.distanceKm,
           travelMinutes: distInfo.durationMinutes,
-          energyNeededKwh: kwh,
+          energyNeededKwh: chargeKwh,
           chargingCost: rec.chargingCost || chargingCost,
           travelCost: rec.travelCost || travelCost,
           trueTotalCost: rec.trueTotalCost || trueTotalCost,
@@ -144,7 +161,7 @@ export const getRecommendations = async (req: Request, res: Response, next: Next
       const vehicleEffKwhKm = vehicle.efficiencyWhKm / 1000;
       const travelEnergyKwh = distInfo.distanceKm * vehicleEffKwhKm;
       const travelCost = Number((travelEnergyKwh * 6.5).toFixed(2));
-      const chargingCost = Number((kwh * 6.5).toFixed(2));
+      const chargingCost = Number((chargeKwh * 6.5).toFixed(2));
       const trueTotalCost = Number((chargingCost + travelCost).toFixed(2));
 
       const batteryRemainingKwh = (vehicle.currentChargePct / 100) * vehicle.batteryKwh;
@@ -176,7 +193,7 @@ export const getRecommendations = async (req: Request, res: Response, next: Next
         },
         distanceKm: distInfo.distanceKm,
         travelMinutes: distInfo.durationMinutes,
-        energyNeededKwh: kwh,
+        energyNeededKwh: chargeKwh,
         chargingCost,
         travelCost,
         trueTotalCost,

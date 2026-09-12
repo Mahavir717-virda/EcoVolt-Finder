@@ -85,6 +85,7 @@ export const createApp = (): Express => {
     { path: '/sessions', router: sessionsRouter },
     { path: '/recommendations', router: recommendationsRouter },
     { path: '/forecast', router: forecastRouter },
+    { path: '/grid', router: forecastRouter },
     { path: '/impact', router: impactRouter },
     { path: '/gamification', router: gamificationRouter },
     { path: '/analytics', router: analyticsRouter },

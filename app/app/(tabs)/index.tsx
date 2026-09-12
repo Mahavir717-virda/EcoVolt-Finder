@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { applyFiltersToStations, useFilters } from '@/hooks/useFilters';
 import { useNearbyStations, useStations } from '@/hooks/useStations';
 import { useUserLocation } from '@/hooks/useUserLocation';
+import { useLiveGrid } from '@/hooks/useLiveGrid';
 import { getLiveGridSnapshot, greennessColor, greennessBandLabel } from '@/lib/gridData';
 import { spacing } from '@/styles/spacing';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +32,7 @@ import {
   getNotificationHistory,
   AppNotification,
 } from '@/services/notifications.service';
+import { calculateDistance } from '@/utils/distance';
 import { getGamificationProfile } from '@/services/gamification.service';
 
 
@@ -65,12 +67,12 @@ export default function HomeScreen() {
     refreshLocation,
   } = useUserLocation();
 
-  // Always fetch all stations
+  // Always fetch all stations enriched with user location
   const { 
     stations: allStations, 
     loading: loadingAll, 
     refresh: refreshAll,
-  } = useStations({ autoFetch: true });
+  } = useStations({ autoFetch: true, userCoords });
   
   // Calculate nearby stations from coordinates
   const { 
@@ -84,14 +86,31 @@ export default function HomeScreen() {
     enabled: true,
   });
 
-  // Use nearby stations if available, otherwise all stations, then apply global filters
+  // Use nearby stations if available, otherwise all stations, then apply global filters and dynamic distance
   const stations = useMemo(() => {
-    let sourceStations = allStations;
-    if (nearbyStations && nearbyStations.length > 0) {
-      sourceStations = nearbyStations;
-    }
-    return applyFiltersToStations(sourceStations as any[], filters) as typeof allStations;
-  }, [nearbyStations, allStations, filters]);
+    let sourceStations = (nearbyStations && nearbyStations.length > 0) ? nearbyStations : allStations;
+    const filtered = applyFiltersToStations(sourceStations as any[], filters) as (typeof allStations[0] & { distance?: number })[];
+
+    // Compute dynamic Haversine distance for every station from live GPS userCoords
+    return filtered.map((st) => {
+      let dist: number | undefined = st.distance;
+      if (userCoords?.latitude && userCoords?.longitude && st.latitude && st.longitude) {
+        dist = calculateDistance(
+          { latitude: userCoords.latitude, longitude: userCoords.longitude },
+          { latitude: st.latitude, longitude: st.longitude }
+        );
+      }
+      return {
+        ...st,
+        distance: dist,
+      };
+    }).sort((a, b) => {
+      if (a.distance !== undefined && b.distance !== undefined) {
+        return a.distance - b.distance;
+      }
+      return 0;
+    });
+  }, [nearbyStations, allStations, filters, userCoords]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -110,13 +129,22 @@ export default function HomeScreen() {
       setUnreadCount(unread);
 
       const dealNotif = history.find((n) => n.type === 'smart_savings_alert' && n.data?.stationId);
-      if (dealNotif?.data && dealNotif.data.stationId) {
+      if (dealNotif && dealNotif.data && dealNotif.data.stationId) {
+        const notifData = dealNotif.data;
+        const targetStation = allStations.find(s => s.id === String(notifData.stationId));
+        let computedDist = Number(notifData.distanceKm || 1.5);
+        if (targetStation && userCoords?.latitude && userCoords?.longitude && targetStation.latitude && targetStation.longitude) {
+          computedDist = calculateDistance(
+            { latitude: userCoords.latitude, longitude: userCoords.longitude },
+            { latitude: targetStation.latitude, longitude: targetStation.longitude }
+          );
+        }
         setActiveDeal({
-          stationId: String(dealNotif.data.stationId),
-          stationName: String(dealNotif.data.stationName || 'Nearby Charging Hub'),
-          savingsInr: Number(dealNotif.data.savingsInr || 100),
-          availableChargers: Number(dealNotif.data.availableChargers || 3),
-          distanceKm: Number(dealNotif.data.distanceKm || 1.5),
+          stationId: String(notifData.stationId),
+          stationName: String(notifData.stationName || targetStation?.name || 'Nearby Charging Hub'),
+          savingsInr: Number(notifData.savingsInr || 100),
+          availableChargers: Number(notifData.availableChargers || targetStation?.available_chargers || 3),
+          distanceKm: computedDist,
         });
       }
 
@@ -161,8 +189,8 @@ export default function HomeScreen() {
     longitude: userCoords.longitude,
   }), [userCoords.latitude, userCoords.longitude]);
 
-  // Live grid snapshot (mock data, mirrors ML service)
-  const liveGrid = useMemo(() => getLiveGridSnapshot('IN-WE'), []);
+  // Live grid snapshot (dynamic from ML service & backend)
+  const { liveGrid, isLive } = useLiveGrid('IN-WE');
   const gridColor = greennessColor(liveGrid.renewablePct);
   const gridBandLabel = greennessBandLabel(liveGrid.band);
 

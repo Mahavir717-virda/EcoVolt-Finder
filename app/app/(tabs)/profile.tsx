@@ -5,6 +5,7 @@
 
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
+import { useLiveGrid } from '@/hooks/useLiveGrid';
 import { getLiveGridSnapshot, greennessColor, greennessBandLabel } from '@/lib/gridData';
 import { spacing } from '@/styles/spacing';
 import { getGamificationProfile } from '@/services/gamification.service';
@@ -64,7 +65,7 @@ export default function ProfileScreen() {
   }, []);
 
   // Live grid snapshot for the Green Impact card
-  const liveGrid = useMemo(() => getLiveGridSnapshot('IN-WE'), []);
+  const { liveGrid } = useLiveGrid('IN-WE');
   const gridColor = greennessColor(liveGrid.renewablePct);
   const gridBandLabel = greennessBandLabel(liveGrid.band);
   const bkdTotal = Object.values(liveGrid.breakdown).reduce((a, b) => a + b, 0);

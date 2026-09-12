@@ -11,6 +11,7 @@ import {
   getStoredUser,
   setStoredUser,
 } from '@/services/api';
+import { promptGoogleAuthAsync } from '@/services/googleAuth.service';
 
 export interface AuthError {
   message: string;
@@ -59,6 +60,70 @@ export async function signIn(
     return { data: null, error: null };
   } catch (err: any) {
     return { data: null, error: { message: err.message || 'Login failed. Please check your credentials.' } };
+  }
+}
+
+/**
+ * Sign in with Google (OAuth / ID Token / 1-Tap Google profile).
+ * Calls server POST /auth/google, stores JWT in SecureStore, and caches profile.
+ */
+export async function signInWithGoogle(options?: {
+  email?: string;
+  name?: string;
+  idToken?: string;
+  photoUrl?: string;
+}): Promise<AuthResult> {
+  try {
+    let authData = options;
+
+    if (!authData || (!authData.email && !authData.idToken)) {
+      const googleOAuthResult = await promptGoogleAuthAsync();
+      if (!googleOAuthResult.success || !googleOAuthResult.user) {
+        if (googleOAuthResult.error) {
+          return { data: null, error: { message: googleOAuthResult.error } };
+        }
+        return { data: null, error: { message: 'Google authentication was cancelled' } };
+      }
+      authData = googleOAuthResult.user;
+    }
+
+    const payload = {
+      email: authData.email || 'driver.google@ecovolt.in',
+      name: authData.name || 'EcoVolt Google Driver',
+      idToken: authData.idToken,
+      photoUrl: authData.photoUrl,
+    };
+
+    const res = await apiRequest<any>('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    const token = res?.accessToken || res?.token;
+    if (token) {
+      await setAuthToken(token);
+    }
+
+    if (res?.user) {
+      const profile: Profile = {
+        id: res.user.id,
+        full_name: res.user.name || res.user.fullName || payload.name,
+        email: res.user.email || payload.email,
+        phone: res.user.phone || '',
+        plan_type: (res.user.planType || res.user.plan_type || 'basic') as Profile['plan_type'],
+        avatar_url: res.user.avatarUrl || res.user.avatar_url || payload.photoUrl || null,
+        created_at: res.user.createdAt || new Date().toISOString(),
+        updated_at: res.user.updatedAt || new Date().toISOString(),
+      };
+      await setStoredUser(profile);
+    }
+
+    return { data: null, error: null };
+  } catch (err: any) {
+    return {
+      data: null,
+      error: { message: err.message || 'Google Sign-In failed. Please try again.' },
+    };
   }
 }
 

@@ -23,8 +23,18 @@ export interface StationFilters {
   searchQuery?: string;
 }
 
-export async function getStations(filters?: StationFilters): Promise<Station[]> {
-  const rawList = await apiRequest<any[]>('/stations', { method: 'GET' });
+export async function getStations(
+  filters?: StationFilters,
+  userCoords?: { latitude: number; longitude: number } | null
+): Promise<StationWithDistance[]> {
+  const queryParams = new URLSearchParams();
+  if (userCoords?.latitude && userCoords?.longitude) {
+    queryParams.append('lat', userCoords.latitude.toString());
+    queryParams.append('lng', userCoords.longitude.toString());
+  }
+
+  const endpoint = queryParams.toString() ? `/stations?${queryParams.toString()}` : '/stations';
+  const rawList = await apiRequest<any[]>(endpoint, { method: 'GET' });
 
   let stations: Station[] = (rawList || []).map(adaptEcoVoltStation);
 
@@ -46,18 +56,46 @@ export async function getStations(filters?: StationFilters): Promise<Station[]> 
     }
   }
 
-  return stations;
+  return stations.map((st) => ({
+    ...st,
+    distance: userCoords?.latitude && userCoords?.longitude
+      ? calculateDistance(
+          { latitude: userCoords.latitude, longitude: userCoords.longitude },
+          { latitude: st.latitude, longitude: st.longitude }
+        )
+      : calculateDistance(
+          { latitude: 23.0370, longitude: 72.5622 },
+          { latitude: st.latitude, longitude: st.longitude }
+        ),
+  }));
 }
 
-export async function getStationById(id: string): Promise<StationWithChargers | null> {
-  const raw = await apiRequest<any>(`/stations/${id}`, { method: 'GET' });
+export async function getStationById(
+  id: string,
+  userCoords?: { latitude: number; longitude: number } | null
+): Promise<(StationWithChargers & { distance?: number }) | null> {
+  const queryParams = new URLSearchParams();
+  if (userCoords?.latitude && userCoords?.longitude) {
+    queryParams.append('lat', userCoords.latitude.toString());
+    queryParams.append('lng', userCoords.longitude.toString());
+  }
+  const endpoint = queryParams.toString() ? `/stations/${id}?${queryParams.toString()}` : `/stations/${id}`;
+  const raw = await apiRequest<any>(endpoint, { method: 'GET' });
   if (!raw) return null;
 
   const station = adaptEcoVoltStation(raw);
   const chargers: Charger[] = adaptEcoVoltChargers(raw);
 
+  const distance = userCoords?.latitude && userCoords?.longitude
+    ? calculateDistance(
+        { latitude: userCoords.latitude, longitude: userCoords.longitude },
+        { latitude: station.latitude, longitude: station.longitude }
+      )
+    : (raw.distanceKm ?? undefined);
+
   return {
     ...station,
+    distance,
     chargers,
   };
 }

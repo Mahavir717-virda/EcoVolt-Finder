@@ -27,3 +27,28 @@ export const getForecast = async (req: Request, res: Response, next: NextFunctio
     next(error);
   }
 };
+
+export const getLiveGrid = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { zoneId, stationId } = req.query;
+
+    let targetZoneId = (zoneId as string) || 'IN-WE';
+
+    if (stationId) {
+      const station = await prisma.station.findUnique({
+        where: { id: stationId as string },
+        include: { zone: true },
+      });
+
+      if (!station) {
+        throw new NotFoundError('Station not found');
+      }
+      targetZoneId = station.zone.id;
+    }
+
+    const liveGrid = await mlClient.getLiveGrid(targetZoneId);
+    return res.status(200).json(liveGrid);
+  } catch (error) {
+    next(error);
+  }
+};

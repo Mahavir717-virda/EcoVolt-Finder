@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { signIn, signUp, signOut, getCurrentProfile } from '@/lib/auth';
+import { signIn, signUp, signOut, getCurrentProfile, signInWithGoogle } from '@/lib/auth';
 import { getAuthToken, getStoredUser } from '@/services/api';
 import { Profile } from '@/types/database.types';
 
@@ -37,6 +37,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: (options?: { email?: string; name?: string; idToken?: string; photoUrl?: string }) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -139,6 +140,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }, []);
 
+  const handleSignInWithGoogle = useCallback(
+    async (options?: {
+      email?: string;
+      name?: string;
+      idToken?: string;
+      photoUrl?: string;
+    }) => {
+      setState(prev => ({ ...prev, isLoading: true }));
+
+      const result = await signInWithGoogle(options);
+
+      if (result.error) {
+        setState(prev => ({ ...prev, isLoading: false }));
+        return { error: result.error.message };
+      }
+
+      try {
+        const [token, storedUser] = await Promise.all([
+          getAuthToken(),
+          getStoredUser(),
+        ]);
+        const user: User = {
+          id: storedUser?.id ?? (options?.email || 'google_user'),
+          email: storedUser?.email ?? options?.email,
+          user_metadata: { full_name: storedUser?.full_name ?? options?.name },
+        };
+        setState({
+          user,
+          profile: storedUser as Profile,
+          session: { user, access_token: token ?? undefined },
+          isLoading: false,
+          isAuthenticated: true,
+        });
+      } catch {
+        setState(prev => ({ ...prev, isLoading: false }));
+      }
+
+      return { error: null };
+    },
+    []
+  );
+
   const handleSignUp = useCallback(
     async (email: string, password: string, fullName: string) => {
       setState(prev => ({ ...prev, isLoading: true }));
@@ -185,6 +228,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         ...state,
         signIn: handleSignIn,
+        signInWithGoogle: handleSignInWithGoogle,
         signUp: handleSignUp,
         signOut: handleSignOut,
         refreshProfile,

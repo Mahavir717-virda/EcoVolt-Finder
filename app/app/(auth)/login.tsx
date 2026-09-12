@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -26,11 +27,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const validate = () => {
@@ -61,6 +63,18 @@ export default function LoginScreen() {
 
     if (error) {
       Alert.alert('Login Failed', error);
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    const { error } = await signInWithGoogle();
+    setGoogleLoading(false);
+
+    if (error) {
+      Alert.alert('Google Sign-In Failed', error);
     } else {
       router.replace('/(tabs)');
     }
@@ -138,16 +152,21 @@ export default function LoginScreen() {
 
           {/* Social Login with Staggered Fade */}
           <FadeIn delay={600}>
-            <View style={styles.socialButtons}>
-              <TouchableOpacity style={styles.socialButton}>
-                <Ionicons name="logo-google" size={20} color={colors.neutral[700]} />
-                <Text style={styles.socialButtonText}>Google</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton}>
-                <Ionicons name="logo-apple" size={20} color={colors.neutral[700]} />
-                <Text style={styles.socialButtonText}>Apple</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.googleButton}
+              onPress={handleGoogleLogin}
+              disabled={googleLoading || loading}
+              activeOpacity={0.8}
+            >
+              {googleLoading ? (
+                <ActivityIndicator size="small" color={colors.primary[500]} />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={20} color="#EA4335" />
+                  <Text style={styles.googleButtonText}>Sign in with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </FadeIn>
 
           {/* Sign Up Link with Fade */}
@@ -231,25 +250,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.neutral[400],
   },
-  socialButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  socialButton: {
-    flex: 1,
+  googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.inputPadding,
+    paddingVertical: 14,
     borderRadius: spacing.radius.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.neutral[200],
+    backgroundColor: colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  socialButtonText: {
+  googleButtonText: {
     fontSize: 16,
-    fontWeight: '500',
-    color: colors.neutral[700],
+    fontWeight: '600',
+    color: colors.neutral[800],
   },
   footer: {
     flexDirection: 'row',
