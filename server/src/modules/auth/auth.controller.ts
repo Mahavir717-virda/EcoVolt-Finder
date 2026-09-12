@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from './auth.service';
-import { signupSchema, loginSchema, refreshSchema } from './auth.schema';
+import { signupSchema, loginSchema, refreshSchema, googleAuthSchema } from './auth.schema';
 import { ValidationError } from '../../middleware/error-handler';
 
 export class AuthController {
@@ -45,4 +45,19 @@ export class AuthController {
       next(err);
     }
   }
+
+  public static async googleAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const parsed = googleAuthSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return next(new ValidationError('Invalid Google auth data', parsed.error.format()));
+    }
+
+    try {
+      const result = await AuthService.googleAuth(parsed.data);
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
+
