@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.screenPadding,
-    paddingBottom: spacing.xl,
+    paddingBottom: 110,
   },
   loadingContainer: {
     flex: 1,
