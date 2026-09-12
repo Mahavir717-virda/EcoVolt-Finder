@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors } from '@/constants/colors';
+import { LeaderboardSkeleton } from '@/components/ui';
 import { spacing } from '@/styles/spacing';
 import {
   getLeaderboard,
@@ -86,11 +87,23 @@ export default function LeaderboardScreen() {
     return leaderboardData.leaderboard.slice(3);
   }, [leaderboardData]);
 
-  if (loading && !refreshing) {
+  if (loading && !refreshing && !leaderboardData) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary[500]} />
-        <Text style={styles.loadingText}>Loading Green Leaderboard...</Text>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.navHeader}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.neutral[900]} />
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>Green Impact & Rank</Text>
+          <View style={{ width: 38 }} />
+        </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <LeaderboardSkeleton />
+        </ScrollView>
       </SafeAreaView>
     );
   }

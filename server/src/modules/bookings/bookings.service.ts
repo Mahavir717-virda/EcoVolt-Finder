@@ -68,6 +68,7 @@ export class BookingsService {
         connectorType: true,
         windowStart: true,
         windowEnd: true,
+        status: true,
         // Do NOT expose userId to protect privacy
       },
     });
@@ -150,19 +151,22 @@ export class BookingsService {
         return { portNumber, status: 'available' };
       });
 
+      const isOperational = c.status !== 'maintenance' && c.status !== 'offline';
+      const availableCount = isOperational ? free : 0;
+
       return {
         connectorId: c.id,
         type: c.type,
         powerKw: c.powerKw,
         // Respect maintenance/offline status from DB
         status:
-          c.status === 'maintenance' || c.status === 'offline'
+          !isOperational
             ? c.status
             : free > 0
             ? 'available'
             : 'occupied',
         totalCount: c.totalCount,
-        availableCount: free,
+        availableCount,
         bookedCount: booked,
         ports,
       };
@@ -170,7 +174,7 @@ export class BookingsService {
 
     const totalCapacity = connectorSlots.reduce((a, c) => a + c.totalCount, 0);
     const totalOccupied = connectorSlots.reduce((a, c) => a + c.bookedCount, 0);
-    const totalFree = Math.max(0, totalCapacity - totalOccupied);
+    const totalFree = connectorSlots.reduce((a, c) => a + c.availableCount, 0);
 
     return {
       stationId,
@@ -260,6 +264,14 @@ export class BookingsService {
     const startDate = new Date(windowStart);
     const endDate = new Date(windowEnd);
 
+    if (startDate.getTime() < Date.now() - 5 * 60 * 1000) {
+      throw new BadRequestError('Booking window start cannot be in the past');
+    }
+
+    if (startDate.getTime() > Date.now() + 30 * 24 * 60 * 60 * 1000) {
+      throw new BadRequestError('Booking horizon cannot exceed 30 days in advance');
+    }
+
     // Compute price quote before or during transaction
     const lockedPrice = await PricingService.computeQuote({
       stationId,
@@ -275,6 +287,28 @@ export class BookingsService {
         });
         if (!vehicle) {
           throw new NotFoundError(`Vehicle not found with id: ${vehicleId}`);
+        }
+
+        // 1b. Check if this same user already has an active overlapping booking
+        const userOverlap = await tx.booking.findFirst({
+          where: {
+            userId,
+            status: { in: [SessionStatus.reserved, SessionStatus.scheduled, SessionStatus.active] },
+            AND: [
+              { windowStart: { lt: endDate } },
+              { windowEnd: { gt: startDate } },
+            ],
+          },
+          include: {
+            station: { select: { name: true } },
+          },
+        });
+
+        if (userOverlap) {
+          throw new ConflictError(
+            `You already have an active reservation at ${userOverlap.station?.name || 'a station'} during this requested time interval. Please choose another time or cancel your existing reservation.`,
+            { existingBookingId: userOverlap.id }
+          );
         }
 
         // 2. Row-level lock on Connector records to serialize concurrent bookings on the same plug type.
@@ -377,6 +411,7 @@ export class BookingsService {
           include: {
             station: { select: { id: true, name: true, address: true, provider: true } },
             vehicle: { select: { id: true, model: true, vehicleClass: true } },
+            connector: { select: { id: true, type: true, powerKw: true } },
           },
         });
 

@@ -16,3 +16,5 @@ export {
     CardSkeleton, FullScreenLoader, ListSkeleton, Loader, Skeleton
 } from './Loader';
 
+export * from './skeleton';
+

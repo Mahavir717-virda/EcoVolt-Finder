@@ -1,4 +1,4 @@
-import { Button, Card } from '@/components/ui';
+import { Button, Card, ReservationDetailSkeleton } from '@/components/ui';
 import { CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
 import { useTheme } from '@/hooks/useTheme';
@@ -187,20 +187,19 @@ export default function ReservationDetailScreen() {
     }
   }, [reservationStatus]);
 
-  if (loading) {
+  if (loading && !reservation) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
+        <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.neutral[800]} />
+            <Ionicons name="arrow-back" size={24} color={themeColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Reservation Details</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('reservations.title', 'Reservation Details')}</Text>
           <View style={styles.placeholder} />
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
-          <Text style={styles.loadingText}>Loading reservation...</Text>
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <ReservationDetailSkeleton />
+        </ScrollView>
       </View>
     );
   }

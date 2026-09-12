@@ -81,14 +81,15 @@ export const ConfirmBookingScreen: React.FC = () => {
   const initialConnector = route.params?.connectorType || 'ccs2';
 
   const [selectedConnector, setSelectedConnector] = useState<string>(initialConnector);
-  const [startOffsetMins, setStartOffsetMins] = useState<number>(() => {
+  const [customStartOffset, setCustomStartOffset] = useState<number>(() => {
     if (route.params?.windowStart) {
-      const diff = Math.max(0, Math.round((new Date(route.params.windowStart).getTime() - Date.now()) / (60 * 1000)));
+      const diff = Math.max(5, Math.round((new Date(route.params.windowStart).getTime() - Date.now()) / (60 * 1000)));
       return diff;
     }
     return 5;
   });
   const [durationMins, setDurationMins] = useState<number>(route.params?.durationMinutes || 60);
+  const [confirmedBooking, setConfirmedBooking] = useState<any>(null);
 
   // 1. Fetch Station Details
   const stationQuery = useQuery<StationSummary>({
@@ -113,9 +114,7 @@ export const ConfirmBookingScreen: React.FC = () => {
 
   // 2. Stable Dynamic Time Window (Start Time X + Interval Y)
   const bookingWindow = useMemo(() => {
-    const baseStart = route.params?.windowStart
-      ? new Date(route.params.windowStart)
-      : new Date(Date.now() + startOffsetMins * 60 * 1000);
+    const baseStart = new Date(Date.now() + customStartOffset * 60 * 1000);
     const end = new Date(baseStart.getTime() + durationMins * 60 * 1000);
     return {
       startIso: baseStart.toISOString(),
@@ -123,7 +122,7 @@ export const ConfirmBookingScreen: React.FC = () => {
       label: `${baseStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
       durationMinutes: durationMins,
     };
-  }, [startOffsetMins, durationMins, route.params?.windowStart]);
+  }, [customStartOffset, durationMins]);
 
   // 3. Live Slot Matrix for the exact [X, X + Y] window
   const slotQuery = useQuery<SlotMatrixResponse>({
@@ -201,7 +200,7 @@ export const ConfirmBookingScreen: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
-      await http.post('/bookings', {
+      const createdBooking = await http.post<any>('/bookings', {
         stationId,
         connectorType: selectedConnector,
         vehicleId: activeVehicle.id,
@@ -209,6 +208,8 @@ export const ConfirmBookingScreen: React.FC = () => {
         windowEnd: bookingWindow.endIso,
         priceQuoteId: `quote_${Date.now()}`,
       });
+
+      setConfirmedBooking(createdBooking);
 
       // Immediately invalidate all slot, station, and booking caches across the app
       await Promise.all([
@@ -223,7 +224,13 @@ export const ConfirmBookingScreen: React.FC = () => {
       setIsSuccess(true);
     } catch (err: any) {
       setIsSubmitting(false);
-      Alert.alert('Booking Error', err?.message || 'Could not lock the slot. Please try again.');
+      await queryClient.invalidateQueries({ queryKey: ['slots'] });
+      const errorMsg =
+        err?.response?.data?.error?.message ||
+        err?.error?.message ||
+        err?.message ||
+        'Could not lock the slot. Availability has been refreshed. Please pick another available time.';
+      Alert.alert('Reservation Notice', errorMsg);
     }
   };
 
@@ -248,6 +255,14 @@ export const ConfirmBookingScreen: React.FC = () => {
   }
 
   if (isSuccess) {
+    const finalTariff =
+      typeof confirmedBooking?.lockedPrice === 'object' && confirmedBooking?.lockedPrice !== null
+        ? confirmedBooking.lockedPrice.finalPrice ?? quote.finalPrice
+        : quote.finalPrice;
+    const finalBookingId = confirmedBooking?.id
+      ? `BK-${confirmedBooking.id.slice(0, 8).toUpperCase()}`
+      : `BK-${Date.now().toString().slice(-6)}`;
+
     return (
       <View style={[styles.container, styles.successContainer]}>
         <Text variant="screenTitle" align="center" style={{ marginBottom: spacing.md }}>
@@ -255,26 +270,22 @@ export const ConfirmBookingScreen: React.FC = () => {
         </Text>
         
         <TicketCard
-          bookingId={`BK-${Date.now().toString().slice(-6)}`}
-          stationName={station.name}
+          bookingId={finalBookingId}
+          stationName={confirmedBooking?.station?.name || station.name}
           dateTime={`${bookingWindow.label} (${durationMins} mins)`}
           rows={[
-            { label: 'Connector', value: formatConnectorName(selectedConnector as any) },
-            { label: 'Vehicle', value: activeVehicle?.model || 'Tata Nexon EV Max' },
-            { label: 'Locked Tariff', value: `₹${quote.finalPrice.toFixed(2)}/kWh`, highlight: true },
-            { label: 'Estimated Total', value: `₹${(quote.finalPrice * estimatedKwh).toFixed(2)} (${estimatedKwh} kWh)` },
+            { label: 'Connector', value: formatConnectorName((confirmedBooking?.connectorType || selectedConnector) as any) },
+            { label: 'Vehicle', value: confirmedBooking?.vehicle?.model || activeVehicle?.model || 'Tata Nexon EV Max' },
+            { label: 'Locked Tariff', value: `₹${Number(finalTariff).toFixed(2)}/kWh`, highlight: true },
+            { label: 'Estimated Total', value: `₹${(Number(finalTariff) * estimatedKwh).toFixed(2)} (${estimatedKwh} kWh)` },
           ]}
           style={{ marginBottom: spacing.xl }}
         />
 
         <Button
-          label="View Active Session"
+          label="View Bookings & History"
           variant="primary"
-          onPress={() =>
-            navigation.navigate('DriverTabs', {
-              screen: 'Activity',
-            })
-          }
+          onPress={() => navigation.navigate('Bookings')}
           style={styles.doneBtn}
         />
         <Button
@@ -370,11 +381,11 @@ export const ConfirmBookingScreen: React.FC = () => {
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
               {START_TIME_OPTIONS.map((opt) => {
-                const isSelected = startOffsetMins === opt.offsetMins;
+                const isSelected = customStartOffset === opt.offsetMins;
                 return (
                   <TouchableOpacity
                     key={opt.offsetMins}
-                    onPress={() => setStartOffsetMins(opt.offsetMins)}
+                    onPress={() => setCustomStartOffset(opt.offsetMins)}
                     style={[styles.timeChip, isSelected && styles.timeChipActive]}
                   >
                     <Text

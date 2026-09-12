@@ -120,7 +120,10 @@ export const ProfileScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + spacing.xxl },
+          { 
+            paddingTop: insets.top + spacing.sm,
+            paddingBottom: insets.bottom + 100 
+          },
         ]}
       >
         {/* 1. Driver Profile Card */}

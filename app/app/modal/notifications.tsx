@@ -4,6 +4,7 @@
  */
 
 import { EmptyState } from '@/components/common';
+import { NotificationListSkeleton } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import {
   AppNotification,
@@ -114,11 +115,10 @@ export default function NotificationsModal() {
         </TouchableOpacity>
       </View>
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
-        </View>
+      {loading && notifications.length === 0 ? (
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <NotificationListSkeleton count={4} />
+        </ScrollView>
       ) : notifications.length === 0 ? (
         <View style={styles.emptyContainer}>
           <EmptyState

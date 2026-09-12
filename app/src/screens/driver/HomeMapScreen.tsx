@@ -78,7 +78,13 @@ export const HomeMapScreen: React.FC = () => {
     <View style={styles.container}>
       <ScrollView 
         showsVerticalScrollIndicator={false} 
-        contentContainerStyle={[styles.scrollContent, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent, 
+          { 
+            paddingTop: insets.top + spacing.sm, 
+            paddingBottom: insets.bottom + 100 
+          }
+        ]}
       >
         {/* Title */}
         <Text variant="screenTitle" style={styles.mainTitle}>

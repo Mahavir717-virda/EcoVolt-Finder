@@ -115,7 +115,8 @@ export function generateTimeSlots(
   date: Date,
   intervalMinutes: number = 30,
   startHour: number = 6,
-  endHour: number = 22
+  endHour: number = 23,
+  includePast: boolean = true
 ): string[] {
   const slots: string[] = [];
   const start = new Date(date);
@@ -125,10 +126,10 @@ export function generateTimeSlots(
   end.setHours(endHour, 0, 0, 0);
   
   const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
   
   while (start <= end) {
-    // Only add future time slots
-    if (start > now) {
+    if (includePast || !isToday || start > now) {
       const hours = start.getHours().toString().padStart(2, '0');
       const mins = start.getMinutes().toString().padStart(2, '0');
       slots.push(`${hours}:${mins}`);
@@ -137,6 +138,30 @@ export function generateTimeSlots(
   }
   
   return slots;
+}
+
+/**
+ * Parse time string (e.g. "14:30" or "02:30 PM") into Date on baseDate
+ */
+export function parseTimeString(baseDate: Date, timeStr: string): Date {
+  const d = new Date(baseDate);
+  const trimmed = timeStr.trim();
+  const hasAmPm = /am|pm/i.test(trimmed);
+
+  if (hasAmPm) {
+    const parts = trimmed.split(/\s+/);
+    const timePart = parts[0] || '00:00';
+    const ampm = (parts[1] || 'AM').toUpperCase();
+    let [hours, minutes] = timePart.split(':').map(Number);
+    if (ampm === 'PM' && hours < 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+    d.setHours(hours || 0, minutes || 0, 0, 0);
+  } else {
+    const [hours, minutes] = trimmed.split(':').map(Number);
+    d.setHours(hours || 0, minutes || 0, 0, 0);
+  }
+
+  return d;
 }
 
 /**

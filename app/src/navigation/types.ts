@@ -9,9 +9,15 @@ export type AuthStackParamList = {
 };
 
 export type DriverTabParamList = {
-  Explore: undefined;
-  SmartCharge: undefined;
-  Activity: undefined;
+  Reservations: undefined;
+  Vehicle: undefined;
+  Home: undefined;
+  Saved: undefined;
+  Profile: undefined;
+  // Backward-compat aliases
+  Explore?: undefined;
+  SmartCharge?: undefined;
+  Activity?: undefined;
 };
 
 export type DriverStackParamList = {

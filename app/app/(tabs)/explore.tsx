@@ -5,6 +5,7 @@
 
 import { EmptyState } from '@/components/common';
 import { StationCard } from '@/components/station';
+import { StationListSkeleton } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { applyFiltersToStations, useFilters } from '@/hooks/useFilters';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -19,6 +20,7 @@ import {
     ActivityIndicator,
     FlatList,
     RefreshControl,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -113,7 +115,9 @@ export default function ExploreScreen() {
         <View>
           <Text style={styles.title}>Explore Stations</Text>
           <Text style={styles.subtitle}>
-            {filteredStations.length} stations found
+            {loading && !refreshing && filteredStations.length === 0
+              ? 'Finding available charging stations...'
+              : `${filteredStations.length} stations found`}
           </Text>
         </View>
       </View>
@@ -165,11 +169,10 @@ export default function ExploreScreen() {
       )}
 
       {/* Stations List */}
-      {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
-          <Text style={styles.loadingText}>Loading stations...</Text>
-        </View>
+      {loading && !refreshing && filteredStations.length === 0 ? (
+        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+          <StationListSkeleton count={4} />
+        </ScrollView>
       ) : (
         <FlatList
           data={filteredStations}
