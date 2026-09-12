@@ -1,22 +1,23 @@
 /**
  * DirectionsMap Component
- * In-app Google Maps directions with turn-by-turn navigation
+ * In-app directions and routing powered by Leaflet & OSRM (zero Google Maps JS API key dependency)
+ * Includes native launcher for Google Maps / Apple Maps turn-by-turn navigation
  */
 
 import { colors } from '@/constants/colors';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Dimensions,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Dimensions,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 // Only import WebView on native platforms
@@ -25,10 +26,7 @@ if (Platform.OS !== 'web') {
   WebView = require('react-native-webview').WebView;
 }
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-const GOOGLE_MAPS_API_KEY = Constants.expoConfig?.extra?.googleMapsApiKey || 
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface DirectionsMapProps {
   destination: {
@@ -76,22 +74,19 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
             setError(data.message);
             setLoading(false);
           }
-        } catch (e) {
-          // Ignore non-JSON messages
-        }
+        } catch {}
       };
       window.addEventListener('message', handleWindowMessage);
       return () => window.removeEventListener('message', handleWindowMessage);
     }
   }, []);
 
-  // Get user's current location with instant last-known and timeout fallback
+  // Acquire user location with quick last-known check and fallback
   useEffect(() => {
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
-          // Try last known first for instant rendering
           try {
             const lastKnown = await Location.getLastKnownPositionAsync();
             if (lastKnown?.coords) {
@@ -102,7 +97,6 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
             }
           } catch {}
 
-          // Race current position with a 4.5s timeout
           const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4500));
           const posPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           const result = await Promise.race([posPromise, timeoutPromise]);
@@ -115,107 +109,187 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
             return;
           }
         }
-        
-        // Fallback default: Navrangpura Ahmedabad EV Hub if no location acquired
+        // Fallback default hub
         setUserLocation((prev) => prev || { latitude: 23.0370, longitude: 72.5622 });
       } catch (err) {
-        console.warn('DirectionsMap location error, using fallback hub:', err);
         setUserLocation((prev) => prev || { latitude: 23.0370, longitude: 72.5622 });
       }
     })();
   }, []);
 
-  // Generate map HTML with directions
+  // Launch external native navigation app (Google Maps / Apple Maps)
+  const openExternalNavigation = useCallback(() => {
+    const lat = destination.latitude;
+    const lng = destination.longitude;
+    const label = encodeURIComponent(destination.name);
+
+    const scheme = Platform.select({
+      ios: `maps:0,0?q=${label}@${lat},${lng}`,
+      android: `google.navigation:q=${lat},${lng}`,
+      default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+    });
+
+    Linking.canOpenURL(scheme || '')
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(scheme || '');
+        } else {
+          Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
+        }
+      })
+      .catch(() => {
+        Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
+      });
+  }, [destination]);
+
+  // Leaflet + OSRM directions HTML (100% free, zero Google JS API key requirement)
   const mapHtml = useCallback(() => {
     if (!userLocation) return '';
 
+    const origin = { lat: userLocation.latitude, lng: userLocation.longitude };
+    const dest = { lat: destination.latitude, lng: destination.longitude };
+
     return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body, #map { width: 100%; height: 100%; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    let map, directionsService, directionsRenderer;
-    
-    function initMap() {
-      const origin = { lat: ${userLocation.latitude}, lng: ${userLocation.longitude} };
-      const destination = { lat: ${destination.latitude}, lng: ${destination.longitude} };
-      
-      // Helper to send messages to parent
-      function sendMessage(data) {
-        const msg = JSON.stringify(data);
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(msg);
-        } else {
-          window.parent.postMessage(msg, '*');
-        }
-      }
-      
-      map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 14,
-        center: origin,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        zoomControl: true,
-        zoomControlOptions: {
-          position: google.maps.ControlPosition.RIGHT_CENTER
-        }
-      });
-      
-      directionsService = new google.maps.DirectionsService();
-      directionsRenderer = new google.maps.DirectionsRenderer({
-        map: map,
-        suppressMarkers: false,
-        polylineOptions: {
-          strokeColor: '#4CAF50',
-          strokeWeight: 5,
-          strokeOpacity: 0.8
-        }
-      });
-      
-      // Calculate and display route
-      directionsService.route({
-        origin: origin,
-        destination: destination,
-        travelMode: google.maps.TravelMode.DRIVING
-      }, (response, status) => {
-        if (status === 'OK') {
-          directionsRenderer.setDirections(response);
-          
-          // Send route info to parent
-          const leg = response.routes[0].legs[0];
-          sendMessage({
-            type: 'routeInfo',
-            distance: leg.distance.text,
-            duration: leg.duration.text,
-            steps: leg.steps.map(s => ({
-              instruction: s.instructions.replace(/<[^>]*>/g, ''),
-              distance: s.distance.text,
-              maneuver: s.maneuver || ''
-            }))
-          });
-        } else {
-          sendMessage({
-            type: 'error',
-            message: 'Could not calculate route: ' + status
-          });
-        }
-      });
-    }
-  </script>
-  <script async defer 
-    src="https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap">
-  </script>
-</body>
-</html>
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            html, body, #map { width: 100%; height: 100%; background: #0F172A; }
+            .leaflet-control-attribution { display: none; }
+            .user-pin {
+              width: 20px;
+              height: 20px;
+              border-radius: 50%;
+              background: #3B82F6;
+              box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.3);
+              border: 2px solid #FFFFFF;
+            }
+            .station-pin {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 36px;
+              height: 36px;
+              border-radius: 50%;
+              background: #10B981;
+              color: #FFFFFF;
+              font-size: 18px;
+              font-weight: bold;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+              border: 2px solid #FFFFFF;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="map"></div>
+          <script>
+            function sendMessage(data) {
+              const msg = JSON.stringify(data);
+              if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(msg);
+              } else if (window.parent) {
+                window.parent.postMessage(msg, '*');
+              }
+            }
+
+            const map = L.map('map', { zoomControl: false }).setView([${origin.lat}, ${origin.lng}], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+            // User marker
+            const userIcon = L.divIcon({
+              className: '',
+              html: '<div class="user-pin"></div>',
+              iconSize: [20, 20],
+              iconAnchor: [10, 10]
+            });
+            L.marker([${origin.lat}, ${origin.lng}], { icon: userIcon }).addTo(map);
+
+            // Destination marker
+            const destIcon = L.divIcon({
+              className: '',
+              html: '<div class="station-pin">⚡</div>',
+              iconSize: [36, 36],
+              iconAnchor: [18, 18]
+            });
+            L.marker([${dest.lat}, ${dest.lng}], { icon: destIcon }).addTo(map);
+
+            // Fetch route from OSRM
+            const osrmUrl = 'https://router.project-osrm.org/route/v1/driving/' +
+              '${origin.lng},${origin.lat};${dest.lng},${dest.lat}' +
+              '?overview=full&geometries=geojson&steps=true';
+
+            fetch(osrmUrl)
+              .then(res => res.json())
+              .then(data => {
+                if (data.routes && data.routes.length > 0) {
+                  const r = data.routes[0];
+                  const distKm = (r.distance / 1000).toFixed(1) + ' km';
+                  const durMin = Math.round(r.duration / 60) + ' min';
+                  const coords = r.geometry.coordinates.map(c => [c[1], c[0]]);
+
+                  const polyline = L.polyline(coords, {
+                    color: '#10B981',
+                    weight: 5,
+                    opacity: 0.9,
+                  }).addTo(map);
+
+                  map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+
+                  const steps = [];
+                  if (r.legs && r.legs[0] && r.legs[0].steps) {
+                    r.legs[0].steps.forEach(s => {
+                      if (s.maneuver) {
+                        steps.push({
+                          instruction: s.name ? (s.maneuver.type + ' onto ' + s.name) : s.maneuver.type,
+                          distance: (s.distance / 1000).toFixed(1) + ' km',
+                          maneuver: s.maneuver.modifier || s.maneuver.type
+                        });
+                      }
+                    });
+                  }
+
+                  sendMessage({
+                    type: 'routeInfo',
+                    distance: distKm,
+                    duration: durMin,
+                    steps: steps.length > 0 ? steps : [{ instruction: 'Head towards destination', distance: distKm }]
+                  });
+                } else {
+                  fallbackLine();
+                }
+              })
+              .catch(() => fallbackLine());
+
+            function fallbackLine() {
+              const polyline = L.polyline([
+                [${origin.lat}, ${origin.lng}],
+                [${dest.lat}, ${dest.lng}]
+              ], {
+                color: '#10B981',
+                weight: 4,
+                dashArray: '6, 8',
+              }).addTo(map);
+              map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+
+              // Approximate direct line distance
+              const dLat = (${dest.lat} - ${origin.lat}) * 111;
+              const dLng = (${dest.lng} - ${origin.lng}) * 111 * Math.cos(${origin.lat} * Math.PI / 180);
+              const directDist = Math.sqrt(dLat*dLat + dLng*dLng).toFixed(1) + ' km';
+
+              sendMessage({
+                type: 'routeInfo',
+                distance: directDist,
+                duration: Math.round(parseFloat(directDist) * 2.5) + ' min',
+                steps: [{ instruction: 'Follow navigation to ' + '${destination.name}', distance: directDist }]
+              });
+            }
+          </script>
+        </body>
+      </html>
     `;
   }, [userLocation, destination]);
 
@@ -233,12 +307,9 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
         setError(data.message);
         setLoading(false);
       }
-    } catch (e) {
-      console.log('WebView message error:', e);
-    }
+    } catch {}
   }, []);
 
-  // Get icon for maneuver type
   const getManeuverIcon = (maneuver: string): keyof typeof Ionicons.glyphMap => {
     if (maneuver.includes('left')) return 'arrow-back';
     if (maneuver.includes('right')) return 'arrow-forward';
@@ -250,19 +321,10 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
     return 'navigate';
   };
 
-  if (!GOOGLE_MAPS_API_KEY) {
-    return (
-      <View style={[styles.container, styles.errorContainer, style]}>
-        <Ionicons name="map-outline" size={48} color={colors.neutral[400]} />
-        <Text style={styles.errorText}>Google Maps API key not configured</Text>
-      </View>
-    );
-  }
-
   if (error) {
     return (
       <View style={[styles.container, styles.errorContainer, style]}>
-        <Ionicons name="alert-circle" size={48} color={colors.error[500]} />
+        <Ionicons name="alert-circle" size={48} color={colors.error} />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => setError(null)}>
           <Text style={styles.retryText}>Retry</Text>
@@ -275,24 +337,20 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
     return (
       <View style={[styles.container, styles.loadingContainer, style]}>
         <ActivityIndicator size="large" color={colors.primary[500]} />
-        <Text style={styles.loadingText}>Getting your location...</Text>
+        <Text style={styles.loadingText}>Locating nearest route...</Text>
       </View>
     );
   }
 
   return (
     <View style={[styles.container, style]}>
-      {/* Map */}
+      {/* Map View */}
       <View style={styles.mapContainer}>
         {Platform.OS === 'web' ? (
           <iframe
             ref={webViewRef}
             srcDoc={mapHtml()}
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-            }}
+            style={{ width: '100%', height: '100%', border: 'none' }}
             title="Directions Map"
           />
         ) : WebView ? (
@@ -305,7 +363,7 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
             onError={() => setError('Failed to load map')}
           />
         ) : null}
-        
+
         {loading && (
           <View style={styles.mapLoading}>
             <ActivityIndicator size="large" color={colors.primary[500]} />
@@ -314,9 +372,8 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
       </View>
 
       {/* Route Info Panel */}
-      {routeInfo && (
-        <View style={styles.routePanel}>
-          {/* Summary */}
+      <View style={styles.routePanel}>
+        {routeInfo && (
           <View style={styles.routeSummary}>
             <View style={styles.summaryItem}>
               <Ionicons name="time" size={24} color={colors.primary[500]} />
@@ -330,59 +387,68 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
               <Text style={styles.summaryLabel}>Distance</Text>
             </View>
           </View>
+        )}
 
-          {/* Destination */}
-          <View style={styles.destinationInfo}>
-            <View style={styles.destinationIcon}>
-              <Ionicons name="location" size={20} color="#fff" />
-            </View>
-            <View style={styles.destinationText}>
-              <Text style={styles.destinationName}>{destination.name}</Text>
-              {destination.address && (
-                <Text style={styles.destinationAddress} numberOfLines={1}>
-                  {destination.address}
-                </Text>
-              )}
-            </View>
+        {/* Destination Header */}
+        <View style={styles.destinationInfo}>
+          <View style={styles.destinationIcon}>
+            <Ionicons name="location" size={20} color="#fff" />
           </View>
-
-          {/* Toggle Directions */}
-          <TouchableOpacity
-            style={styles.toggleButton}
-            onPress={() => setShowSteps(!showSteps)}
-          >
-            <Text style={styles.toggleText}>
-              {showSteps ? 'Hide Turn-by-Turn' : 'Show Turn-by-Turn'}
-            </Text>
-            <Ionicons
-              name={showSteps ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={colors.primary[500]}
-            />
-          </TouchableOpacity>
-
-          {/* Turn-by-Turn Steps */}
-          {showSteps && (
-            <ScrollView style={styles.stepsContainer} showsVerticalScrollIndicator={false}>
-              {routeInfo.steps.map((step, index) => (
-                <View key={index} style={styles.stepItem}>
-                  <View style={styles.stepIcon}>
-                    <Ionicons
-                      name={getManeuverIcon(step.maneuver || '')}
-                      size={16}
-                      color={colors.primary[500]}
-                    />
-                  </View>
-                  <View style={styles.stepContent}>
-                    <Text style={styles.stepInstruction}>{step.instruction}</Text>
-                    <Text style={styles.stepDistance}>{step.distance}</Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          )}
+          <View style={styles.destinationText}>
+            <Text style={styles.destinationName}>{destination.name}</Text>
+            {destination.address && (
+              <Text style={styles.destinationAddress} numberOfLines={1}>
+                {destination.address}
+              </Text>
+            )}
+          </View>
         </View>
-      )}
+
+        {/* Start Native Navigation CTA */}
+        <TouchableOpacity style={styles.startNavButton} onPress={openExternalNavigation} activeOpacity={0.85}>
+          <Ionicons name="navigate" size={20} color="#fff" />
+          <Text style={styles.startNavText}>Start GPS Navigation</Text>
+        </TouchableOpacity>
+
+        {/* Turn-by-Turn Steps Toggle */}
+        {routeInfo && routeInfo.steps.length > 0 && (
+          <>
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => setShowSteps(!showSteps)}
+            >
+              <Text style={styles.toggleText}>
+                {showSteps ? 'Hide Turn-by-Turn' : 'Show Turn-by-Turn'}
+              </Text>
+              <Ionicons
+                name={showSteps ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={colors.primary[500]}
+              />
+            </TouchableOpacity>
+
+            {showSteps && (
+              <ScrollView style={styles.stepsContainer} showsVerticalScrollIndicator={false}>
+                {routeInfo.steps.map((step, index) => (
+                  <View key={index} style={styles.stepItem}>
+                    <View style={styles.stepIcon}>
+                      <Ionicons
+                        name={getManeuverIcon(step.maneuver || '')}
+                        size={16}
+                        color={colors.primary[500]}
+                      />
+                    </View>
+                    <View style={styles.stepContent}>
+                      <Text style={styles.stepInstruction}>{step.instruction}</Text>
+                      {step.distance ? <Text style={styles.stepDistance}>{step.distance}</Text> : null}
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </>
+        )}
+      </View>
     </View>
   );
 }
@@ -401,7 +467,7 @@ const styles = StyleSheet.create({
   },
   mapLoading: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -443,7 +509,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 8,
+    paddingBottom: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
@@ -480,7 +546,7 @@ const styles = StyleSheet.create({
   destinationInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
   },
   destinationIcon: {
     width: 36,
@@ -504,11 +570,31 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
     marginTop: 2,
   },
+  startNavButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary[500],
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+    shadowColor: colors.primary[500],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  startNavText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   toggleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: colors.neutral[200],
   },
@@ -519,7 +605,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   stepsContainer: {
-    maxHeight: 200,
+    maxHeight: 180,
     borderTopWidth: 1,
     borderTopColor: colors.neutral[200],
     paddingTop: 8,
@@ -527,31 +613,31 @@ const styles = StyleSheet.create({
   stepItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral[100],
   },
   stepIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.primary[50],
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   stepContent: {
     flex: 1,
   },
   stepInstruction: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.neutral[800],
-    lineHeight: 20,
+    lineHeight: 18,
   },
   stepDistance: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.neutral[500],
-    marginTop: 4,
+    marginTop: 2,
   },
 });
 

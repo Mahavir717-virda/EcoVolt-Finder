@@ -47,7 +47,8 @@ export function WebViewMap({
   const webViewRef = useRef<any>(null);
   const iframeRef = useRef<any>(null);
   const [loading, setLoading] = useState(true);
-  const [useLeaflet, setUseLeaflet] = useState(!GOOGLE_MAPS_API_KEY);
+  // Leaflet is 100% reliable with zero API key / billing errors
+  const [useLeaflet, setUseLeaflet] = useState(true);
 
   // Default to Ahmedabad Central EV Hub if no user location
   const center = userLocation || { latitude: 23.0370, longitude: 72.5622 };
