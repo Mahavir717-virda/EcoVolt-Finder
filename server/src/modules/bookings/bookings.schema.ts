@@ -24,6 +24,20 @@ export const createBookingSchema = z
       message: 'windowEnd must be strictly after windowStart',
       path: ['windowEnd'],
     }
+  )
+  .refine(
+    (data) => new Date(data.windowStart).getTime() >= Date.now() - 5 * 60 * 1000,
+    {
+      message: 'Booking window start cannot be in the past',
+      path: ['windowStart'],
+    }
+  )
+  .refine(
+    (data) => new Date(data.windowStart).getTime() <= Date.now() + 30 * 24 * 60 * 60 * 1000,
+    {
+      message: 'Booking horizon cannot exceed 30 days in advance',
+      path: ['windowStart'],
+    }
   );
 
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;

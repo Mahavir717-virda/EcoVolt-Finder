@@ -1,4 +1,5 @@
 import { SessionStatus } from '@prisma/client';
+import { DataQuality } from '../../../../contracts/enums';
 import { prisma } from '../../db/client';
 import {
   NotFoundError,
@@ -8,8 +9,170 @@ import {
 } from '../../middleware/error-handler';
 import { StopSessionInput } from './sessions.schema';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StationsService, getZoneForecast } from '../stations/stations.service';
 
 export class SessionsService {
+  /**
+   * Get active charging session for the authenticated user
+   * Returns live telemetry, dynamic renewable %, and locked price snapshot (Edge Case #17)
+   */
+  public static async getActiveSession(userId: string) {
+    // 1. Look for active session
+    let session = await prisma.session.findFirst({
+      where: {
+        userId,
+        status: SessionStatus.active,
+      },
+      orderBy: { startedAt: 'desc' },
+      include: {
+        booking: true,
+        station: {
+          include: {
+            zone: {
+              include: { tariffs: true },
+            },
+            pricingRules: true,
+          },
+        },
+        vehicle: true,
+        connector: true,
+      },
+    });
+
+    // 2. If no active session, check for most recent reserved or scheduled booking
+    if (!session) {
+      const recentBooking = await prisma.booking.findFirst({
+        where: {
+          userId,
+          status: { in: [SessionStatus.reserved, SessionStatus.scheduled, SessionStatus.active] },
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          station: {
+            include: {
+              zone: {
+                include: { tariffs: true },
+              },
+              pricingRules: true,
+            },
+          },
+          vehicle: true,
+          connector: true,
+        },
+      });
+
+      if (recentBooking) {
+        // Auto-activate session for this booking so the user can see live charging immediately
+        const now = new Date();
+        session = await prisma.session.create({
+          data: {
+            bookingId: recentBooking.id,
+            stationId: recentBooking.stationId,
+            connectorId: recentBooking.connectorId,
+            connectorType: recentBooking.connectorType,
+            vehicleId: recentBooking.vehicleId,
+            userId,
+            status: SessionStatus.active,
+            startedAt: now,
+            energyKwh: 0.0,
+            cost: 0.0,
+          },
+          include: {
+            booking: true,
+            station: {
+              include: {
+                zone: {
+                  include: { tariffs: true },
+                },
+                pricingRules: true,
+              },
+            },
+            vehicle: true,
+            connector: true,
+          },
+        });
+
+        await prisma.booking.update({
+          where: { id: recentBooking.id },
+          data: { status: SessionStatus.active },
+        });
+      }
+    }
+
+    if (!session) {
+      return null;
+    }
+
+    // 3. Resolve locked price snapshot strictly from booking / tariffs (Edge Case #17)
+    const lockedPriceObj = session.booking?.lockedPrice as Record<string, any> | null;
+    let lockedPrice = lockedPriceObj?.finalPrice;
+
+    if (!lockedPrice || typeof lockedPrice !== 'number') {
+      const tariff = session.station?.zone?.tariffs?.find((t) => t.provider === session.station.provider);
+      const baseRate = tariff ? tariff.baseRate : 13.0;
+      const markup = session.station?.pricingRules?.[0]?.providerMarkup ?? 2.5;
+      lockedPrice = Math.round((baseRate + markup) * 10) / 10;
+    }
+
+    // 4. Resolve live grid greenness for station's zone
+    const zoneId = session.station?.zoneId || 'IN-WE';
+    const zoneForecast = await getZoneForecast(zoneId);
+    const renewablePct = zoneForecast.renewablePct;
+    const dataQuality = zoneForecast.quality;
+
+    // 5. Calculate live telemetry from elapsed duration & connector power
+    const now = new Date();
+    const startedAt = session.startedAt || now;
+    const durationHours = Math.max(0.01, (now.getTime() - startedAt.getTime()) / (1000 * 3600));
+    const powerKw = session.connector?.powerKw || 50.0;
+    const vehicleBattery = session.vehicle?.batteryKwh || 40.5;
+    const calculatedKwh = Math.min(
+      vehicleBattery,
+      Math.max(0.5, Math.round(durationHours * powerKw * 0.9 * 100) / 100)
+    );
+    const energyKwh = Math.max(session.energyKwh ?? 0, calculatedKwh);
+    const cost = Math.round(energyKwh * lockedPrice * 100) / 100;
+
+    const startChargePct = session.vehicle?.currentChargePct || 35;
+    const currentChargePct = Math.min(
+      80,
+      startChargePct + Math.round((energyKwh / vehicleBattery) * 100)
+    );
+
+    const isConnectorOffline =
+      session.connector?.status === 'offline' || session.connector?.status === 'maintenance';
+
+    return {
+      id: session.id,
+      bookingId: session.bookingId,
+      stationId: session.stationId,
+      stationName: session.station?.name || 'EcoVolt Charging Hub',
+      connectorId: session.connectorId,
+      connectorType: session.connectorType,
+      vehicleId: session.vehicleId,
+      userId: session.userId,
+      status: session.status,
+      startedAt: session.startedAt,
+      endedAt: session.endedAt,
+      energyKwh,
+      cost,
+      avgRenewablePct: renewablePct,
+      co2AvoidedKg: Math.round(((energyKwh * 0.71 * (renewablePct / 100)) * 10) / 10),
+      lockedPrice,
+      startChargePct,
+      currentChargePct,
+      targetChargePct: 80,
+      powerKw,
+      connectorOffline: isConnectorOffline,
+      gridGreenness: {
+        renewablePct,
+        band: StationsService.getGreennessBand(renewablePct),
+        quality: dataQuality,
+        zoneId,
+      },
+    };
+  }
+
   /**
    * Get session details by ID
    */
@@ -253,87 +416,16 @@ export class SessionsService {
     const finalPricePerKwh = lockedPriceObj?.finalPrice ?? 14.5;
     const totalCost = Math.round(energyKwh * finalPricePerKwh * 100) / 100;
 
-    // 3. Compute Renewable Share & Avoided CO2
-    // Look up actual renewable % from ForecastCache for the session zone at session start time.
-    // Strategy: find the most recent forecast record whose hourStartLocal is <= startedAt
-    // (matches the same approach used by stations.service.ts → getZoneForecast).
-    // Fall back to ML API, then to a zone-aware Indian grid average if both fail.
-    let avgRenewablePct = 72.0; // reasonable default: IN-WE grid average (above green threshold)
+    // 3. Compute Renewable Share & Avoided CO2 using real-time zone forecast
+    let avgRenewablePct = 72.0;
     try {
       const stationWithZone = await prisma.station.findUnique({
         where: { id: session.stationId },
         select: { zoneId: true },
       });
-
-      if (stationWithZone) {
-        const zoneId = stationWithZone.zoneId;
-
-        // Primary: Most recent forecast at or before session start
-        let forecast = await prisma.forecastCache.findFirst({
-          where: {
-            zoneId,
-            hourStartLocal: { lte: startedAt },
-          },
-          orderBy: { hourStartLocal: 'desc' },
-        });
-
-        // Secondary: If no past forecast, get the nearest future one (session started during an uncached window)
-        if (!forecast) {
-          forecast = await prisma.forecastCache.findFirst({
-            where: { zoneId },
-            orderBy: { hourStartLocal: 'asc' },
-          });
-        }
-
-        if (forecast) {
-          avgRenewablePct = forecast.renewablePct;
-        } else {
-          // Tertiary: Try ML service live snapshot
-          try {
-            const mlUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
-            const mlRes = await fetch(`${mlUrl}/grid/live?zoneId=${encodeURIComponent(zoneId)}`, {
-              signal: AbortSignal.timeout(3000),
-            });
-            if (mlRes.ok) {
-              const mlData: any = await mlRes.json();
-              // GridSnapshot shape: { renewablePct, carbonIntensity, carbonFreePct, ... }
-              const pct = mlData?.renewablePct ?? mlData?.renewable_pct;
-              if (typeof pct === 'number' && pct > 0) {
-                avgRenewablePct = pct;
-                // Persist to ForecastCache so future lookups within this zone hit the DB
-                try {
-                  const hourStart = new Date(startedAt);
-                  hourStart.setMinutes(0, 0, 0);
-                  const existing = await prisma.forecastCache.findFirst({
-                    where: { zoneId, hourStartLocal: hourStart },
-                  });
-                  if (existing) {
-                    await prisma.forecastCache.update({
-                      where: { id: existing.id },
-                      data: { renewablePct: pct, carbonIntensity: mlData?.carbonIntensity ?? 200, fetchedAt: new Date() },
-                    });
-                  } else {
-                    await prisma.forecastCache.create({
-                      data: {
-                        zoneId,
-                        hourStartLocal: hourStart,
-                        renewablePct: pct,
-                        carbonIntensity: mlData?.carbonIntensity ?? 200,
-                        confidence: 1.0,
-                      },
-                    });
-                  }
-                } catch {
-                  // ForecastCache write failed — non-critical
-                }
-              }
-            }
-          } catch {
-            // ML API unavailable — use zone-aware default
-            avgRenewablePct = zoneId === 'IN-WE' ? 72.0 : 65.0;
-          }
-        }
-      }
+      const zoneId = stationWithZone?.zoneId || 'IN-WE';
+      const forecast = await getZoneForecast(zoneId);
+      avgRenewablePct = forecast.renewablePct;
     } catch (e) {
       console.warn('Could not fetch forecast for session zone, using fallback:', e);
     }

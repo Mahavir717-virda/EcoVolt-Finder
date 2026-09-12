@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 
+import { LiveGridSkeleton, ProfileStatsSkeleton } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useLiveGrid } from '@/hooks/useLiveGrid';
 import { getLiveGridSnapshot, greennessColor, greennessBandLabel } from '@/lib/gridData';
@@ -116,7 +117,7 @@ export default function ProfileScreen() {
   }, [hydrateVehicles]);
 
   // Live grid snapshot for the Green Impact card
-  const { liveGrid, refresh: refreshLiveGrid } = useLiveGrid('IN-WE');
+  const { liveGrid, isLive, loading: loadingGrid, refresh: refreshLiveGrid } = useLiveGrid('IN-WE');
 
   // Live refresh on focus whenever user visits profile
   useFocusEffect(
@@ -196,36 +197,40 @@ export default function ProfileScreen() {
         </View>
 
         {/* Dynamic Green Stats */}
-        <TouchableOpacity
-          style={[styles.statsContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={() => router.push('/leaderboard')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#F59E0B' }]}>
-              {gamification ? gamification.greenScore.toLocaleString() : '0'}
-            </Text>
-            <Text style={styles.statLabel}>Green Pts (Rank #{gamification?.rank || 1})</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.borderLight }]} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {gamification ? `${gamification.cleanKwh} kWh` : '0 kWh'}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              {t('profile.clean_power', 'Clean Power')}
-            </Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.borderLight }]} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#10B981' }]}>
-              {gamification ? `${gamification.co2AvoidedKg} kg` : '0.0 kg'}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              {t('profile.co2_saved', 'CO₂ Saved')}
-            </Text>
-          </View>
-        </TouchableOpacity>
+        {!gamification ? (
+          <ProfileStatsSkeleton />
+        ) : (
+          <TouchableOpacity
+            style={[styles.statsContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => router.push('/leaderboard')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: '#F59E0B' }]}>
+                {gamification.greenScore.toLocaleString()}
+              </Text>
+              <Text style={styles.statLabel}>Green Pts (Rank #{gamification.rank})</Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: colors.borderLight }]} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {`${gamification.cleanKwh} kWh`}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                {t('profile.clean_power', 'Clean Power')}
+              </Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: colors.borderLight }]} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: '#10B981' }]}>
+                {`${gamification.co2AvoidedKg} kg`}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                {t('profile.co2_saved', 'CO₂ Saved')}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Gamification & Green Impact Hub */}
         <View style={styles.menuSection}>
@@ -251,75 +256,79 @@ export default function ProfileScreen() {
         </View>
 
         {/* ── Green Impact Card ── */}
-        <View style={[styles.greenImpactCard, { backgroundColor: isDark ? '#08150F' : '#0B1F16' }]}>
-          {/* Header */}
-          <View style={styles.greenImpactHeader}>
-            <View style={styles.greenImpactLeft}>
-              <View style={styles.liveIndicator} />
-              <Text style={styles.greenImpactZone}>{t('profile.live_grid', 'West India · IN-WE Grid')}</Text>
+        {loadingGrid && !isLive ? (
+          <LiveGridSkeleton />
+        ) : (
+          <View style={[styles.greenImpactCard, { backgroundColor: isDark ? '#08150F' : '#0B1F16' }]}>
+            {/* Header */}
+            <View style={styles.greenImpactHeader}>
+              <View style={styles.greenImpactLeft}>
+                <View style={styles.liveIndicator} />
+                <Text style={styles.greenImpactZone}>{t('profile.live_grid', 'West India · IN-WE Grid')}</Text>
+              </View>
+              <View style={[styles.greenBandBadge, { backgroundColor: gridColor + '25' }]}>
+                <Text style={[styles.greenBandBadgeText, { color: gridColor }]}>{gridBandLabel}</Text>
+              </View>
             </View>
-            <View style={[styles.greenBandBadge, { backgroundColor: gridColor + '25' }]}>
-              <Text style={[styles.greenBandBadgeText, { color: gridColor }]}>{gridBandLabel}</Text>
-            </View>
-          </View>
 
-          {/* Big number */}
-          <View style={styles.greenImpactBody}>
-            <View>
-              <Text style={[styles.greenBigPct, { color: gridColor }]}>{liveGrid.renewablePct.toFixed(0)}%</Text>
-              <Text style={styles.greenBigLabel}>{t('profile.renewable_now', 'Renewable now')}</Text>
+            {/* Big number */}
+            <View style={styles.greenImpactBody}>
+              <View>
+                <Text style={[styles.greenBigPct, { color: gridColor }]}>{liveGrid.renewablePct.toFixed(0)}%</Text>
+                <Text style={styles.greenBigLabel}>{t('profile.renewable_now', 'Renewable now')}</Text>
+              </View>
+              <View style={styles.greenImpactRight}>
+                <Text style={styles.greenImpactStat}>
+                  <Text style={styles.greenImpactStatVal}>{liveGrid.carbonIntensity} </Text>
+                  <Text style={styles.greenImpactStatUnit}>gCO₂/kWh</Text>
+                </Text>
+                <Text style={styles.greenImpactStat}>
+                  <Text style={styles.greenImpactStatVal}>{liveGrid.carbonFreePct.toFixed(0)}% </Text>
+                  <Text style={styles.greenImpactStatUnit}>{t('profile.carbon_free', 'carbon-free')}</Text>
+                </Text>
+              </View>
             </View>
-            <View style={styles.greenImpactRight}>
-              <Text style={styles.greenImpactStat}>
-                <Text style={styles.greenImpactStatVal}>{liveGrid.carbonIntensity} </Text>
-                <Text style={styles.greenImpactStatUnit}>gCO₂/kWh</Text>
-              </Text>
-              <Text style={styles.greenImpactStat}>
-                <Text style={styles.greenImpactStatVal}>{liveGrid.carbonFreePct.toFixed(0)}% </Text>
-                <Text style={styles.greenImpactStatUnit}>{t('profile.carbon_free', 'carbon-free')}</Text>
-              </Text>
-            </View>
-          </View>
 
-          {/* Grid mix bar */}
-          <View style={styles.greenMixBar}>
-            {solarPct > 0 && <View style={[styles.greenMixSeg, { flex: solarPct, backgroundColor: '#F59E0B' }]} />}
-            {windPct > 0 && <View style={[styles.greenMixSeg, { flex: windPct, backgroundColor: '#0FB8C9' }]} />}
-            {hydroPct > 0 && <View style={[styles.greenMixSeg, { flex: hydroPct, backgroundColor: '#3B82F6' }]} />}
-            {coalGasPct > 0 && <View style={[styles.greenMixSeg, { flex: coalGasPct, backgroundColor: '#6B7280' }]} />}
-            {otherPct > 0 && <View style={[styles.greenMixSeg, { flex: otherPct, backgroundColor: '#374151' }]} />}
-          </View>
-          <View style={styles.greenMixLegend}>
-            <Text style={styles.greenMixLabel}>☀ {t('profile.solar', 'Solar')} {solarPct}%</Text>
-            <Text style={styles.greenMixLabel}>💨 {t('profile.wind', 'Wind')} {windPct}%</Text>
-            <Text style={styles.greenMixLabel}>💧 {t('profile.hydro', 'Hydro')} {hydroPct}%</Text>
-            <Text style={styles.greenMixLabel}>🏭 {t('profile.coal_gas', 'Coal+Gas')} {coalGasPct}%</Text>
-          </View>
+            {/* Grid mix bar */}
+            <View style={styles.greenMixBar}>
+              {solarPct > 0 && <View style={[styles.greenMixSeg, { flex: solarPct, backgroundColor: '#F59E0B' }]} />}
+              {windPct > 0 && <View style={[styles.greenMixSeg, { flex: windPct, backgroundColor: '#0FB8C9' }]} />}
+              {hydroPct > 0 && <View style={[styles.greenMixSeg, { flex: hydroPct, backgroundColor: '#3B82F6' }]} />}
+              {coalGasPct > 0 && <View style={[styles.greenMixSeg, { flex: coalGasPct, backgroundColor: '#6B7280' }]} />}
+              {otherPct > 0 && <View style={[styles.greenMixSeg, { flex: otherPct, backgroundColor: '#374151' }]} />}
+            </View>
+            <View style={styles.greenMixLegend}>
+              <Text style={styles.greenMixLabel}>☀ {t('profile.solar', 'Solar')} {solarPct}%</Text>
+              <Text style={styles.greenMixLabel}>💨 {t('profile.wind', 'Wind')} {windPct}%</Text>
+              <Text style={styles.greenMixLabel}>💧 {t('profile.hydro', 'Hydro')} {hydroPct}%</Text>
+              <Text style={styles.greenMixLabel}>🏭 {t('profile.coal_gas', 'Coal+Gas')} {coalGasPct}%</Text>
+            </View>
 
-          {/* Lifetime impact */}
-          <View style={styles.greenLifetimeDivider} />
-          <Text style={styles.greenLifetimeTitle}>{t('profile.lifetime_impact', 'Your Lifetime Green Impact')}</Text>
-          <View style={styles.greenLifetimeRow}>
-            <View style={styles.greenLifetimeStat}>
-              <Text style={styles.greenLifetimeVal}>
-                {gamification ? `${gamification.co2AvoidedKg} kg` : '0.0 kg'}
-              </Text>
-              <Text style={styles.greenLifetimeKey}>{t('profile.co2_avoided', 'CO₂ avoided')}</Text>
-            </View>
-            <View style={styles.greenLifetimeStat}>
-              <Text style={styles.greenLifetimeVal}>
-                {gamification ? `${gamification.cleanKwh} kWh` : '0 kWh'}
-              </Text>
-              <Text style={styles.greenLifetimeKey}>{t('profile.from_renewables', 'from renewables')}</Text>
-            </View>
-            <View style={styles.greenLifetimeStat}>
-              <Text style={[styles.greenLifetimeVal, { color: '#10B981' }]}>
-                {gamification ? `₹${gamification.totalSavingsInr || 0}` : '₹0'}
-              </Text>
-              <Text style={styles.greenLifetimeKey}>{t('profile.saved_green_windows', 'saved (green windows)')}</Text>
+            {/* Lifetime impact */}
+            <View style={styles.greenLifetimeDivider} />
+            <Text style={styles.greenLifetimeTitle}>{t('profile.lifetime_impact', 'Your Lifetime Green Impact')}</Text>
+            <View style={styles.greenLifetimeRow}>
+              <View style={styles.greenLifetimeStat}>
+                <Text style={styles.greenLifetimeVal}>
+                  {gamification ? `${gamification.co2AvoidedKg} kg` : '0.0 kg'}
+                </Text>
+                <Text style={styles.greenLifetimeKey}>{t('profile.co2_avoided', 'CO₂ avoided')}</Text>
+              </View>
+              <View style={styles.greenLifetimeStat}>
+                <Text style={styles.greenLifetimeVal}>
+                  {gamification ? `${gamification.cleanKwh} kWh` : '0 kWh'}
+                </Text>
+                <Text style={styles.greenLifetimeKey}>{t('profile.from_renewables', 'from renewables')}</Text>
+              </View>
+              <View style={styles.greenLifetimeStat}>
+                <Text style={[styles.greenLifetimeVal, { color: '#10B981' }]}>
+                  {gamification ? `₹${gamification.totalSavingsInr || 0}` : '₹0'}
+                </Text>
+                <Text style={styles.greenLifetimeKey}>{t('profile.saved_green_windows', 'saved (green windows)')}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Workspace Portals */}
         <View style={styles.menuSection}>

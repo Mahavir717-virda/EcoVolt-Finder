@@ -4,6 +4,19 @@ import { stopSessionSchema } from './sessions.schema';
 import { ValidationError, UnauthorizedError } from '../../middleware/error-handler';
 
 export class SessionsController {
+  public static async getActiveSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+    if (!req.user) {
+      return next(new UnauthorizedError('Authentication required'));
+    }
+
+    try {
+      const activeSession = await SessionsService.getActiveSession(req.user.sub);
+      res.status(200).json(activeSession);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   public static async getSession(req: Request, res: Response, next: NextFunction): Promise<void> {
     if (!req.user) {
       return next(new UnauthorizedError('Authentication required'));

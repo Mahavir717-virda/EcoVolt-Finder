@@ -39,6 +39,7 @@ export * from './feedback/Spinner';
 export * from './feedback/Skeleton';
 export * from './feedback/LinearProgress';
 export * from './feedback/ChargingPulse';
+export * from './feedback/ChargingSuccessAnimation';
 
 // ---------------------------------------------------------------------------
 // STATION SIGNATURE COMPONENTS
@@ -69,3 +70,4 @@ export * from './ui/CalendarStrip';
 // NAVIGATION COMPONENTS
 // ---------------------------------------------------------------------------
 export * from './navigation/TabBar';
+export * from './navigation/CapsuleTabBar';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { DriverStackParamList } from '../../navigation/types';
 import {
   useDriverLocation,
@@ -23,7 +24,7 @@ import {
   EmptyState,
   StationCard,
 } from '../../components';
-import { colors, radii, spacing } from '../../theme/tokens';
+import { colors, radii, shadows, spacing } from '../../theme/tokens';
 
 export const HomeMapScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -43,6 +44,24 @@ export const HomeMapScreen: React.FC = () => {
     filters,
   });
 
+  // Dynamic live stats calculated from active nearby stations
+  const stats = useMemo(() => {
+    const totalStations = stations.length;
+    const availableChargers = stations.reduce((acc, s) => {
+      const avail = s.connectors?.reduce(
+        (cAcc, c) => cAcc + (c.available ?? (c as any).availableCount ?? 0),
+        0
+      ) ?? 0;
+      return acc + avail;
+    }, 0);
+    const prices = stations
+      .map((s) => s.priceFrom)
+      .filter((p): p is number => typeof p === 'number' && p > 0);
+    const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+
+    return { totalStations, availableChargers, lowestPrice };
+  }, [stations]);
+
   const handleViewDetails = (stationId: string) => {
     navigation.navigate('StationDetail', { stationId });
   };
@@ -59,11 +78,14 @@ export const HomeMapScreen: React.FC = () => {
     <View style={styles.container}>
       <ScrollView 
         showsVerticalScrollIndicator={false} 
-        contentContainerStyle={[styles.scrollContent, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent, 
+          { 
+            paddingTop: insets.top + spacing.sm, 
+            paddingBottom: insets.bottom + 100 
+          }
+        ]}
       >
-        
-
-
         {/* Title */}
         <Text variant="screenTitle" style={styles.mainTitle}>
           Find near by you EV charger point
@@ -78,6 +100,35 @@ export const HomeMapScreen: React.FC = () => {
             onFilterPress={() => setIsFilterSheetOpen(true)}
             style={{ flex: 1 }}
           />
+        </View>
+
+        {/* Live Quick Stats Row */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <View style={[styles.statIconBadge, { backgroundColor: colors.brand + '15' }]}>
+              <Ionicons name="flash" size={18} color={colors.brand} />
+            </View>
+            <Text style={styles.statValue}>{stats.totalStations}</Text>
+            <Text style={styles.statLabel}>Near You</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIconBadge, { backgroundColor: colors.brand + '15' }]}>
+              <Ionicons name="checkmark-circle" size={18} color={colors.brand} />
+            </View>
+            <Text style={styles.statValue}>{stats.availableChargers}</Text>
+            <Text style={styles.statLabel}>Available</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIconBadge, { backgroundColor: colors.warning + '15' }]}>
+              <Ionicons name="trending-down" size={18} color={colors.warning} />
+            </View>
+            <Text style={styles.statValue}>
+              {stats.lowestPrice > 0 ? `₹${stats.lowestPrice.toFixed(1)}` : '--'}
+            </Text>
+            <Text style={styles.statLabel}>Lowest/kWh</Text>
+          </View>
         </View>
 
         {/* Section Header */}
@@ -103,26 +154,45 @@ export const HomeMapScreen: React.FC = () => {
               onAction={() => setFilters(initialFilterState)}
             />
           ) : (
-            stations.map((item) => (
-              <StationCard
-                key={item.id}
-                id={item.id}
-                name={item.name}
-                address={(item as any).address || '1693 Alice Court, Annapolis MD...'}
-                rating={3.4}
-                reviewCount={120}
-                distance={`${(item.distanceKm ?? 1.8).toFixed(1)} km`}
-                eta={`${Math.round(item.travelMinutes ?? 10)} min`}
-                available={true}
-                availableLabel="Available"
-                chargerCount={item.connectors.length > 0 ? item.connectors.reduce((acc, c) => acc + c.total, 0) : 5}
-                connectors={item.connectors.length > 0 ? item.connectors.map(c => ({ type: c.type, icon: '🔌' })) : [{ type: 'ccs2', icon: '🔌' }]}
-                onPress={() => handleViewDetails(item.id)}
-                onBook={() => handleBook(item.id)}
-                onBookmark={() => {}}
-                style={styles.stationCard}
-              />
-            ))
+            stations.map((item) => {
+              const availableCount = item.connectors.reduce(
+                (acc, c) => acc + (c.available ?? (c as any).availableCount ?? 0),
+                0
+              );
+              const totalCount = item.connectors.reduce(
+                (acc, c) => acc + (c.total ?? (c as any).totalCount ?? 0),
+                0
+              );
+              const isAvailable = availableCount > 0;
+
+              return (
+                <StationCard
+                  key={item.id}
+                  id={item.id}
+                  name={item.name}
+                  address={(item as any).address || `${item.operatorName || 'Green Grid'}, Ahmedabad`}
+                  rating={4.8}
+                  reviewCount={24}
+                  distance={`${(item.distanceKm ?? 1.8).toFixed(1)} km`}
+                  eta={`${Math.round(item.travelMinutes ?? 10)} min`}
+                  available={isAvailable}
+                  availableLabel={isAvailable ? `${availableCount} Available` : 'Full'}
+                  chargerCount={totalCount > 0 ? totalCount : 4}
+                  connectors={
+                    item.connectors.length > 0
+                      ? item.connectors.map((c) => ({
+                          type: c.type.toUpperCase(),
+                          icon: '🔌',
+                        }))
+                      : [{ type: 'CCS2', icon: '🔌' }]
+                  }
+                  onPress={() => handleViewDetails(item.id)}
+                  onBook={() => handleBook(item.id)}
+                  onBookmark={() => {}}
+                  style={styles.stationCard}
+                />
+              );
+            })
           )}
         </View>
 
@@ -157,7 +227,43 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
   },
   searchContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    gap: 4,
+    ...shadows.card,
+  },
+  statIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 16,
+    fontFamily: 'Manrope_700Bold',
+    color: colors.ink,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontFamily: 'Manrope_500Medium',
+    color: colors.ink3,
+    textAlign: 'center',
   },
   sectionHeader: {
     flexDirection: 'row',

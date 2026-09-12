@@ -18,7 +18,7 @@ import { useStationChargers } from './useRealtime';
  */
 export function useChargers(stationId: string | null) {
   const [chargers, setChargers] = useState<Charger[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(stationId));
   const [error, setError] = useState<string | null>(null);
 
   const fetchChargers = useCallback(async () => {
@@ -72,7 +72,7 @@ export function useChargers(stationId: string | null) {
  */
 export function useCharger(chargerId: string | null) {
   const [charger, setCharger] = useState<Charger | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(chargerId));
   const [error, setError] = useState<string | null>(null);
 
   const fetchCharger = useCallback(async () => {

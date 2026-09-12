@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DriverStackParamList } from '../../navigation/types';
@@ -30,14 +31,27 @@ export interface BookingItem {
   id: string;
   userId: string;
   stationId: string;
-  stationName: string;
+  station?: {
+    id: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+    provider: string;
+  };
+  stationName?: string;
   connectorType: ConnectorType;
   vehicleId: string;
+  vehicle?: {
+    id: string;
+    model?: string;
+    vehicleClass?: string;
+  };
   vehicleModel?: string;
   status: SessionStatus;
   windowStart: string;
   windowEnd: string;
-  lockedPrice: number;
+  lockedPrice: any;
   createdAt: string;
   canCancelFree?: boolean;
   greennessPct?: number;
@@ -47,6 +61,15 @@ export interface BookingItem {
   co2AvoidedKg?: number;
 }
 
+export const getLockedPriceNum = (lp: any): number => {
+  if (typeof lp === 'number' && !isNaN(lp)) return lp;
+  if (typeof lp === 'object' && lp !== null) {
+    const num = Number(lp.finalPrice ?? lp.baseTariff ?? 6.2);
+    return isNaN(num) ? 6.2 : num;
+  }
+  return 6.2;
+};
+
 export const BookingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<DriverStackParamList>>();
@@ -54,6 +77,7 @@ export const BookingsScreen: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'upcoming' | 'active' | 'history'>('upcoming');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // 1. Fetch Bookings via React Query
   const bookingsQuery = useQuery<BookingItem[]>({
@@ -61,13 +85,25 @@ export const BookingsScreen: React.FC = () => {
     queryFn: async () => {
       try {
         const res = await http.get<BookingItem[]>('/bookings');
-        return res;
+        return Array.isArray(res) ? res : [];
       } catch {
         return [];
       }
     },
-    staleTime: 15000,
+    staleTime: 5000,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      bookingsQuery.refetch();
+    }, [])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await bookingsQuery.refetch();
+    setRefreshing(false);
+  }, [bookingsQuery]);
 
   // 2. Mutation: Cancel Booking within Grace Window (Edge Case #23)
   const cancelBookingMutation = useMutation({
@@ -151,7 +187,7 @@ export const BookingsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xxl },
+          { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + 100 },
         ]}
       >
         {/* Screen Header */}
@@ -237,16 +273,21 @@ export const BookingsScreen: React.FC = () => {
                   const isCompleted = booking.status === SessionStatus.COMPLETED;
                   const isCancelled = booking.status === SessionStatus.CANCELLED;
 
+                  const stName = booking.station?.name || booking.stationName || 'EcoVolt Charging Hub';
+                  const vehModel = booking.vehicle?.model || booking.vehicleModel || 'Tata Nexon EV Max';
+                  const lockedTariff = getLockedPriceNum(booking.lockedPrice);
+                  const totalCost = booking.cost ?? ((booking.energyKwh ?? 18.0) * lockedTariff);
+
                   return (
                     <Card key={booking.id} elevation="e1" style={styles.bookingCard}>
                       {/* Top Card Row */}
                       <View style={styles.cardHeaderRow}>
                         <View style={styles.stationTitleCol}>
                           <Text variant="cardTitle" style={styles.stationName}>
-                            {booking.stationName}
+                            {stName}
                           </Text>
                           <Text variant="caption" color={colors.ink2}>
-                            {formatConnectorName(booking.connectorType)} · {booking.vehicleModel || 'Tata Nexon EV'}
+                            {formatConnectorName(booking.connectorType)} · {vehModel}
                           </Text>
                         </View>
 
@@ -304,7 +345,7 @@ export const BookingsScreen: React.FC = () => {
                       <View style={styles.metricsRow}>
                         <StatColumn
                           label="LOCKED TARIFF"
-                          value={`₹${(booking.lockedPrice ?? 6.2).toFixed(2)}/kWh`}
+                          value={`₹${lockedTariff.toFixed(2)}/kWh`}
                           valueColor={colors.brand}
                         />
 
@@ -320,7 +361,7 @@ export const BookingsScreen: React.FC = () => {
                             <View style={styles.metricDivider} />
                             <StatColumn
                               label="TOTAL BILLED"
-                              value={`₹${(booking.cost ?? ((booking.energyKwh ?? 18.0) * (booking.lockedPrice ?? 6.2))).toFixed(2)}`}
+                              value={`₹${totalCost.toFixed(2)}`}
                               valueColor={colors.brand}
                             />
                           </>

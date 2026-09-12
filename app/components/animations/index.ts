@@ -11,4 +11,5 @@ export { ScaleIn } from './ScaleIn';
 export { SkeletonLoader } from './SkeletonLoader';
 export { SlideIn } from './SlideIn';
 export { StaggeredList } from './StaggeredList';
+export { ChargingSuccessAnimation } from './ChargingSuccessAnimation';
 

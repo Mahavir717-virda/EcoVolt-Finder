@@ -4,7 +4,7 @@
  */
 
 import { EmptyState } from '@/components/common';
-import { Button } from '@/components/ui';
+import { Button, BookingListSkeleton } from '@/components/ui';
 import { CHARGER_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
@@ -203,7 +203,7 @@ export default function ReservationsScreen() {
             styles.tabText, 
             { color: activeTab === 'active' ? colors.white : themeColors.textSecondary }
           ]}>
-            {t('reservations.active_tab', 'Active & Scheduled')} ({activeReservations.length})
+            {t('reservations.active_tab', 'Active & Scheduled')} {loading && !refreshing && activeReservations.length === 0 ? '' : `(${activeReservations.length})`}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -218,7 +218,7 @@ export default function ReservationsScreen() {
             styles.tabText, 
             { color: activeTab === 'past' ? colors.white : themeColors.textSecondary }
           ]}>
-            {t('reservations.past_tab', 'Past Receipts')} ({pastReservations.length})
+            {t('reservations.past_tab', 'Past Receipts')} {loading && !refreshing && pastReservations.length === 0 ? '' : `(${pastReservations.length})`}
           </Text>
         </TouchableOpacity>
       </View>
@@ -234,11 +234,8 @@ export default function ReservationsScreen() {
           />
         }
       >
-        {loading && !refreshing ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={themeColors.primary} />
-            <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading reservations...</Text>
-          </View>
+        {loading && !refreshing && (activeTab === 'active' ? activeReservations.length === 0 : pastReservations.length === 0) ? (
+          <BookingListSkeleton count={3} />
         ) : (
           <>
             {activeTab === 'active' && activeReservations.length === 0 && (

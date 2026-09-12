@@ -16,12 +16,12 @@ import {
 } from '../../features/vehicles';
 import { Text, Button, EmptyState, SkeletonCard } from '../../components';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 export const VehiclesScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const navigation = useNavigation();
   const {
     vehicles,
     activeVehicleId,
@@ -73,6 +73,8 @@ export const VehiclesScreen: React.FC = () => {
     }
   };
 
+  const canGoBack = navigation.canGoBack();
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -81,16 +83,13 @@ export const VehiclesScreen: React.FC = () => {
           styles.scrollContent,
           { 
             paddingTop: insets.top + spacing.sm,
-            paddingBottom: insets.bottom + spacing.xxl 
+            paddingBottom: insets.bottom + 100 
           },
         ]}
       >
         {/* Header Title & Add Button */}
         <View style={styles.headerRow}>
           <View style={styles.titleCol}>
-            <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: spacing.xs }}>
-              <Ionicons name="arrow-back" size={24} color={colors.ink} />
-            </TouchableOpacity>
             <Text variant="sectionLabel" style={styles.pageTitle}>
               My EV Garage
             </Text>

@@ -33,7 +33,7 @@ interface UseStationsReturn {
 export function useStations(options: UseStationsOptions = {}): UseStationsReturn {
   const { autoFetch = true, filters, userCoords } = options;
   const [stations, setStations] = useState<(Station & { distance?: number })[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(autoFetch);
   const [error, setError] = useState<string | null>(null);
 
   const fetchStations = useCallback(async () => {
@@ -105,7 +105,7 @@ export function useNearbyStations({
   enabled = true,
 }: UseNearbyStationsOptions) {
   const [stations, setStations] = useState<(Station & { distance?: number })[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(enabled && latitude && longitude));
   const [error, setError] = useState<string | null>(null);
 
   const fetchNearby = useCallback(async () => {
@@ -150,7 +150,7 @@ export function useStation(
   userCoords?: { latitude: number; longitude: number } | null
 ) {
   const [station, setStation] = useState<(Station & { chargers?: any[]; distance?: number }) | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(stationId));
   const [error, setError] = useState<string | null>(null);
 
   const fetchStation = useCallback(async () => {

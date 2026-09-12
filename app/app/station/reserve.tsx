@@ -1,4 +1,4 @@
-import { Button, Card } from '@/components/ui';
+import { Button, Card, ReserveChargerSkeleton } from '@/components/ui';
 import { ConnectorIcon, CHARGER_COLORS } from '@/components/ui/ConnectorIcon';
 import { CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
@@ -9,6 +9,7 @@ import { useCharger } from '@/hooks/useChargers';
 import { useCreateReservation, useStationAvailability } from '@/hooks/useReservations';
 
 import { useVehiclesStore } from '@/src/features/vehicles/vehiclesStore';
+import { normalizeConnectorType } from '@/utils/chargerMatcher';
 
 import { getDynamicPriceQuote, greennessColor } from '@/lib/gridData';
 
@@ -17,12 +18,13 @@ import {
     formatDate,
     formatDuration,
     formatTime,
-    generateTimeSlots
+    generateTimeSlots,
+    parseTimeString
 } from '@/utils/date';
 import { formatCurrency } from '@/utils/pricing';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -48,7 +50,7 @@ export default function ReserveScreen() {
   const { t } = useLanguage();
   
   // Fetch the actual charger data
-  const { charger, loading: chargerLoading, error: chargerError } = useCharger(chargerId || '');
+  const { charger, loading: chargerLoading, error: chargerError, refresh: refreshCharger } = useCharger(chargerId || '');
   
   // Use the create reservation hook
   const { create: createReservation, loading: reservationLoading } = useCreateReservation();
@@ -57,28 +59,36 @@ export default function ReserveScreen() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(30);
   
-  const { availability, loading: availabilityLoading } = useStationAvailability(stationId || null, selectedDate);
+  const { availability, loading: availabilityLoading, refresh: refreshAvailability } = useStationAvailability(stationId || null, selectedDate);
   
+  // Refetch live availability and charger status whenever the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshAvailability();
+      refreshCharger();
+    }, [refreshAvailability, refreshCharger])
+  );
+
   // Fully reactive synchronized vehicle state
   const vehicles = useVehiclesStore(state => state.vehicles);
   const activeVehicleId = useVehiclesStore(state => state.activeVehicleId);
   const hydrateVehicles = useVehiclesStore(state => state.hydrate);
   
-  const [vehicleId, setVehicleId] = useState<string | null>(activeVehicleId);
+  const [vehicleId, setVehicleId] = useState<string | null>(activeVehicleId || (vehicles[0]?.id ?? null));
 
   // Sync component state when activeVehicleId changes from store
-  React.useEffect(() => {
+  useEffect(() => {
     if (activeVehicleId) {
       setVehicleId(activeVehicleId);
     } else if (vehicles.length > 0 && !vehicleId) {
       setVehicleId(vehicles[0].id);
     }
-  }, [activeVehicleId, vehicles]);
+  }, [activeVehicleId, vehicles.length, vehicleId]);
 
   // Load user's vehicles on mount directly via the store so it is in sync
-  React.useEffect(() => {
+  useEffect(() => {
     hydrateVehicles();
-  }, [hydrateVehicles, user?.id]);
+  }, [user?.id]);
   
   const chargerType = charger ? CHARGER_TYPES[charger.charger_type] : null;
   const connectorType = charger ? CONNECTOR_TYPES[charger.connector_type] : null;
@@ -100,29 +110,72 @@ export default function ReserveScreen() {
 
   const isLoading = chargerLoading || reservationLoading;
 
-  // Generate available time slots
+  // Generate available time slots with authoritative overlap verification
   const timeSlots = useMemo(() => {
-    const rawSlots = generateTimeSlots(selectedDate, 15); // 15-minute intervals
+    // Generate all 15-minute slots for the day (06:00 to 23:00)
+    const rawSlots = generateTimeSlots(selectedDate, 15, 6, 23, true);
+    const now = new Date();
+    const isToday = selectedDate.toDateString() === now.toDateString();
+
+    const normalizedTargetType = normalizeConnectorType(charger?.connector_type);
     
-    if (!availability || !availability.connectors || !charger) return rawSlots.map(time => ({ time, available: true }));
-    
-    const connectorType = charger.connector_type;
-    const connector = availability.connectors.find((c: any) => c.type === connectorType);
-    const totalCount = connector?.totalCount || 1;
-    
-    const totalStationPlugs = availability.connectors.reduce((acc: number, c: any) => acc + c.totalCount, 0);
-    const peakCap = Math.max(1, Math.floor(totalStationPlugs * 0.8));
+    // Count total active (non-maintenance) plugs matching this connector
+    let totalPlugsForConnector = 1;
+    let totalStationPlugs = 1;
+    let peakCap = 1;
+
+    if (availability?.connectors && availability.connectors.length > 0) {
+      const matchingConnectors = availability.connectors.filter((c: any) =>
+        (charger?.id && c.id === charger.id) ||
+        normalizeConnectorType(c.type) === normalizedTargetType
+      );
+      
+      const activeMatching = matchingConnectors.filter((c: any) =>
+        c.status !== 'maintenance' && c.status !== 'offline' && c.status !== 'MAINTENANCE' && c.status !== 'OFFLINE'
+      );
+      
+      totalPlugsForConnector = activeMatching.reduce((sum: number, c: any) => sum + (c.totalCount || 1), 0);
+      if (totalPlugsForConnector < 1 && matchingConnectors.length > 0) {
+        // All matching connectors are maintenance or offline
+        totalPlugsForConnector = 0;
+      } else if (totalPlugsForConnector < 1) {
+        totalPlugsForConnector = 1;
+      }
+
+      const activeAll = availability.connectors.filter((c: any) =>
+        c.status !== 'maintenance' && c.status !== 'offline' && c.status !== 'MAINTENANCE' && c.status !== 'OFFLINE'
+      );
+      totalStationPlugs = activeAll.reduce((sum: number, c: any) => sum + (c.totalCount || 1), 0) || 1;
+      peakCap = Math.max(1, Math.floor(totalStationPlugs * 0.8));
+    }
+
+    const activeBookings = (availability?.bookings || []).filter((b: any) =>
+      b.status !== 'cancelled' && b.status !== 'CANCELLED' &&
+      b.status !== 'completed' && b.status !== 'COMPLETED' &&
+      b.status !== 'expired' && b.status !== 'EXPIRED'
+    );
 
     return rawSlots.map(time => {
-      // Parse slot time
-      const [timeStr, ampm] = time.split(' ');
-      let [hours, minutes] = timeStr.split(':').map(Number);
-      if (ampm === 'PM' && hours < 12) hours += 12;
-      if (ampm === 'AM' && hours === 12) hours = 0;
-      
-      const slotStart = new Date(selectedDate);
-      slotStart.setHours(hours, minutes, 0, 0);
+      const slotStart = parseTimeString(selectedDate, time);
       const slotEnd = new Date(slotStart.getTime() + selectedDuration * 60 * 1000);
+
+      // 1. Check if past for today
+      if (isToday && slotStart.getTime() < now.getTime() - 2 * 60 * 1000) {
+        return {
+          time,
+          available: false,
+          reason: 'past' as const,
+        };
+      }
+
+      // 2. Check if connector is unavailable due to maintenance
+      if (totalPlugsForConnector === 0) {
+        return {
+          time,
+          available: false,
+          reason: 'maintenance' as const,
+        };
+      }
 
       const hourLocal = (slotStart.getUTCHours() + 5 + Math.floor((slotStart.getUTCMinutes() + 30) / 60)) % 24;
       const isPeakHour = hourLocal >= 18 && hourLocal <= 22; // 6pm to 10pm IST
@@ -130,23 +183,57 @@ export default function ReserveScreen() {
       let overlappingForConnector = 0;
       let overlappingForStation = 0;
 
-      availability.bookings.forEach((b: any) => {
+      activeBookings.forEach((b: any) => {
         const bStart = new Date(b.windowStart);
         const bEnd = new Date(b.windowEnd);
-        
-        // Overlap logic: bookingStart < slotEnd AND bookingEnd > slotStart
+
+        // Strict interval overlap formula: bStart < slotEnd AND bEnd > slotStart
         if (bStart < slotEnd && bEnd > slotStart) {
           overlappingForStation++;
-          if (b.connectorType === connectorType) {
+          const isSamePlug = Boolean(charger?.id && b.connectorId === charger.id);
+          const isSameType = normalizeConnectorType(b.connectorType) === normalizedTargetType;
+          if (isSamePlug || isSameType) {
             overlappingForConnector++;
           }
         }
       });
 
-      const isBooked = overlappingForConnector >= totalCount || (isPeakHour && overlappingForStation >= peakCap);
-      return { time, available: !isBooked };
+      const isBooked = overlappingForConnector >= totalPlugsForConnector;
+      const isThrottled = isPeakHour && overlappingForStation >= peakCap;
+
+      if (isBooked) {
+        return {
+          time,
+          available: false,
+          reason: 'allocated' as const,
+        };
+      }
+
+      if (isThrottled) {
+        return {
+          time,
+          available: false,
+          reason: 'throttled' as const,
+        };
+      }
+
+      return {
+        time,
+        available: true,
+        reason: 'available' as const,
+      };
     });
   }, [selectedDate, selectedDuration, availability, charger]);
+
+  // Auto-reset selectedTime if it becomes unavailable
+  useEffect(() => {
+    if (selectedTime) {
+      const match = timeSlots.find(s => s.time === selectedTime);
+      if (match && !match.available) {
+        setSelectedTime(null);
+      }
+    }
+  }, [timeSlots, selectedTime]);
 
   // Live dynamic price quote — synced with grid green-energy ToU
   const priceQuote = useMemo(() => {
@@ -200,14 +287,7 @@ export default function ReserveScreen() {
     }
 
     try {
-      // Parse selected time (robust for "14:30" or "02:30 PM")
-      const [timePart, ampm] = selectedTime.split(' ');
-      let [hours, minutes] = timePart.split(':').map(Number);
-      if (ampm === 'PM' && hours < 12) hours += 12;
-      if (ampm === 'AM' && hours === 12) hours = 0;
-      const startTime = new Date(selectedDate);
-      startTime.setHours(hours, minutes, 0, 0);
-      
+      const startTime = parseTimeString(selectedDate, selectedTime);
       const endTime = addMinutes(startTime, selectedDuration);
 
       // Create the reservation — passes real stationId, connectorType, vehicleId
@@ -220,14 +300,29 @@ export default function ReserveScreen() {
       );
 
       if (reservation && reservation.id) {
-        // Dynamic Redirection: Navigate to Home page and notify user
-        router.replace('/(tabs)');
-      } else {
-        Alert.alert('Reservation Failed', t('reserve.failed_alert', 'The time slot may already be taken or the charger is unavailable. Please try a different time.'));
+        Alert.alert(
+          '⚡ Reservation Confirmed!',
+          `Your slot is locked for ${formatDate(selectedDate)} at ${selectedTime}.`,
+          [
+            {
+              text: 'View Bookings',
+              onPress: () => router.replace('/(tabs)/reservations'),
+            },
+            {
+              text: 'OK',
+              onPress: () => router.replace('/(tabs)'),
+            },
+          ]
+        );
       }
     } catch (error: any) {
       console.error('Reservation error:', error);
-      Alert.alert('Error', error.message || 'Failed to create reservation. Please try again.');
+      // Immediately refresh live availability to reflect new bookings / conflicts
+      refreshAvailability();
+      Alert.alert(
+        'Reservation Failed',
+        error?.message || 'The selected time slot is no longer available. Please choose another time.'
+      );
     }
   };
 
@@ -238,7 +333,7 @@ export default function ReserveScreen() {
   };
 
   // Show loading state while fetching charger
-  if (chargerLoading) {
+  if (chargerLoading && !charger) {
     return (
       <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
         <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
@@ -248,10 +343,9 @@ export default function ReserveScreen() {
           <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('reserve.title', 'Reserve Charger')}</Text>
           <View style={styles.placeholder} />
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeColors.primary} />
-          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>{t('reserve.loading_charger', 'Loading charger details...')}</Text>
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <ReserveChargerSkeleton />
+        </ScrollView>
       </View>
     );
   }
@@ -400,32 +494,109 @@ export default function ReserveScreen() {
 
         {/* Time Selection */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('reserve.select_time', 'Select Start Time')}</Text>
+          <View style={styles.timeSectionHeader}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0, color: themeColors.textPrimary }]}>
+              {t('reserve.select_time', 'Select Start Time')}
+            </Text>
+            {availabilityLoading && (
+              <ActivityIndicator size="small" color={themeColors.primary} />
+            )}
+          </View>
+
+          {/* Availability Legend */}
+          <View style={[styles.legendContainer, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB', borderColor: themeColors.border }]}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: themeColors.primary }]} />
+              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>Available</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#10B981', borderColor: '#059669', borderWidth: 1 }]} />
+              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>Selected</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
+              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>Allocated / Booked</Text>
+            </View>
+          </View>
+
           <View style={styles.timeGrid}>
             {timeSlots.map((slot) => {
               const isSelected = selectedTime === slot.time;
               const isAvailable = slot.available;
-              
+              const isAllocated = slot.reason === 'allocated' || slot.reason === 'throttled';
+              const isPastSlot = slot.reason === 'past';
+              const isMaintenance = slot.reason === 'maintenance';
+
               return (
                 <TouchableOpacity
                   key={slot.time}
                   disabled={!isAvailable}
+                  activeOpacity={0.7}
                   style={[
-                    styles.timeSlot, 
+                    styles.timeSlot,
                     { backgroundColor: themeColors.surface, borderColor: themeColors.border },
                     isSelected && { backgroundColor: themeColors.primary, borderColor: themeColors.primary },
-                    !isAvailable && { backgroundColor: isDark ? '#374151' : colors.neutral[100], borderColor: isDark ? '#4B5563' : colors.neutral[200], opacity: 0.6 },
+                    isAllocated && {
+                      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+                      borderColor: isDark ? 'rgba(239, 68, 68, 0.4)' : '#FECACA',
+                    },
+                    isPastSlot && {
+                      backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                      borderColor: isDark ? '#374151' : '#E5E7EB',
+                      opacity: 0.6,
+                    },
+                    isMaintenance && {
+                      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB',
+                      borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#FDE68A',
+                    },
                   ]}
                   onPress={() => isAvailable && setSelectedTime(slot.time)}
                 >
-                  <Text style={[
-                    styles.timeText, 
-                    { color: themeColors.textPrimary },
-                    isSelected && { color: colors.white },
-                    !isAvailable && { color: themeColors.textSecondary, textDecorationLine: 'line-through' },
-                  ]}>
-                    {slot.time}
-                  </Text>
+                  <View style={styles.timeSlotInner}>
+                    <Text
+                      style={[
+                        styles.timeText,
+                        { color: themeColors.textPrimary },
+                        isSelected && { color: colors.white, fontWeight: '700' },
+                        isAllocated && {
+                          color: isDark ? '#FCA5A5' : '#DC2626',
+                          textDecorationLine: 'line-through',
+                          fontWeight: '600',
+                        },
+                        isPastSlot && {
+                          color: isDark ? '#9CA3AF' : '#9CA3AF',
+                          textDecorationLine: 'line-through',
+                        },
+                        isMaintenance && {
+                          color: '#D97706',
+                          textDecorationLine: 'line-through',
+                        },
+                      ]}
+                    >
+                      {slot.time}
+                    </Text>
+                    {isAllocated && (
+                      <View style={[styles.statusBadge, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FEE2E2' }]}>
+                        <Text style={[styles.statusBadgeText, { color: isDark ? '#FCA5A5' : '#B91C1C' }]}>
+                          Allocated
+                        </Text>
+                      </View>
+                    )}
+                    {isPastSlot && (
+                      <View style={[styles.statusBadge, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                        <Text style={[styles.statusBadgeText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                          Passed
+                        </Text>
+                      </View>
+                    )}
+                    {isSelected && (
+                      <View style={[styles.statusBadge, { backgroundColor: 'rgba(255, 255, 255, 0.25)' }]}>
+                        <Text style={[styles.statusBadgeText, { color: colors.white, fontWeight: '700' }]}>
+                          ✓ Selected
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -465,15 +636,10 @@ export default function ReserveScreen() {
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('reserve.time', 'Time')}</Text>
             <Text style={[styles.summaryValue, { color: themeColors.textPrimary }]}>
-              {selectedTime ? `${selectedTime} - ${addMinutes(
-                (() => {
-                  const [h, m] = (selectedTime || '00:00').split(':').map(Number);
-                  const d = new Date(selectedDate);
-                  d.setHours(h, m);
-                  return d;
-                })(),
+              {selectedTime ? `${selectedTime} - ${formatTime(addMinutes(
+                parseTimeString(selectedDate, selectedTime),
                 selectedDuration
-              ).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : t('reserve.not_selected', 'Not selected')}
+              ))}` : t('reserve.not_selected', 'Not selected')}
             </Text>
           </View>
           
@@ -679,18 +845,56 @@ const styles = StyleSheet.create({
   dateLabelSelected: {
     color: colors.white,
   },
+  timeSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  legendContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
   timeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
   },
   timeSlot: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     backgroundColor: colors.white,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.neutral[200],
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeSlotInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   timeSlotSelected: {
     backgroundColor: colors.primary[500],
@@ -712,6 +916,17 @@ const styles = StyleSheet.create({
   timeTextDisabled: {
     color: colors.neutral[400],
     textDecorationLine: 'line-through',
+  },
+  statusBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginTop: 2,
+  },
+  statusBadgeText: {
+    fontSize: 9,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
   durationGrid: {
     flexDirection: 'row',
