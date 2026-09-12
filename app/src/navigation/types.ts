@@ -41,6 +41,13 @@ export type AdminStackParamList = {
   AdminOverview: undefined;
   ZoneDetail: { zoneId: string };
   NetworkAnalytics: undefined;
+  OperatorOversight: undefined;
+  DataQuality: undefined;
+  UserManagement: undefined;
+  StationRegistry: undefined;
+  SystemHealth: undefined;
+  AuditLog: undefined;
+  ComplianceSecurity: undefined;
 };
 
 export type RootStackParamList = {
