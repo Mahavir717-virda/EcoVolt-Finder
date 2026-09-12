@@ -1,12 +1,17 @@
 /**
  * useAuth Hook
- * Manages real authentication state via EcoVolt Express API.
- * No hardcoded users — starts unauthenticated and checks token on mount.
+ * Manages authentication state and provides auth methods for EcoVolt.
+ *
+ * State lifecycle:
+ *  1. App boot  → isLoading: true, isAuthenticated: false
+ *  2. Boot check → reads SecureStore; if token+user found → restore session
+ *  3. Sign-in   → call signIn(), store token+user, set full auth state
+ *  4. Sign-out  → clear SecureStore, reset state to unauthenticated
  */
 
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { signIn, signUp, signOut, getCurrentProfile } from '@/lib/auth';
-import { getAuthToken } from '@/services/api';
+import { getAuthToken, getStoredUser } from '@/services/api';
 import { Profile } from '@/types/database.types';
 
 export interface User {
@@ -37,113 +42,143 @@ interface AuthContextType extends AuthState {
   refreshProfile: () => Promise<void>;
 }
 
+const UNAUTHENTICATED_STATE: AuthState = {
+  user: null,
+  profile: null,
+  session: null,
+  isLoading: false,
+  isAuthenticated: false,
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // Start fully unauthenticated with isLoading:true while we check SecureStore
   const [state, setState] = useState<AuthState>({
-    user: null,
-    profile: null,
-    session: null,
-    isLoading: true,    // Start loading so we check token before rendering screens
-    isAuthenticated: false,
+    ...UNAUTHENTICATED_STATE,
+    isLoading: true,
   });
 
   /**
-   * Check if a token exists and fetch the profile from the server.
-   * Called on mount and after sign in / sign up.
+   * On boot: try to restore a previously stored session from SecureStore.
+   * This handles the "stay logged in" case across app restarts.
    */
-  const fetchProfile = useCallback(async () => {
-    setState(prev => ({ ...prev, isLoading: true }));
+  useEffect(() => {
+    let cancelled = false;
+    async function restoreSession() {
+      try {
+        const [token, storedUser] = await Promise.all([
+          getAuthToken(),
+          getStoredUser(),
+        ]);
 
-    try {
-      // Only try to fetch profile if we have a stored token
-      const token = await getAuthToken();
-      if (!token) {
-        setState({
-          user: null,
-          profile: null,
-          session: null,
-          isLoading: false,
-          isAuthenticated: false,
-        });
-        return;
+        if (!cancelled) {
+          if (token && storedUser) {
+            // Valid persisted session → restore it
+            const user: User = {
+              id: storedUser.id,
+              email: storedUser.email,
+              user_metadata: { full_name: storedUser.full_name || undefined },
+            };
+            setState({
+              user,
+              profile: storedUser as Profile,
+              session: { user, access_token: token },
+              isLoading: false,
+              isAuthenticated: true,
+            });
+          } else {
+            // No stored session → go to login
+            setState({ ...UNAUTHENTICATED_STATE });
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setState({ ...UNAUTHENTICATED_STATE });
+        }
       }
-
-      const { data: profile, error } = await getCurrentProfile();
-
-      if (profile && !error) {
-        const user: User = {
-          id: profile.id,
-          email: profile.email,
-          user_metadata: { full_name: profile.full_name || undefined },
-        };
-
-
-        setState({
-          user,
-          profile,
-          session: { user, access_token: token },
-          isLoading: false,
-          isAuthenticated: true,
-        });
-      } else {
-        // Token is invalid/expired — clear state
-        setState({
-          user: null,
-          profile: null,
-          session: null,
-          isLoading: false,
-          isAuthenticated: false,
-        });
-      }
-    } catch {
-      setState(prev => ({ ...prev, isLoading: false, isAuthenticated: false }));
     }
+    restoreSession();
+    return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
 
   const handleSignIn = useCallback(async (email: string, password: string) => {
     setState(prev => ({ ...prev, isLoading: true }));
+
     const result = await signIn(email, password);
+
     if (result.error) {
       setState(prev => ({ ...prev, isLoading: false }));
       return { error: result.error.message };
     }
-    await fetchProfile();
+
+    // signIn() already stored the token + user in SecureStore (see lib/auth.ts)
+    // Now read back what was stored so we have a single source of truth
+    try {
+      const [token, storedUser] = await Promise.all([
+        getAuthToken(),
+        getStoredUser(),
+      ]);
+      const user: User = {
+        id: storedUser?.id ?? email,
+        email: storedUser?.email ?? email,
+        user_metadata: { full_name: storedUser?.full_name },
+      };
+      setState({
+        user,
+        profile: storedUser as Profile,
+        session: { user, access_token: token ?? undefined },
+        isLoading: false,
+        isAuthenticated: true,
+      });
+    } catch {
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+
     return { error: null };
-  }, [fetchProfile]);
+  }, []);
 
   const handleSignUp = useCallback(
     async (email: string, password: string, fullName: string) => {
       setState(prev => ({ ...prev, isLoading: true }));
       const result = await signUp(email, password, fullName);
+
       if (result.error) {
         setState(prev => ({ ...prev, isLoading: false }));
         return { error: result.error.message };
       }
-      await fetchProfile();
+
+      // After sign-up, user needs to verify email (or auto-login depending on flow)
+      // Just reset loading — they'll be redirected to login by the signup screen
+      setState(prev => ({ ...prev, isLoading: false }));
       return { error: null };
     },
-    [fetchProfile]
+    []
   );
 
   const handleSignOut = useCallback(async () => {
-    await signOut();
-    setState({
-      user: null,
-      profile: null,
-      session: null,
-      isLoading: false,
-      isAuthenticated: false,
-    });
+    setState(prev => ({ ...prev, isLoading: true }));
+    await signOut(); // clears SecureStore token + user
+    setState({ ...UNAUTHENTICATED_STATE });
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    await fetchProfile();
-  }, [fetchProfile]);
+    try {
+      const { data: profile } = await getCurrentProfile();
+      if (profile) {
+        setState(prev => ({
+          ...prev,
+          profile,
+          user: prev.user
+            ? { ...prev.user, email: profile.email ?? prev.user.email }
+            : prev.user,
+        }));
+      }
+    } catch {
+      // Silently fail — profile stays as-is
+    }
+  }, []);
 
   return (
     <AuthContext.Provider

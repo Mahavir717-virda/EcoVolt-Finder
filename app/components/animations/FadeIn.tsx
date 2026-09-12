@@ -3,7 +3,7 @@
  * Animates children with a fade-in effect
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Animated, {
     Easing,
     useAnimatedStyle,
@@ -28,7 +28,11 @@ export function FadeIn({
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(20);
 
+  // Block touches while the view is animating/offset to prevent hit-test mismatches
+  const [animationDone, setAnimationDone] = useState(false);
+
   useEffect(() => {
+    const timer = setTimeout(() => setAnimationDone(true), delay + duration + 50);
     opacity.value = withDelay(
       delay,
       withTiming(1, { 
@@ -43,6 +47,7 @@ export function FadeIn({
         easing: Easing.out(Easing.cubic) 
       })
     );
+    return () => clearTimeout(timer);
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -51,7 +56,10 @@ export function FadeIn({
   }));
 
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <Animated.View
+      style={[animatedStyle, style]}
+      pointerEvents={animationDone ? 'box-none' : 'none'}
+    >
       {children}
     </Animated.View>
   );

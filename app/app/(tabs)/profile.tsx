@@ -1,17 +1,18 @@
 /**
  * Profile Screen
- * User profile, settings, and plan management
+ * User profile and settings
  */
 
-import { Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
+import { getLiveGridSnapshot, greennessColor, greennessBandLabel } from '@/lib/gridData';
 import { spacing } from '@/styles/spacing';
 import { getGamificationProfile } from '@/services/gamification.service';
 import { GamificationProfile } from '@contracts/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useMemo } from 'react';
+
 import {
     Alert,
     ScrollView,
@@ -62,11 +63,18 @@ export default function ProfileScreen() {
       .catch(() => {});
   }, []);
 
-  const isPremium = profile?.plan_type === 'premium';
+  // Live grid snapshot for the Green Impact card
+  const liveGrid = useMemo(() => getLiveGridSnapshot('IN-WE'), []);
+  const gridColor = greennessColor(liveGrid.renewablePct);
+  const gridBandLabel = greennessBandLabel(liveGrid.band);
+  const bkdTotal = Object.values(liveGrid.breakdown).reduce((a, b) => a + b, 0);
+  const bkd = liveGrid.breakdown;
+  const solarPct  = bkdTotal > 0 ? Math.round((bkd.solar  / bkdTotal) * 100) : 0;
+  const windPct   = bkdTotal > 0 ? Math.round((bkd.wind   / bkdTotal) * 100) : 0;
+  const hydroPct  = bkdTotal > 0 ? Math.round((bkd.hydro  / bkdTotal) * 100) : 0;
+  const coalGasPct= bkdTotal > 0 ? Math.round(((bkd.coal + bkd.gas) / bkdTotal) * 100) : 0;
+  const otherPct  = 100 - solarPct - windPct - hydroPct - coalGasPct;
 
-  const handleUpgrade = () => {
-    router.push('/modal/upgrade');
-  };
 
   const handleSignOut = () => {
     Alert.alert(
@@ -98,28 +106,6 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>{profile?.full_name || 'User'}</Text>
           <Text style={styles.userEmail}>{profile?.email}</Text>
-          
-          {/* Plan Badge */}
-          <View style={[styles.planBadge, isPremium && styles.planBadgePremium]}>
-            <Ionicons 
-              name={isPremium ? 'star' : 'star-outline'} 
-              size={16} 
-              color={isPremium ? colors.white : colors.neutral[600]} 
-            />
-            <Text style={[styles.planBadgeText, isPremium && styles.planBadgeTextPremium]}>
-              {gamification?.tier || (isPremium ? 'Premium' : 'Free')} • Rank #{gamification?.rank || 2}
-            </Text>
-          </View>
-
-          {!isPremium && (
-            <Button
-              title="Upgrade to Premium"
-              onPress={handleUpgrade}
-              variant="primary"
-              size="sm"
-              style={styles.upgradeButton}
-            />
-          )}
         </View>
 
         {/* Dynamic Green Stats */}
@@ -169,8 +155,71 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* ── Green Impact Card ── */}
+        <View style={styles.greenImpactCard}>
+          {/* Header */}
+          <View style={styles.greenImpactHeader}>
+            <View style={styles.greenImpactLeft}>
+              <View style={styles.liveIndicator} />
+              <Text style={styles.greenImpactZone}>West India · IN-WE Grid</Text>
+            </View>
+            <View style={[styles.greenBandBadge, { backgroundColor: gridColor + '25' }]}>
+              <Text style={[styles.greenBandBadgeText, { color: gridColor }]}>{gridBandLabel}</Text>
+            </View>
+          </View>
 
-        {/* Workspace Portals (EcoVolt Multi-Role Hub) */}
+          {/* Big number */}
+          <View style={styles.greenImpactBody}>
+            <View>
+              <Text style={[styles.greenBigPct, { color: gridColor }]}>{liveGrid.renewablePct.toFixed(0)}%</Text>
+              <Text style={styles.greenBigLabel}>Renewable now</Text>
+            </View>
+            <View style={styles.greenImpactRight}>
+              <Text style={styles.greenImpactStat}>
+                <Text style={styles.greenImpactStatVal}>{liveGrid.carbonIntensity} </Text>
+                <Text style={styles.greenImpactStatUnit}>gCO₂/kWh</Text>
+              </Text>
+              <Text style={styles.greenImpactStat}>
+                <Text style={styles.greenImpactStatVal}>{liveGrid.carbonFreePct.toFixed(0)}% </Text>
+                <Text style={styles.greenImpactStatUnit}>carbon-free</Text>
+              </Text>
+            </View>
+          </View>
+
+          {/* Grid mix bar */}
+          <View style={styles.greenMixBar}>
+            {solarPct > 0  && <View style={[styles.greenMixSeg, { flex: solarPct,   backgroundColor: '#F59E0B' }]} />}
+            {windPct > 0   && <View style={[styles.greenMixSeg, { flex: windPct,    backgroundColor: '#0FB8C9' }]} />}
+            {hydroPct > 0  && <View style={[styles.greenMixSeg, { flex: hydroPct,   backgroundColor: '#3B82F6' }]} />}
+            {coalGasPct > 0 && <View style={[styles.greenMixSeg, { flex: coalGasPct, backgroundColor: '#6B7280' }]} />}
+            {otherPct > 0  && <View style={[styles.greenMixSeg, { flex: otherPct,   backgroundColor: '#374151' }]} />}
+          </View>
+          <View style={styles.greenMixLegend}>
+            <Text style={styles.greenMixLabel}>☀ Solar {solarPct}%</Text>
+            <Text style={styles.greenMixLabel}>💨 Wind {windPct}%</Text>
+            <Text style={styles.greenMixLabel}>💧 Hydro {hydroPct}%</Text>
+            <Text style={styles.greenMixLabel}>🏭 Coal+Gas {coalGasPct}%</Text>
+          </View>
+
+          {/* Lifetime impact */}
+          <View style={styles.greenLifetimeDivider} />
+          <Text style={styles.greenLifetimeTitle}>Your Lifetime Green Impact</Text>
+          <View style={styles.greenLifetimeRow}>
+            <View style={styles.greenLifetimeStat}>
+              <Text style={styles.greenLifetimeVal}>48.5 kg</Text>
+              <Text style={styles.greenLifetimeKey}>CO₂ avoided</Text>
+            </View>
+            <View style={styles.greenLifetimeStat}>
+              <Text style={styles.greenLifetimeVal}>218 kWh</Text>
+              <Text style={styles.greenLifetimeKey}>from renewables</Text>
+            </View>
+            <View style={styles.greenLifetimeStat}>
+              <Text style={[styles.greenLifetimeVal, { color: '#0E8E4F' }]}>₹312</Text>
+              <Text style={styles.greenLifetimeKey}>saved (green windows)</Text>
+            </View>
+          </View>
+        </View>
+
         <View style={styles.menuSection}>
           <Text style={styles.menuSectionTitle}>Workspace Portals</Text>
           <View style={styles.menuCard}>
@@ -334,30 +383,7 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
     marginTop: 2,
   },
-  planBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: spacing.radius.full,
-    backgroundColor: colors.neutral[200],
-  },
-  planBadgePremium: {
-    backgroundColor: colors.primary[500],
-  },
-  planBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.neutral[700],
-  },
-  planBadgeTextPremium: {
-    color: colors.white,
-  },
-  upgradeButton: {
-    marginTop: spacing.md,
-  },
+
   statsContainer: {
     flexDirection: 'row',
     backgroundColor: colors.white,
@@ -450,5 +476,134 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.neutral[400],
     marginVertical: spacing.xl,
+  },
+
+  // ── Green Impact Card ────────────────────────────────────────────────
+  greenImpactCard: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    backgroundColor: '#08150F',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#0E2018',
+  },
+  greenImpactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  greenImpactLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  liveIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#0FB8C9',
+  },
+  greenImpactZone: {
+    fontSize: 12,
+    color: '#8A998F',
+    fontWeight: '500',
+  },
+  greenBandBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  greenBandBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  greenImpactBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  greenBigPct: {
+    fontSize: 48,
+    fontWeight: '700',
+    lineHeight: 52,
+  },
+  greenBigLabel: {
+    fontSize: 11,
+    color: '#8A998F',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  greenImpactRight: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  greenImpactStat: {
+    textAlign: 'right',
+  },
+  greenImpactStatVal: {
+    fontSize: 14,
+    color: '#8A998F',
+    fontWeight: '600',
+  },
+  greenImpactStatUnit: {
+    fontSize: 12,
+    color: '#4C5C54',
+  },
+  greenMixBar: {
+    flexDirection: 'row',
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+    backgroundColor: '#0E2018',
+  },
+  greenMixSeg: {
+    height: '100%',
+  },
+  greenMixLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  greenMixLabel: {
+    fontSize: 11,
+    color: '#4C5C54',
+    fontWeight: '500',
+  },
+  greenLifetimeDivider: {
+    height: 1,
+    backgroundColor: '#0E2018',
+    marginBottom: 12,
+  },
+  greenLifetimeTitle: {
+    fontSize: 12,
+    color: '#4C5C54',
+    fontWeight: '600',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  greenLifetimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  greenLifetimeStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  greenLifetimeVal: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#8A998F',
+  },
+  greenLifetimeKey: {
+    fontSize: 10,
+    color: '#4C5C54',
+    textAlign: 'center',
+    marginTop: 2,
   },
 });

@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,6 +23,7 @@ import {
   Text,
   Button,
   Chip,
+  Skeleton,
   SkeletonCard,
   GreennessGauge,
   ForecastStrip,
@@ -31,6 +33,7 @@ import {
 } from '../../components';
 import { formatProviderName } from '../../features/stations/utils';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
+import { getStationImageSource } from '../../constants/stationImages';
 
 type StationDetailRouteProp = RouteProp<DriverStackParamList, 'StationDetail'>;
 
@@ -48,6 +51,7 @@ export const StationDetailScreen: React.FC = () => {
   const route = useRoute<StationDetailRouteProp>();
   const navigation = useNavigation<NativeStackNavigationProp<DriverStackParamList>>();
   const stationId = route.params?.stationId || 'station-001';
+  const [isHeroLoading, setIsHeroLoading] = useState(true);
 
   // 1. Fetch Station Details
   const stationQuery = useQuery<FullStationDetail>({
@@ -167,6 +171,37 @@ export const StationDetailScreen: React.FC = () => {
           </View>
         ) : (
           <>
+            {/* Hero Station Image with Skeleton Loader */}
+            <View style={styles.heroImageContainer}>
+              {isHeroLoading && (
+                <Skeleton
+                  width="100%"
+                  height={190}
+                  borderRadius={radii.xl}
+                  style={StyleSheet.absoluteFillObject}
+                />
+              )}
+              <Image
+                source={getStationImageSource(station.id || station.name)}
+                style={styles.heroImage}
+                contentFit="cover"
+                transition={150}
+                cachePolicy="memory-disk"
+                priority="high"
+                onLoadStart={() => setIsHeroLoading(true)}
+                onLoad={() => setIsHeroLoading(false)}
+                onError={() => setIsHeroLoading(false)}
+              />
+              <View style={styles.heroBadge}>
+                <Chip
+                  label={station.openHours || '24/7 OPEN'}
+                  variant="solid"
+                  color="#FFFFFF"
+                  backgroundColor="rgba(0,0,0,0.65)"
+                />
+              </View>
+            </View>
+
             {/* 1. Header Information Card */}
             <View style={styles.headerCard}>
               <View style={styles.headerTop}>
@@ -178,13 +213,6 @@ export const StationDetailScreen: React.FC = () => {
                     {formatProviderName(station.provider)} · {station.operatorName}
                   </Text>
                 </View>
-
-                <Chip
-                  label={station.openHours || '24/7 OPEN'}
-                  variant="subtle"
-                  color={colors.brand}
-                  backgroundColor={colors.brandTint}
-                />
               </View>
 
               {station.address && (
@@ -298,6 +326,24 @@ const styles = StyleSheet.create({
   },
   skeletonGroup: {
     gap: spacing.base,
+  },
+  heroImageContainer: {
+    height: 190,
+    borderRadius: radii.xl,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceSunken,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.e1,
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
   },
   headerCard: {
     backgroundColor: colors.surface,

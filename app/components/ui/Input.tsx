@@ -6,15 +6,15 @@
 import { colors } from '@/constants/colors';
 import { spacing } from '@/styles/spacing';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TextInputProps,
-    TouchableOpacity,
-    View,
-    ViewStyle,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  TouchableOpacity,
+  View,
+  ViewStyle,
 } from 'react-native';
 
 interface InputProps extends TextInputProps {
@@ -39,6 +39,7 @@ export function Input({
   style,
   ...props
 }: InputProps) {
+  const inputRef = useRef<TextInput>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
@@ -54,7 +55,7 @@ export function Input({
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
-      
+
       <View style={inputContainerStyles}>
         {leftIcon && (
           <Ionicons
@@ -64,8 +65,9 @@ export function Input({
             style={styles.leftIcon}
           />
         )}
-        
+
         <TextInput
+          ref={inputRef}
           style={[styles.input, leftIcon && styles.inputWithLeftIcon, style]}
           placeholderTextColor={colors.neutral[400]}
           onFocus={() => setIsFocused(true)}
@@ -73,7 +75,7 @@ export function Input({
           secureTextEntry={isPassword && !showPassword}
           {...props}
         />
-        
+
         {isPassword && (
           <TouchableOpacity
             onPress={() => setIsPasswordVisible(!isPasswordVisible)}
@@ -86,7 +88,7 @@ export function Input({
             />
           </TouchableOpacity>
         )}
-        
+
         {rightIcon && !isPassword && (
           <TouchableOpacity
             onPress={onRightIconPress}
@@ -97,7 +99,7 @@ export function Input({
           </TouchableOpacity>
         )}
       </View>
-      
+
       {error && <Text style={styles.error}>{error}</Text>}
       {hint && !error && <Text style={styles.hint}>{hint}</Text>}
     </View>

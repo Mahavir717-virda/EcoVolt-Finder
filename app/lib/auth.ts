@@ -36,8 +36,9 @@ export async function signIn(
       body: JSON.stringify({ email, password }),
     });
 
-    if (res?.accessToken) {
-      await setAuthToken(res.accessToken);
+    const token = res?.accessToken || res?.token;
+    if (token) {
+      await setAuthToken(token);
     }
 
     // Build and cache a Profile from the returned user object

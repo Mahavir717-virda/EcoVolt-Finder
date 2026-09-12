@@ -13,21 +13,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignUpScreen() {
   const router = useRouter();
   const { signUp } = useAuth();
-  
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,43 +42,43 @@ export default function SignUpScreen() {
 
   const validate = () => {
     const newErrors: typeof errors = {};
-    
+
     if (!fullName) {
       newErrors.fullName = 'Full name is required';
     } else if (!isValidName(fullName)) {
       newErrors.fullName = 'Please enter a valid name';
     }
-    
+
     if (!email) {
       newErrors.email = 'Email is required';
     } else if (!isValidEmail(email)) {
       newErrors.email = 'Please enter a valid email';
     }
-    
+
     const passwordValidation = validatePassword(password);
     if (!password) {
       newErrors.password = 'Password is required';
     } else if (!passwordValidation.isValid) {
       newErrors.password = passwordValidation.errors[0];
     }
-    
+
     if (!confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (password !== confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSignUp = async () => {
     if (!validate()) return;
-    
+
     setLoading(true);
     const { error } = await signUp(email, password, fullName);
     setLoading(false);
-    
+
     if (error) {
       Alert.alert('Sign Up Failed', error);
     } else {
@@ -90,11 +90,11 @@ export default function SignUpScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
         >
           {/* Header with Scale Animation */}
@@ -127,40 +127,40 @@ export default function SignUpScreen() {
                 value={email}
                 onChangeText={setEmail}
                 error={errors.email}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              leftIcon="mail-outline"
-            />
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                leftIcon="mail-outline"
+              />
 
-            <Input
-              label="Password"
-              placeholder="Create a password"
-              value={password}
-              onChangeText={setPassword}
-              error={errors.password}
-              hint="At least 8 characters with uppercase, lowercase, and number"
-              secureTextEntry
-              leftIcon="lock-closed-outline"
-            />
+              <Input
+                label="Password"
+                placeholder="Create a password"
+                value={password}
+                onChangeText={setPassword}
+                error={errors.password}
+                hint="At least 8 characters with uppercase, lowercase, and number"
+                secureTextEntry
+                leftIcon="lock-closed-outline"
+              />
 
-            <Input
-              label="Confirm Password"
-              placeholder="Confirm your password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              error={errors.confirmPassword}
-              secureTextEntry
-              leftIcon="lock-closed-outline"
-            />
+              <Input
+                label="Confirm Password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                error={errors.confirmPassword}
+                secureTextEntry
+                leftIcon="lock-closed-outline"
+              />
 
-            <Button
-              title="Create Account"
-              onPress={handleSignUp}
-              loading={loading}
-              fullWidth
-              size="lg"
-            />
+              <Button
+                title="Create Account"
+                onPress={handleSignUp}
+                loading={loading}
+                fullWidth
+                size="lg"
+              />
             </View>
           </SlideIn>
 
