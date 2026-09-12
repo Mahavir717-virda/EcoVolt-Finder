@@ -10,6 +10,7 @@ export { ConfirmBookingScreen, ConfirmBookingScreen as BookingConfirmScreen } fr
 export { ProfileScreen } from './ProfileScreen';
 export { VehiclesScreen } from './VehiclesScreen';
 
+export { SlotAvailabilityScreen } from './SlotAvailabilityScreen';
 export { ActiveSessionScreen } from './ActiveSessionScreen';
 export { BookingsScreen, BookingsScreen as BookingsListScreen } from './BookingsScreen';
 export { ImpactScreen } from './ImpactScreen';

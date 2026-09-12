@@ -9,16 +9,46 @@ import { PricingService } from '../pricing/pricing.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBookingInput } from './bookings.schema';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface PortDetail {
+  portNumber: number;
+  status: 'available' | 'booked' | 'maintenance' | 'offline';
+  bookingId?: string;
+}
+
+export interface ConnectorSlot {
+  connectorId: string;
+  type: ConnectorType;
+  powerKw: number;
+  status: string; // available | occupied | maintenance | offline
+  totalCount: number;
+  availableCount: number;
+  bookedCount: number; // derived from active bookings for the given window
+  ports: PortDetail[];
+}
+
+export interface SlotAvailabilityResponse {
+  stationId: string;
+  windowStart: string;
+  windowEnd: string;
+  connectors: ConnectorSlot[];
+  totalFree: number;
+  totalOccupied: number;
+  totalCapacity: number;
+}
+
 export class BookingsService {
   /**
-   * Get active reservations for a station on a given date to calculate availability
+   * Get active reservations for a station on a given date to calculate availability.
+   * Returns raw bookings + connectors for the legacy calendar UI.
    */
   public static async getStationAvailability(stationId: string, dateStr: string) {
     const [y, m, d] = dateStr.split('-').map(Number);
     const dayStart = !isNaN(y) && !isNaN(m) && !isNaN(d)
       ? new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
       : new Date(dateStr);
-    
+
     // Pad +- 14 hours to safely cover any client local timezone offsets
     const rangeStart = new Date(dayStart.getTime() - 14 * 3600 * 1000);
     const rangeEnd = new Date(dayStart.getTime() + 38 * 3600 * 1000);
@@ -34,9 +64,11 @@ export class BookingsService {
       },
       select: {
         id: true,
+        connectorId: true,
         connectorType: true,
         windowStart: true,
         windowEnd: true,
+        // Do NOT expose userId to protect privacy
       },
     });
 
@@ -48,6 +80,106 @@ export class BookingsService {
     return {
       bookings,
       connectors: station?.connectors || [],
+    };
+  }
+
+  /**
+   * Get structured real-time slot availability for a station + time window.
+   * This is the primary method for the slot availability UI — it merges live DB
+   * availableCount with actual active bookings to give an accurate picture.
+   *
+   * @param stationId - Station to check
+   * @param windowStart - ISO string for window start (defaults to now)
+   * @param windowEnd   - ISO string for window end  (defaults to now + 1h)
+   * @param connectorType - Optional filter by connector type
+   */
+  public static async getSlotMatrix(
+    stationId: string,
+    windowStart?: string,
+    windowEnd?: string,
+    connectorType?: string
+  ): Promise<SlotAvailabilityResponse> {
+    const start = windowStart ? new Date(windowStart) : new Date();
+    const end = windowEnd ? new Date(windowEnd) : new Date(start.getTime() + 3600 * 1000);
+
+    // Fetch connectors (optionally filtered by type)
+    const station = await prisma.station.findUnique({
+      where: { id: stationId },
+      include: {
+        connectors: connectorType
+          ? { where: { type: connectorType as ConnectorType } }
+          : true,
+      },
+    });
+
+    if (!station) {
+      throw new NotFoundError(`Station not found: ${stationId}`);
+    }
+
+    // Count active bookings per connector for the window in one query
+    const bookingCounts = await prisma.booking.groupBy({
+      by: ['connectorId'],
+      where: {
+        stationId,
+        status: { in: [SessionStatus.reserved, SessionStatus.scheduled, SessionStatus.active] },
+        AND: [
+          { windowStart: { lt: end } },
+          { windowEnd: { gt: start } },
+        ],
+        ...(connectorType ? { connectorType: connectorType as ConnectorType } : {}),
+      },
+      _count: { id: true },
+    });
+
+    const bookedByConnectorId = new Map<string, number>(
+      bookingCounts.map((b) => [b.connectorId, b._count.id])
+    );
+
+    const connectorSlots: ConnectorSlot[] = station.connectors.map((c) => {
+      const booked = bookedByConnectorId.get(c.id) ?? 0;
+      const free = Math.max(0, c.totalCount - booked);
+
+      const ports: PortDetail[] = Array.from({ length: c.totalCount }, (_, idx) => {
+        const portNumber = idx + 1;
+        if (c.status === 'maintenance' || c.status === 'offline') {
+          return { portNumber, status: c.status as 'maintenance' | 'offline' };
+        }
+        if (idx < booked) {
+          return { portNumber, status: 'booked' };
+        }
+        return { portNumber, status: 'available' };
+      });
+
+      return {
+        connectorId: c.id,
+        type: c.type,
+        powerKw: c.powerKw,
+        // Respect maintenance/offline status from DB
+        status:
+          c.status === 'maintenance' || c.status === 'offline'
+            ? c.status
+            : free > 0
+            ? 'available'
+            : 'occupied',
+        totalCount: c.totalCount,
+        availableCount: free,
+        bookedCount: booked,
+        ports,
+      };
+    });
+
+    const totalCapacity = connectorSlots.reduce((a, c) => a + c.totalCount, 0);
+    const totalOccupied = connectorSlots.reduce((a, c) => a + c.bookedCount, 0);
+    const totalFree = Math.max(0, totalCapacity - totalOccupied);
+
+    return {
+      stationId,
+      windowStart: start.toISOString(),
+      windowEnd: end.toISOString(),
+      connectors: connectorSlots,
+      totalFree,
+      totalOccupied,
+      totalCapacity,
     };
   }
 
@@ -113,10 +245,14 @@ export class BookingsService {
   }
 
   /**
-   * Create a booking with anti-double-booking transaction and locked price snapshot
-   * Edge Case #15: Uses row-level lock (FOR UPDATE) inside PostgreSQL transaction to serialize concurrent reservations
-   * Edge Case #16: Peak stacking cap enforcement
-   * Edge Case #17: Stores immutable locked price snapshot
+   * Create a booking with anti-double-booking transaction and locked price snapshot.
+   *
+   * Race condition prevention strategy:
+   *  - Edge Case #15: SERIALIZABLE isolation prevents phantom reads during concurrent slot-count checks.
+   *  - Row-level FOR UPDATE lock on the connector row serializes all concurrent bookings on the same plug.
+   *  - Atomic availableCount decrement (GREATEST(0, availableCount - 1)) keeps the field accurate.
+   *  - Edge Case #16: Peak stacking cap enforcement.
+   *  - Edge Case #17: Stores immutable locked price snapshot.
    */
   public static async createBooking(userId: string, input: CreateBookingInput) {
     const { stationId, connectorType, vehicleId, windowStart, windowEnd } = input;
@@ -141,9 +277,10 @@ export class BookingsService {
           throw new NotFoundError(`Vehicle not found with id: ${vehicleId}`);
         }
 
-        // 2. Perform ROW LOCK on the Connector record to serialize concurrent bookings on the same plug
-        const connectors: Array<{ id: string; totalCount: number }> = await tx.$queryRaw`
-          SELECT id, "totalCount" FROM connectors 
+        // 2. Row-level lock on Connector records to serialize concurrent bookings on the same plug type.
+        //    Under SERIALIZABLE isolation this also prevents phantoms in the count query that follows.
+        const connectors: Array<{ id: string; totalCount: number; status: string }> = await tx.$queryRaw`
+          SELECT id, "totalCount", status FROM connectors 
           WHERE "stationId" = ${stationId} AND type = ${connectorType}::"ConnectorType"
           FOR UPDATE
         `;
@@ -156,7 +293,17 @@ export class BookingsService {
 
         const connector = connectors[0];
 
-        // 3. Count overlapping bookings for this connector type (Edge Case #15)
+        // 3. Reject booking if connector is offline or under maintenance
+        if (connector.status === 'offline' || connector.status === 'maintenance') {
+          throw new ConflictError(
+            `Connector is currently ${connector.status}. Please choose another charger.`,
+            { connectorStatus: connector.status }
+          );
+        }
+
+        // 4. Count overlapping bookings for this connector type (Edge Case #15)
+        //    Under SERIALIZABLE isolation, this count is stable — no concurrent TX can insert
+        //    a new booking with the same connectorType/window without being serialized after ours.
         const overlappingBookings = await tx.booking.count({
           where: {
             stationId,
@@ -180,7 +327,7 @@ export class BookingsService {
           );
         }
 
-        // 4. Peak Demand Concurrency Check (Edge Case #16)
+        // 5. Peak Demand Concurrency Check (Edge Case #16)
         const hourLocal =
           (startDate.getUTCHours() + 5 + Math.floor((startDate.getUTCMinutes() + 30) / 60)) % 24;
         const isPeakHour = hourLocal >= 18 && hourLocal <= 22; // 6pm to 10pm IST
@@ -214,7 +361,7 @@ export class BookingsService {
           }
         }
 
-        // 5. Create the booking record
+        // 6. Create the booking record
         const booking = await tx.booking.create({
           data: {
             userId,
@@ -233,11 +380,23 @@ export class BookingsService {
           },
         });
 
+        // 7. Atomically decrement availableCount on the connector.
+        //    Uses GREATEST(0, ...) to prevent going negative under any edge case.
+        await tx.$executeRaw`
+          UPDATE connectors
+          SET "availableCount" = GREATEST(0, "availableCount" - 1),
+              "updatedAt" = now()
+          WHERE id = ${connector.id}
+        `;
+
         return booking;
       },
       {
-        isolationLevel: 'ReadCommitted',
-        timeout: 10000,
+        // SERIALIZABLE prevents phantom reads: two concurrent TXs both checking
+        // overlappingBookings < totalCount will be serialized — one will succeed,
+        // the other will fail with a serialization error and be safely retried/rejected.
+        isolationLevel: 'Serializable',
+        timeout: 12000,
       }
     );
 
@@ -303,7 +462,8 @@ export class BookingsService {
   }
 
   /**
-   * Cancel booking within grace window (Edge Case #23)
+   * Cancel booking within grace window (Edge Case #23).
+   * Releases the slot by incrementing connector availableCount atomically.
    */
   public static async cancelBooking(userId: string, bookingId: string) {
     const booking = await prisma.booking.findFirst({
@@ -333,11 +493,24 @@ export class BookingsService {
       );
     }
 
-    const updated = await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: SessionStatus.cancelled,
-      },
+    // Run cancel + availableCount increment in one transaction
+    const updated = await prisma.$transaction(async (tx) => {
+      const updated = await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: SessionStatus.cancelled,
+        },
+      });
+
+      // Release the slot — increment availableCount up to totalCount ceiling
+      await tx.$executeRaw`
+        UPDATE connectors
+        SET "availableCount" = LEAST("totalCount", "availableCount" + 1),
+            "updatedAt" = now()
+        WHERE id = ${booking.connectorId}
+      `;
+
+      return updated;
     });
 
     return {
