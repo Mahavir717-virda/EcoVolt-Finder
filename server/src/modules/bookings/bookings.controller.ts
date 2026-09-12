@@ -25,6 +25,40 @@ export class BookingsController {
     }
   }
 
+  /**
+   * GET /bookings/station/:stationId/slots
+   * Returns real-time slot matrix per connector type for a given time window.
+   * Query params:
+   *   - windowStart (ISO, optional, defaults to now)
+   *   - windowEnd   (ISO, optional, defaults to now + 1h)
+   *   - connectorType (optional filter)
+   *
+   * This endpoint is public-safe — it shows slot counts but NOT which user holds a booking.
+   * Auth is still required so anonymous scrapers can't poll indefinitely.
+   */
+  public static async getSlotMatrix(req: Request, res: Response, next: NextFunction): Promise<void> {
+    if (!req.user) {
+      return next(new UnauthorizedError('Authentication required'));
+    }
+
+    try {
+      const rawStationId = req.params.stationId;
+      const stationId = Array.isArray(rawStationId) ? rawStationId[0] : rawStationId;
+      const { windowStart, windowEnd, connectorType } = req.query;
+
+      const matrix = await BookingsService.getSlotMatrix(
+        stationId,
+        typeof windowStart === 'string' ? windowStart : undefined,
+        typeof windowEnd === 'string' ? windowEnd : undefined,
+        typeof connectorType === 'string' ? connectorType : undefined
+      );
+
+      res.status(200).json(matrix);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   public static async listBookings(req: Request, res: Response, next: NextFunction): Promise<void> {
     if (!req.user) {
       return next(new UnauthorizedError('Authentication required'));

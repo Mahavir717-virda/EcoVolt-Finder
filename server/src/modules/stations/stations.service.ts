@@ -1,6 +1,7 @@
 import { PowerProvider, ConnectorType } from '@prisma/client';
 import { GreennessBand, DataQuality } from '../../../../contracts/enums';
 import { prisma } from '../../db/client';
+import { mlClient } from '../../integrations/mlClient';
 import { NotFoundError, BadRequestError } from '../../middleware/error-handler';
 import {
   SearchStationsQuery,
@@ -34,22 +35,44 @@ export interface StationSummaryResponse {
   distanceKm?: number;
 }
 
-interface CachedForecast {
+export interface CachedForecast {
   renewablePct: number;
   quality: DataQuality;
   cachedAt: number;
 }
 
-const FORECAST_CACHE_TTL_MS = 60 * 1000; // 60s in-memory cache
+const FORECAST_CACHE_TTL_MS = 15 * 1000; // 15s in-memory cache (matches ML service TTL)
 const forecastMemoryCache = new Map<string, CachedForecast>();
 
-async function getZoneForecast(zoneId: string): Promise<CachedForecast> {
+/**
+ * Resolves real-time renewable % for a zone.
+ * Priority: ML live grid → DB forecastCache → hardcoded Indian-grid default.
+ * Results are cached in-process for FORECAST_CACHE_TTL_MS to avoid hammering the ML service.
+ */
+export async function getZoneForecast(zoneId: string): Promise<CachedForecast> {
   const cached = forecastMemoryCache.get(zoneId);
   const now = Date.now();
   if (cached && (now - cached.cachedAt) < FORECAST_CACHE_TTL_MS) {
     return cached;
   }
 
+  // 1. Try ML live grid first (real-time data)
+  try {
+    const liveGrid = await mlClient.getLiveGrid(zoneId);
+    if (liveGrid && typeof liveGrid.renewablePct === 'number') {
+      const result: CachedForecast = {
+        renewablePct: liveGrid.renewablePct,
+        quality: liveGrid.quality || DataQuality.LIVE,
+        cachedAt: now,
+      };
+      forecastMemoryCache.set(zoneId, result);
+      return result;
+    }
+  } catch (mlErr) {
+    console.warn(`[getZoneForecast] ML live grid failed for zone ${zoneId}, falling back to DB:`, mlErr);
+  }
+
+  // 2. Fall back to DB forecastCache (populated by sessions worker)
   try {
     const forecast = await prisma.forecastCache.findFirst({
       where: {
@@ -59,20 +82,27 @@ async function getZoneForecast(zoneId: string): Promise<CachedForecast> {
       orderBy: { hourStartLocal: 'desc' },
     });
 
-    const result: CachedForecast = {
-      renewablePct: forecast ? forecast.renewablePct : (zoneId === 'IN-WE' ? 72 : 55),
-      quality: forecast ? DataQuality.LIVE : DataQuality.CACHED,
-      cachedAt: now,
-    };
-    forecastMemoryCache.set(zoneId, result);
-    return result;
-  } catch {
-    return {
-      renewablePct: zoneId === 'IN-WE' ? 72 : 55,
-      quality: DataQuality.CACHED,
-      cachedAt: now,
-    };
+    if (forecast) {
+      const result: CachedForecast = {
+        renewablePct: forecast.renewablePct,
+        quality: DataQuality.CACHED,
+        cachedAt: now,
+      };
+      forecastMemoryCache.set(zoneId, result);
+      return result;
+    }
+  } catch (dbErr) {
+    console.warn(`[getZoneForecast] DB forecastCache lookup failed for zone ${zoneId}:`, dbErr);
   }
+
+  // 3. Last-resort hardcoded fallback (Indian grid average)
+  const fallback: CachedForecast = {
+    renewablePct: zoneId === 'IN-WE' ? 68 : 55,
+    quality: DataQuality.MOCK,
+    cachedAt: now,
+  };
+  forecastMemoryCache.set(zoneId, fallback);
+  return fallback;
 }
 
 export class StationsService {
@@ -260,6 +290,21 @@ export class StationsService {
 
     return {
       ...station,
+      operatorName: station.operator?.name || 'EV Network',
+      location: {
+        lat: station.lat,
+        lng: station.lng,
+      },
+      connectors: station.connectors.map((c) => ({
+        id: c.id,
+        type: c.type,
+        powerKw: c.powerKw,
+        available: c.availableCount,
+        total: c.totalCount,
+        availableCount: c.availableCount,
+        totalCount: c.totalCount,
+        status: c.status,
+      })),
       priceFrom: Math.round((baseRate + markup) * 10) / 10,
       distanceKm,
       greenness: {

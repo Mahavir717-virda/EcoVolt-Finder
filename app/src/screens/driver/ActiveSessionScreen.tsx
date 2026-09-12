@@ -61,6 +61,7 @@ export const ActiveSessionScreen: React.FC = () => {
   // UI / Demo interactive states
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [sessionCompleted, setSessionCompleted] = useState(false);
+  const [completedSessionData, setCompletedSessionData] = useState<any>(null);
   const [simulatedKwhOffset, setSimulatedKwhOffset] = useState(0);
 
   // 1. React Query: Poll active session every 3 seconds
@@ -92,7 +93,7 @@ export const ActiveSessionScreen: React.FC = () => {
   // Session values derived with live accumulation
   const startChargePct = rawSession?.startChargePct ?? 42;
   const targetChargePct = rawSession?.targetChargePct ?? 80;
-  const lockedPrice = rawSession?.lockedPrice ?? 6.20; // Edge Case #17: Locked Price
+  const lockedPrice = rawSession?.lockedPrice ?? 14.50; // Edge Case #17: Locked Price
   const baseEnergyKwh = rawSession?.energyKwh ?? 14.8;
   const currentDeliveredKwh = Number((baseEnergyKwh + simulatedKwhOffset).toFixed(2));
   
@@ -126,9 +127,14 @@ export const ActiveSessionScreen: React.FC = () => {
   // 2. Mutation: Stop Session
   const stopSessionMutation = useMutation({
     mutationFn: async () => {
-      return await http.post(`/sessions/${rawSession?.id || 'sess_live_101'}/stop`, {});
+      return await http.post(`/sessions/${rawSession?.id || rawSession?.bookingId || 'sess_live_101'}/stop`, {
+        energyKwh: currentDeliveredKwh,
+      });
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
+      if (data) {
+        setCompletedSessionData(data);
+      }
       setSessionCompleted(true);
     },
     onError: () => {
@@ -170,13 +176,13 @@ export const ActiveSessionScreen: React.FC = () => {
             <View style={styles.summaryRow}>
               <StatColumn
                 label="DELIVERED ENERGY"
-                value={`${currentDeliveredKwh.toFixed(1)} kWh`}
+                value={`${(completedSessionData?.energyKwh ?? currentDeliveredKwh).toFixed(1)} kWh`}
                 valueColor={colors.ink}
               />
               <View style={styles.summaryDivider} />
               <StatColumn
                 label="TOTAL BILLED (LOCKED)"
-                value={`₹${currentCost.toFixed(2)}`}
+                value={`₹${(completedSessionData?.cost ?? currentCost).toFixed(2)}`}
                 valueColor={colors.brand}
               />
             </View>
@@ -186,13 +192,13 @@ export const ActiveSessionScreen: React.FC = () => {
             <View style={styles.summaryRow}>
               <StatColumn
                 label="AVG RENEWABLE MIX"
-                value={`${avgRenewablePct}% ☀️`}
+                value={`${Math.round(completedSessionData?.avgRenewablePct ?? avgRenewablePct)}% ☀️`}
                 valueColor={colors.brand}
               />
               <View style={styles.summaryDivider} />
               <StatColumn
                 label="CO₂ AVOIDED"
-                value={`${currentCo2Avoided} kg`}
+                value={`${(completedSessionData?.co2AvoidedKg ?? currentCo2Avoided).toFixed(1)} kg`}
                 valueColor={colors.brand}
               />
             </View>
@@ -212,7 +218,7 @@ export const ActiveSessionScreen: React.FC = () => {
                 Station
               </Text>
               <Text variant="body" color={colors.ink}>
-                {rawSession?.stationName || 'Torrent Charging Hub – CG Road'}
+                {rawSession?.stationName || 'Torrent Power Charging Hub – CG Road'}
               </Text>
             </View>
             <View style={styles.detailRow}>

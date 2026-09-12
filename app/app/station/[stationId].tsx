@@ -542,8 +542,8 @@ export default function StationDetailScreen() {
 
           {/* Big percentage + band */}
           <View style={styles.gaugeRow}>
-            <View style={styles.gaugeCircle}>
-              <View style={[styles.gaugeCircleInner, { borderColor: gridColor, backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}>
+            <View style={[styles.gaugeCircle, { borderColor: gridColor + '40', backgroundColor: isDark ? '#1F2937' : '#F0F9F0' }]}>
+              <View style={[styles.gaugeCircleInner, { borderColor: gridColor, backgroundColor: isDark ? '#1F2937' : '#FFFFFF' }]}>
                 <Text style={[styles.gaugePct, { color: gridColor }]}>{liveGrid.renewablePct.toFixed(0)}%</Text>
                 <Text style={[styles.gaugeLabel, { color: themeColors.textSecondary }]}>{t('station.renewable', 'renewable')}</Text>
               </View>
@@ -628,21 +628,24 @@ export default function StationDetailScreen() {
                 const isCurrent = point.hourIST === currentISTHour;
                 const barHeight = Math.max(12, Math.round((point.renewablePct / 100) * 56));
                 return (
-                  <View key={point.hourIST} style={styles.forecastBarWrap}>
-                    {point.isRecommended && (
+                  <View key={point.hourIST} style={[styles.forecastBarWrap, isCurrent && styles.forecastBarWrapCurrent]}>
+                    {point.isRecommended && !isCurrent ? (
                       <View style={styles.recommendedDot} />
+                    ) : (
+                      <View style={styles.recommendedDotPlaceholder} />
                     )}
                     <View style={[
                       styles.forecastBarOuter,
                       isCurrent && styles.forecastBarCurrent,
-                      point.isRecommended && styles.forecastBarBest,
+                      point.isRecommended && !isCurrent && styles.forecastBarBest,
                     ]}>
                       <View style={[
                         styles.forecastBarInner,
                         { height: barHeight, backgroundColor: barColor },
+                        isCurrent && { backgroundColor: '#0FB8C9' },
                       ]} />
                     </View>
-                    <Text style={[styles.forecastBarLabel, { color: isCurrent ? themeColors.primary : themeColors.textSecondary }]}>
+                    <Text style={[styles.forecastBarLabel, { color: isCurrent ? '#0FB8C9' : themeColors.textSecondary, fontWeight: isCurrent ? '700' : '500' }]}>
                       {point.hourIST % 3 === 0 ? point.label.split(' ')[0] : ''}
                     </Text>
                   </View>
@@ -650,9 +653,16 @@ export default function StationDetailScreen() {
               })}
             </View>
           </ScrollView>
-          <View style={styles.forecastScaleLegend}>
-            <Text style={[styles.forecastScaleText, { color: themeColors.textSecondary }]}>{t('station.forecast_highlight', '◼ Highlighted = best charging window')}</Text>
-            <Text style={[styles.forecastScaleText, { color: themeColors.textSecondary }]}>{t('station.forecast_now', '◉ = Now')}</Text>
+          {/* Legend row */}
+          <View style={styles.forecastLegendRow}>
+            <View style={styles.forecastLegendItem}>
+              <View style={styles.nowColorBox} />
+              <Text style={[styles.forecastScaleText, { color: themeColors.textSecondary }]}> = Current hour</Text>
+            </View>
+            <View style={styles.forecastLegendItem}>
+              <View style={[styles.recommendedDot, { marginBottom: 0 }]} />
+              <Text style={[styles.forecastScaleText, { color: themeColors.textSecondary }]}> = Best window</Text>
+            </View>
           </View>
         </View>
 
@@ -1212,18 +1222,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   gaugeCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F3F6F2',
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    borderWidth: 4,
     alignItems: 'center',
     justifyContent: 'center',
+    // shadow for premium feel
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   gaugeCircleInner: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    borderWidth: 4,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1331,14 +1347,31 @@ const styles = StyleSheet.create({
   },
   forecastBarWrap: {
     alignItems: 'center',
-    width: 22,
+    width: 26,
+  },
+  forecastBarWrapCurrent: {
+    backgroundColor: 'rgba(15, 184, 201, 0.10)',
+    borderRadius: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
   },
   recommendedDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 5,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: '#0E8E4F',
     marginBottom: 3,
+  },
+  recommendedDotPlaceholder: {
+    width: 5,
+    height: 5,
+    marginBottom: 3,
+  },
+  nowColorBox: {
+    width: 10,
+    height: 10,
+    borderRadius: 3,
+    backgroundColor: '#0FB8C9',
   },
   forecastBarOuter: {
     width: 14,
@@ -1349,8 +1382,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   forecastBarCurrent: {
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: '#0FB8C9',
+    backgroundColor: 'rgba(15, 184, 201, 0.12)',
   },
   forecastBarBest: {
     borderWidth: 1.5,
@@ -1365,6 +1399,17 @@ const styles = StyleSheet.create({
     color: colors.neutral[400],
     marginTop: 3,
     fontWeight: '500',
+  },
+  forecastLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 6,
+  },
+  forecastLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   forecastScaleLegend: {
     flexDirection: 'row',

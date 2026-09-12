@@ -5,7 +5,8 @@ import { requireAuth } from '../../middleware/auth.middleware';
 const router = Router();
 
 router.use(requireAuth);
-
+ 
+router.get('/active', SessionsController.getActiveSession);
 router.get('/:id', SessionsController.getSession);
 router.post('/:id/start', SessionsController.startSession);
 router.post('/:id/stop', SessionsController.stopSession);

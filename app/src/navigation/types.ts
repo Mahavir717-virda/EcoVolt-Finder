@@ -18,8 +18,9 @@ export type DriverStackParamList = {
   DriverTabs: NavigatorScreenParams<DriverTabParamList>;
   StationDetail: { stationId: string };
   RouteCompare: { stationId: string; originLat?: number; originLng?: number };
-  BookingConfirm: { stationId: string; connectorType?: string };
+  BookingConfirm: { stationId: string; connectorType?: string; windowStart?: string; durationMinutes?: number };
   SessionSummary: { sessionId: string };
+  SlotAvailability: { stationId: string; connectorType?: string; windowStart?: string; windowEnd?: string };
   Bookings: undefined;
   Impact: undefined;
   Vehicles: undefined;
