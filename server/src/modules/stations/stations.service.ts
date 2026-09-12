@@ -34,6 +34,47 @@ export interface StationSummaryResponse {
   distanceKm?: number;
 }
 
+interface CachedForecast {
+  renewablePct: number;
+  quality: DataQuality;
+  cachedAt: number;
+}
+
+const FORECAST_CACHE_TTL_MS = 60 * 1000; // 60s in-memory cache
+const forecastMemoryCache = new Map<string, CachedForecast>();
+
+async function getZoneForecast(zoneId: string): Promise<CachedForecast> {
+  const cached = forecastMemoryCache.get(zoneId);
+  const now = Date.now();
+  if (cached && (now - cached.cachedAt) < FORECAST_CACHE_TTL_MS) {
+    return cached;
+  }
+
+  try {
+    const forecast = await prisma.forecastCache.findFirst({
+      where: {
+        zoneId,
+        hourStartLocal: { lte: new Date() },
+      },
+      orderBy: { hourStartLocal: 'desc' },
+    });
+
+    const result: CachedForecast = {
+      renewablePct: forecast ? forecast.renewablePct : (zoneId === 'IN-WE' ? 72 : 55),
+      quality: forecast ? DataQuality.LIVE : DataQuality.CACHED,
+      cachedAt: now,
+    };
+    forecastMemoryCache.set(zoneId, result);
+    return result;
+  } catch {
+    return {
+      renewablePct: zoneId === 'IN-WE' ? 72 : 55,
+      quality: DataQuality.CACHED,
+      cachedAt: now,
+    };
+  }
+}
+
 export class StationsService {
   /**
    * Calculate Haversine distance in km between two geo-points
@@ -112,53 +153,57 @@ export class StationsService {
       },
     });
 
-    // Compute distance and filter within radius
-    const evaluatedRaw = await Promise.all(stations.map(async (station) => {
-        const distanceKm = this.calculateDistance(lat, lng, station.lat, station.lng);
+    // Batch resolve distinct zones in 1 roundtrip (or cache hit)
+    const distinctZones = Array.from(new Set(stations.map((s) => s.zoneId)));
+    const zoneForecasts = new Map<string, { renewablePct: number; quality: DataQuality }>();
+    await Promise.all(
+      distinctZones.map(async (zid) => {
+        const fc = await getZoneForecast(zid);
+        zoneForecasts.set(zid, fc);
+      })
+    );
 
-        // Compute priceFrom
-        const tariff = station.zone.tariffs.find((t) => t.provider === station.provider);
-        const baseRate = tariff ? tariff.baseRate : 13.0;
-        const markup = station.pricingRules[0]?.providerMarkup ?? 2.5;
-        const priceFrom = Math.round((baseRate + markup) * 10) / 10;
+    // Compute distance and map synchronously in memory with zero extra DB calls
+    const evaluatedRaw: StationSummaryResponse[] = stations.map((station) => {
+      const distanceKm = this.calculateDistance(lat, lng, station.lat, station.lng);
 
-        // Fetch renewable % from ForecastCache for the station's zone (current hour)
-        const now = new Date();
-        const forecast = await prisma.forecastCache.findFirst({
-          where: {
-            zoneId: station.zoneId,
-            hourStartLocal: { lte: now },
-          },
-          orderBy: { hourStartLocal: 'desc' },
-        });
-        const renewablePct = forecast ? forecast.renewablePct : (station.zoneId === 'IN-WE' ? 72 : 55);
+      // Compute priceFrom
+      const tariff = station.zone.tariffs.find((t) => t.provider === station.provider);
+      const baseRate = tariff ? tariff.baseRate : 13.0;
+      const markup = station.pricingRules[0]?.providerMarkup ?? 2.5;
+      const priceFrom = Math.round((baseRate + markup) * 10) / 10;
 
-        const summary: StationSummaryResponse = {
-          id: station.id,
-          name: station.name,
-          location: {
-            lat: station.lat,
-            lng: station.lng,
-          },
-          operatorName: station.operator.name,
-          provider: station.provider,
-          connectors: station.connectors.map((c) => ({
-            type: c.type,
-            powerKw: c.powerKw,
-            available: c.availableCount,
-            total: c.totalCount,
-          })),
-          greenness: {
-            renewablePct,
-            band: this.getGreennessBand(renewablePct),
-            quality: forecast ? DataQuality.LIVE : DataQuality.CACHED,
-          },
-          priceFrom,
-          distanceKm,
-        };
+      const forecast = zoneForecasts.get(station.zoneId) || {
+        renewablePct: station.zoneId === 'IN-WE' ? 72 : 55,
+        quality: DataQuality.CACHED,
+      };
+      const renewablePct = forecast.renewablePct;
 
-        return summary;
-      }));
+      return {
+        id: station.id,
+        name: station.name,
+        location: {
+          lat: station.lat,
+          lng: station.lng,
+        },
+        operatorName: station.operator.name,
+        provider: station.provider,
+        connectors: station.connectors.map((c) => ({
+          type: c.type,
+          powerKw: c.powerKw,
+          available: c.availableCount,
+          total: c.totalCount,
+        })),
+        greenness: {
+          renewablePct,
+          band: this.getGreennessBand(renewablePct),
+          quality: forecast.quality,
+        },
+        priceFrom,
+        distanceKm,
+      };
+    });
+
     const evaluated = evaluatedRaw.filter((s) => s.distanceKm! <= radiusKm);
 
 
@@ -200,16 +245,9 @@ export class StationsService {
     const baseRate = tariff ? tariff.baseRate : 13.0;
     const markup = station.pricingRules[0]?.providerMarkup ?? 2.5;
 
-    // Fetch renewable % from ForecastCache for the station's zone (current hour)
-    const now = new Date();
-    const forecast = await prisma.forecastCache.findFirst({
-      where: {
-        zoneId: station.zoneId,
-        hourStartLocal: { lte: now },
-      },
-      orderBy: { hourStartLocal: 'desc' },
-    });
-    const renewablePct = forecast ? forecast.renewablePct : 65;
+    // Fetch renewable % from cached ForecastCache for the station's zone
+    const forecast = await getZoneForecast(station.zoneId);
+    const renewablePct = forecast.renewablePct;
     const band = this.getGreennessBand(renewablePct);
 
     return {
@@ -219,7 +257,7 @@ export class StationsService {
         zoneId: station.zoneId,
         renewablePct,
         band,
-        quality: forecast ? DataQuality.LIVE : DataQuality.CACHED,
+        quality: forecast.quality,
       },
     };
   }

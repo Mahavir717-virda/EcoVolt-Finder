@@ -1,6 +1,7 @@
 import express, { Express } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
 import yaml from 'yamljs';
@@ -24,6 +25,9 @@ import { notificationsRouter } from './modules/notifications/notifications.route
 
 export const createApp = (): Express => {
   const app = express();
+
+  // Response Compression (Gzip / Brotli for ultra-low latency over mobile networks)
+  app.use(compression());
 
   // Security Middleware
   app.use(
