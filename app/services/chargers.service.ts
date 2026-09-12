@@ -25,7 +25,7 @@ export async function getChargerById(chargerId: string): Promise<Charger | null>
     return {
       id: raw.id,
       station_id: raw.stationId,
-      charger_type: raw.powerKw >= 50 ? 'dc_fast' : 'ac_level2',
+      charger_type: raw.powerKw >= 50 ? 'dc_fast' : 'level_2',
       connector_type: raw.type,
       power_kw: raw.powerKw,
       price_per_kwh: raw.pricePerKwh || null,
@@ -33,6 +33,7 @@ export async function getChargerById(chargerId: string): Promise<Charger | null>
       created_at: raw.createdAt || new Date().toISOString(),
       updated_at: raw.updatedAt || new Date().toISOString(),
     };
+
   } catch {
     return null;
   }

@@ -85,11 +85,12 @@ export async function signUp(
       full_name: fullName,
       email,
       phone: '',
-      plan_type: 'basic',
+      plan_type: 'free',
       avatar_url: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
     await setStoredUser(profile);
 
     return { data: profile, error: null };

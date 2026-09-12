@@ -63,7 +63,8 @@ export async function completeReservation(_reservationId: string): Promise<boole
 
 export async function getActiveReservationCount(_userId: string): Promise<number> {
   const all = await getUserReservations(_userId);
-  return all.filter((r) => r.status === 'active' || r.status === 'reserved').length;
+  return all.filter((r) => r.status === 'active' || (r.status as any) === 'reserved').length;
 }
+
 
 export type { ReservationWithDetails };

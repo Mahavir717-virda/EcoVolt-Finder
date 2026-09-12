@@ -75,8 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const user: User = {
           id: profile.id,
           email: profile.email,
-          user_metadata: { full_name: profile.full_name },
+          user_metadata: { full_name: profile.full_name || undefined },
         };
+
 
         setState({
           user,
