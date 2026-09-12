@@ -140,7 +140,7 @@ export default function StationDetailScreen() {
   };
 
   const handleReserve = (charger: Charger) => {
-    // Directly navigate to charger reservation screen
+    // Navigate to reservation screen
     router.push({
       pathname: '/station/reserve',
       params: { 

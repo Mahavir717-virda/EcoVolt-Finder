@@ -70,6 +70,7 @@ export default function ReservationsScreen() {
   const { reservations, loading, refresh } = useReservations();
   const { cancel, loading: cancelLoading } = useCancelReservation();
 
+  
   // Separate active and past reservations
   const { activeReservations, pastReservations } = useMemo(() => {
     const now = new Date();
