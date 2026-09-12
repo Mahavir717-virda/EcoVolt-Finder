@@ -44,11 +44,11 @@ export const StationCard: React.FC<StationCardProps> = ({
 
   // Available connectors count summary
   const availableConnectors = station.connectors.reduce(
-    (acc, c) => acc + c.available,
+    (acc, c) => acc + (c.available ?? (c as any).availableCount ?? 0),
     0
   );
   const totalConnectors = station.connectors.reduce(
-    (acc, c) => acc + c.total,
+    (acc, c) => acc + (c.total ?? (c as any).totalCount ?? 0),
     0
   );
 
@@ -155,13 +155,17 @@ export const StationCard: React.FC<StationCardProps> = ({
       {/* Connectors & Availability */}
       <View style={styles.connectorsRow}>
         <View style={styles.connectorPills}>
-          {station.connectors.map((c, i) => (
-            <View key={i} style={styles.connectorTag}>
-              <Text variant="micro" color={colors.ink2}>
-                {formatConnectorName(c.type)} ({c.powerKw}kW)
-              </Text>
-            </View>
-          ))}
+          {station.connectors.map((c, i) => {
+            const free = c.available ?? (c as any).availableCount;
+            const total = c.total ?? (c as any).totalCount;
+            return (
+              <View key={i} style={styles.connectorTag}>
+                <Text variant="micro" color={colors.ink2}>
+                  {formatConnectorName(c.type)} {free !== undefined && total !== undefined ? `(${free}/${total})` : `(${c.powerKw}kW)`}
+                </Text>
+              </View>
+            );
+          })}
         </View>
 
         <View style={styles.availabilityTag}>

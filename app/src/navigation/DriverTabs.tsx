@@ -14,6 +14,7 @@ import {
   BookingsScreen,
   ImpactScreen,
   VehiclesScreen,
+  SlotAvailabilityScreen,
 } from '../screens/driver';
 import { colors } from '../theme/tokens';
 
@@ -185,6 +186,11 @@ export const DriverNavigator: React.FC = () => {
         name="SessionSummary"
         component={SessionSummaryScreen}
         options={{ title: 'Session Summary' }}
+      />
+      <Stack.Screen
+        name="SlotAvailability"
+        component={SlotAvailabilityScreen}
+        options={{ title: 'Slot Availability', headerShown: false }}
       />
       <Stack.Screen
         name="Profile"

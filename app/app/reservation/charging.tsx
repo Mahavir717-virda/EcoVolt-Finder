@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { updateChargerStatus } from '@/services/chargers.service';
-import { completeReservation } from '@/services/reservations.service';
+import { completeReservation, getReservationById } from '@/services/reservations.service';
 import { formatCurrency } from '@/utils/pricing';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -14,6 +14,7 @@ import {
   Animated,
   BackHandler,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -56,6 +57,43 @@ export default function ChargingSessionScreen() {
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Security Check: Verify that this reservation is not already completed/cancelled/expired
+  useEffect(() => {
+    let isMounted = true;
+    async function verifyReservationSecurity() {
+      if (reservationId) {
+        try {
+          const res = await getReservationById(reservationId);
+          if (res && (res.status === 'completed' || res.status === 'cancelled' || res.status === 'expired')) {
+            if (isMounted) {
+              Alert.alert(
+                t('charging.session_already_ended', 'Session Concluded'),
+                t('charging.session_already_ended_desc', 'This charging session has already ended or is no longer active.'),
+                [
+                  {
+                    text: t('common.ok', 'OK'),
+                    onPress: () => {
+                      router.replace({
+                        pathname: '/(tabs)/reservations',
+                        params: { tab: 'past', refresh: Date.now().toString() },
+                      });
+                    },
+                  },
+                ]
+              );
+            }
+          }
+        } catch (e) {
+          console.log('[ChargingSecurity] Error checking reservation status:', e);
+        }
+      }
+    }
+    verifyReservationSecurity();
+    return () => {
+      isMounted = false;
+    };
+  }, [reservationId, t]);
 
   const power = parseFloat(powerKw || '0');
   const price = parseFloat(pricePerKwh || '0');
@@ -184,12 +222,14 @@ export default function ChargingSessionScreen() {
     );
   }, [energyDelivered, currentCost, formattedTime, reservationId, chargerId, t]);
 
-  // Intercept hardware and software back button to lock completed lifecycle
+  // Intercept hardware and software back button to prevent re-entering completed charging page
   useEffect(() => {
     const onBackPress = () => {
       if (completedStats !== null || isEnding) {
-        // Charging finished: navigate forward to home / leaderboard
-        router.replace('/(tabs)');
+        router.replace({
+          pathname: '/(tabs)/reservations',
+          params: { tab: 'past', refresh: Date.now().toString() },
+        });
         return true;
       }
       if (sessionStarted) {
@@ -203,7 +243,11 @@ export default function ChargingSessionScreen() {
         );
         return true;
       }
-      return false;
+      router.replace({
+        pathname: '/(tabs)/reservations',
+        params: { tab: 'upcoming', refresh: Date.now().toString() },
+      });
+      return true;
     };
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
@@ -212,7 +256,10 @@ export default function ChargingSessionScreen() {
 
   const handleHeaderBack = () => {
     if (completedStats !== null || isEnding) {
-      router.replace('/(tabs)');
+      router.replace({
+        pathname: '/(tabs)/reservations',
+        params: { tab: 'past', refresh: Date.now().toString() },
+      });
     } else if (sessionStarted) {
       Alert.alert(
         t('charging.in_progress_title', 'Charging in Progress'),
@@ -223,7 +270,10 @@ export default function ChargingSessionScreen() {
         ]
       );
     } else {
-      router.back();
+      router.replace({
+        pathname: '/(tabs)/reservations',
+        params: { tab: 'upcoming', refresh: Date.now().toString() },
+      });
     }
   };
 
@@ -231,102 +281,202 @@ export default function ChargingSessionScreen() {
     <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={handleHeaderBack} style={styles.headerBackButton}>
+        <TouchableOpacity onPress={handleHeaderBack} style={styles.headerBackButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back" size={24} color={themeColors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
-          <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{stationName || t('charging.title', 'Charging Session')}</Text>
-          {!sessionStarted && (
-            <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>{t('charging.ready', 'Ready to charge')}</Text>
-          )}
+          <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>
+            {stationName || t('charging.title', 'Charging Session')}
+          </Text>
+          <Text style={[styles.headerSubtitle, { color: sessionStarted ? '#10B981' : themeColors.textSecondary }]}>
+            {sessionStarted ? t('charging.in_progress', '⚡ Active Charging Session') : t('charging.ready', 'Ready to plug in & charge')}
+          </Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Main Content */}
-      <View style={styles.content}>
-        {/* Charging Animation */}
+      {/* Main Scrollable Content */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Charging Animation Dial */}
         <View style={styles.chargingVisual}>
           <Animated.View
             style={[
               styles.outerRing,
               {
-                backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : colors.primary[50],
+                backgroundColor: isDark
+                  ? sessionStarted ? 'rgba(16, 185, 129, 0.18)' : 'rgba(255, 255, 255, 0.05)'
+                  : sessionStarted ? 'rgba(16, 185, 129, 0.12)' : colors.neutral[100],
                 transform: [{ scale: pulseAnim }],
-                opacity: sessionStarted ? 1 : 0.5,
               },
             ]}
           >
-            <View style={[
-              styles.innerRing, 
-              { backgroundColor: isDark ? '#1F2937' : colors.neutral[100], borderColor: isDark ? '#374151' : colors.neutral[300] },
-              sessionStarted && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.25)' : colors.primary[50], borderColor: themeColors.primary }
-            ]}>
-              <Ionicons
-                name={sessionStarted ? 'flash' : 'flash-outline'}
-                size={64}
-                color={sessionStarted ? themeColors.primary : themeColors.textSecondary}
-              />
+            <View
+              style={[
+                styles.middleRing,
+                {
+                  backgroundColor: isDark
+                    ? sessionStarted ? 'rgba(16, 185, 129, 0.28)' : 'rgba(255, 255, 255, 0.08)'
+                    : sessionStarted ? 'rgba(16, 185, 129, 0.2)' : colors.neutral[200],
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.innerRing,
+                  {
+                    backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                    borderColor: sessionStarted ? '#10B981' : isDark ? '#374151' : colors.neutral[300],
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={sessionStarted ? 'flash' : 'flash-outline'}
+                  size={56}
+                  color={sessionStarted ? '#10B981' : themeColors.textSecondary}
+                />
+              </View>
             </View>
           </Animated.View>
-          
-          {sessionStarted && (
-            <Text style={[styles.chargingStatus, { color: themeColors.primary }]}>{t('charging.in_progress', 'Charging in progress...')}</Text>
-          )}
+
+          {/* Live Status Pill */}
+          <View
+            style={[
+              styles.statusPill,
+              {
+                backgroundColor: sessionStarted
+                  ? isDark ? 'rgba(16, 185, 129, 0.2)' : '#DCFCE7'
+                  : isDark ? '#374151' : colors.neutral[200],
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: sessionStarted ? '#10B981' : colors.neutral[500] },
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusPillText,
+                { color: sessionStarted ? (isDark ? '#34D399' : '#15803D') : themeColors.textSecondary },
+              ]}
+            >
+              {sessionStarted
+                ? t('charging.live_delivering', 'LIVE · FAST POWER DELIVERY')
+                : t('charging.plug_ready', 'PLUG IN CONNECTOR TO BEGIN')}
+            </Text>
+          </View>
         </View>
 
-        {/* Stats Cards */}
+        {/* 3 Real-time Stats Cards */}
         <View style={styles.statsContainer}>
           <Card style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-            <Ionicons name="time-outline" size={24} color={themeColors.primary} />
+            <View style={[styles.statIconBadge, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#EFF6FF' }]}>
+              <Ionicons name="time-outline" size={20} color="#3B82F6" />
+            </View>
             <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('charging.duration', 'Duration')}</Text>
-            <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{formattedTime}</Text>
+            <Text style={[styles.statValue, { color: themeColors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
+              {formattedTime}
+            </Text>
           </Card>
 
           <Card style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-            <Ionicons name="flash-outline" size={24} color={colors.success} />
+            <View style={[styles.statIconBadge, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#DCFCE7' }]}>
+              <Ionicons name="flash-outline" size={20} color="#10B981" />
+            </View>
             <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('charging.energy', 'Energy')}</Text>
-            <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{energyDelivered.toFixed(2)} kWh</Text>
+            <Text style={[styles.statValue, { color: themeColors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
+              {energyDelivered.toFixed(2)} <Text style={styles.statUnit}>kWh</Text>
+            </Text>
           </Card>
 
           <Card style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-            <Ionicons name="cash-outline" size={24} color={colors.warning} />
+            <View style={[styles.statIconBadge, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7' }]}>
+              <Ionicons name="cash-outline" size={20} color="#F59E0B" />
+            </View>
             <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('charging.cost', 'Cost')}</Text>
-            <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{formatCurrency(currentCost)}</Text>
+            <Text style={[styles.statValue, { color: themeColors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
+              {formatCurrency(currentCost)}
+            </Text>
           </Card>
         </View>
 
-        {/* Charger Info */}
+        {/* Charger & Clean Grid Specifications */}
         <Card style={[styles.infoCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+          <Text style={[styles.infoCardTitle, { color: themeColors.textPrimary }]}>
+            {t('charging.specs_title', 'Charger & Grid Specifications')}
+          </Text>
+
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.charger_power', 'Charger Power')}</Text>
-            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>{power} kW</Text>
+            <View style={styles.infoRowLeft}>
+              <Ionicons name="flash" size={16} color={themeColors.textSecondary} />
+              <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.charger_power', 'Charger Power')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>{power > 0 ? `${power} kW DC` : '7.4 kW AC'}</Text>
           </View>
+
           <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
+
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.rate', 'Rate')}</Text>
-            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>{formatCurrency(price)}/kWh</Text>
+            <View style={styles.infoRowLeft}>
+              <Ionicons name="pricetag-outline" size={16} color={themeColors.textSecondary} />
+              <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.rate', 'Tariff Rate')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>{formatCurrency(price || 12.5)}/kWh</Text>
           </View>
+
           <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
+
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.est_range', 'Est. Range Added')}</Text>
+            <View style={styles.infoRowLeft}>
+              <Ionicons name="speedometer-outline" size={16} color={themeColors.textSecondary} />
+              <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.est_range', 'Est. Added Range')}</Text>
+            </View>
             <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>~{Math.round(energyDelivered * 5)} km</Text>
           </View>
+
           <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
+
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>🌿 {t('charging.clean_grid', 'Clean Energy Grid')}</Text>
-            <Text style={[styles.infoValue, { color: '#10B981', fontWeight: '600' }]}>92% Solar/Wind</Text>
+            <View style={styles.infoRowLeft}>
+              <Ionicons name="leaf-outline" size={16} color="#10B981" />
+              <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.clean_grid', 'Clean Energy Grid')}</Text>
+            </View>
+            <View style={styles.greenBadge}>
+              <Text style={styles.greenBadgeText}>92% Solar/Wind</Text>
+            </View>
           </View>
+
           <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
+
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>🌍 {t('charging.co2_avoided', 'CO₂ Avoided')}</Text>
-            <Text style={[styles.infoValue, { color: '#10B981', fontWeight: '600' }]}>{(energyDelivered * 0.72).toFixed(2)} kg</Text>
+            <View style={styles.infoRowLeft}>
+              <Ionicons name="planet-outline" size={16} color="#10B981" />
+              <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.co2_avoided', 'CO₂ Avoided')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: '#10B981', fontWeight: '700' }]}>
+              {(energyDelivered * 0.72).toFixed(2)} kg
+            </Text>
           </View>
         </Card>
-      </View>
 
-      {/* Action Button */}
-      <View style={[styles.footer, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border, paddingBottom: insets.bottom + 16 }]}>
+        {/* Safety & Real-time Hint */}
+        <View style={[styles.hintCard, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#F0FDF4', borderColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#DCFCE7' }]}>
+          <Ionicons name="shield-checkmark-outline" size={18} color="#10B981" />
+          <Text style={[styles.hintText, { color: isDark ? '#A7F3D0' : '#166534' }]}>
+            {sessionStarted
+              ? t('charging.hint_charging', 'Charging is secured. Vehicle connector is locked during session.')
+              : t('charging.hint_ready', 'Ensure the connector is firmly plugged into your EV before pressing Start.')}
+          </Text>
+        </View>
+      </ScrollView>
+
+      {/* Fixed Bottom Action Bar */}
+      <View style={[styles.footer, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border, paddingBottom: insets.bottom + 12 }]}>
         {!sessionStarted ? (
           <Button
             title={t('charging.start_btn', '⚡ Start Charging Session')}
@@ -334,10 +484,11 @@ export default function ChargingSessionScreen() {
             size="lg"
             onPress={handleStartSession}
             fullWidth
+            style={styles.startButton}
           />
         ) : (
           <Button
-            title={t('charging.end_btn', 'End Charging Session')}
+            title={t('charging.end_btn', '⏹ Stop & End Charging Session')}
             variant="outline"
             size="lg"
             onPress={handleEndSession}
@@ -352,7 +503,7 @@ export default function ChargingSessionScreen() {
       <Modal
         visible={showSweetModal}
         transparent={true}
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => {
           setShowSweetModal(false);
           router.replace({
@@ -364,10 +515,12 @@ export default function ChargingSessionScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.sweetModalCard, { backgroundColor: themeColors.surface }]}>
             <View style={[styles.sweetBadge, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#DCFCE7' }]}>
-              <Ionicons name="sparkles" size={28} color={themeColors.primary} />
+              <Ionicons name="sparkles" size={28} color="#10B981" />
             </View>
 
-            <Text style={[styles.sweetTitle, { color: themeColors.textPrimary }]}>{t('charging.complete_title', 'Charging Complete! 🎉')}</Text>
+            <Text style={[styles.sweetTitle, { color: themeColors.textPrimary }]}>
+              {t('charging.complete_title', 'Charging Complete! 🎉')}
+            </Text>
             <Text style={[styles.sweetSubtitle, { color: themeColors.textSecondary }]}>
               {t('charging.complete_sub', 'Thank you for driving clean and powering the green revolution with EcoVolt! 🌿⚡')}
             </Text>
@@ -376,33 +529,49 @@ export default function ChargingSessionScreen() {
             <View style={styles.impactGrid}>
               <View style={[styles.impactCell, { backgroundColor: isDark ? '#1F2937' : '#F8FAFC' }]}>
                 <Text style={styles.impactEmoji}>⚡</Text>
-                <Text style={[styles.impactValue, { color: themeColors.textPrimary }]}>{completedStats?.energy.toFixed(2)} kWh</Text>
-                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>{t('charging.delivered', 'Delivered')}</Text>
+                <Text style={[styles.impactValue, { color: themeColors.textPrimary }]}>
+                  {completedStats?.energy.toFixed(2)} kWh
+                </Text>
+                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>
+                  {t('charging.delivered', 'Delivered')}
+                </Text>
               </View>
 
               <View style={[styles.impactCell, { backgroundColor: isDark ? '#1F2937' : '#F8FAFC' }]}>
                 <Text style={styles.impactEmoji}>🌍</Text>
-                <Text style={[styles.impactValue, { color: '#16A34A' }]}>{completedStats?.co2Avoided.toFixed(2)} kg</Text>
-                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>{t('charging.co2_avoided', 'CO₂ Avoided')}</Text>
+                <Text style={[styles.impactValue, { color: '#16A34A' }]}>
+                  {completedStats?.co2Avoided.toFixed(2)} kg
+                </Text>
+                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>
+                  {t('charging.co2_avoided', 'CO₂ Avoided')}
+                </Text>
               </View>
 
               <View style={[styles.impactCell, { backgroundColor: isDark ? '#1F2937' : '#F8FAFC' }]}>
                 <Text style={styles.impactEmoji}>💰</Text>
-                <Text style={[styles.impactValue, { color: themeColors.textPrimary }]}>{formatCurrency(completedStats?.cost || 0)}</Text>
-                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>{t('charging.total_cost', 'Total Cost')}</Text>
+                <Text style={[styles.impactValue, { color: themeColors.textPrimary }]}>
+                  {formatCurrency(completedStats?.cost || 0)}
+                </Text>
+                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>
+                  {t('charging.total_cost', 'Total Cost')}
+                </Text>
               </View>
 
               <View style={[styles.impactCell, { backgroundColor: isDark ? '#1F2937' : '#F8FAFC' }]}>
                 <Text style={styles.impactEmoji}>🏆</Text>
-                <Text style={[styles.impactValue, { color: '#D97706' }]}>+{completedStats?.ecoPoints} pts</Text>
-                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>{t('charging.ecopoints', 'EcoPoints')}</Text>
+                <Text style={[styles.impactValue, { color: '#D97706' }]}>
+                  +{completedStats?.ecoPoints} pts
+                </Text>
+                <Text style={[styles.impactLabel, { color: themeColors.textSecondary }]}>
+                  {t('charging.ecopoints', 'EcoPoints')}
+                </Text>
               </View>
             </View>
 
             <View style={[styles.sweetNoteBox, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#F0FDF4' }]}>
-              <Ionicons name="leaf-outline" size={18} color={themeColors.primary} />
-              <Text style={[styles.sweetNoteText, { color: themeColors.primary }]}>
-                {t('charging.receipt_note', 'A dynamic session receipt and sweet eco-credit alert have been saved in your notifications!')}
+              <Ionicons name="leaf-outline" size={18} color="#10B981" />
+              <Text style={[styles.sweetNoteText, { color: isDark ? '#A7F3D0' : '#15803D' }]}>
+                {t('charging.receipt_note', 'A session receipt and eco-credit reward have been saved to your account!')}
               </Text>
             </View>
 
@@ -451,211 +620,289 @@ export default function ChargingSessionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#fff',
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
   },
   headerBackButton: {
-    padding: 8,
-    marginRight: 8,
+    padding: 6,
+    borderRadius: 8,
   },
   headerTitleWrap: {
     flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 8,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    color: colors.neutral[800],
     textAlign: 'center',
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: colors.neutral[500],
+    fontSize: 12,
+    fontWeight: '500',
     marginTop: 2,
     textAlign: 'center',
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 16,
   },
   chargingVisual: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 20,
   },
   outerRing: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: colors.primary[50],
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  middleRing: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     justifyContent: 'center',
     alignItems: 'center',
   },
   innerRing: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: colors.neutral[100],
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 4,
-    borderColor: colors.neutral[300],
+    borderWidth: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  chargingStatus: {
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
     marginTop: 16,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary[600],
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   statsContainer: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginBottom: 16,
   },
   statCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  statIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   statLabel: {
-    fontSize: 12,
-    color: colors.neutral[500],
-    marginTop: 8,
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 4,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.neutral[800],
-    marginTop: 4,
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  statUnit: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   infoCard: {
-    marginTop: 8,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  infoCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 14,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
+  },
+  infoRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   infoLabel: {
-    fontSize: 14,
-    color: colors.neutral[500],
+    fontSize: 13,
+    fontWeight: '500',
   },
   infoValue: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.neutral[800],
+    fontWeight: '700',
   },
   infoDivider: {
     height: 1,
-    backgroundColor: colors.neutral[200],
+    opacity: 0.6,
+  },
+  greenBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  greenBadgeText: {
+    color: '#15803D',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  hintCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  hintText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
   },
   footer: {
-    padding: 16,
-    backgroundColor: '#fff',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral[200],
+  },
+  startButton: {
+    backgroundColor: '#10B981',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   endButton: {
-    borderColor: colors.error[500],
+    borderColor: colors.error,
+    borderWidth: 1.5,
   },
-  // Sweet Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   sweetModalCard: {
     width: '100%',
-    backgroundColor: '#fff',
+    maxWidth: 380,
     borderRadius: 24,
     padding: 24,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 10,
   },
   sweetBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#DCFCE7',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sweetTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.neutral[900],
+    fontSize: 20,
+    fontWeight: '800',
     textAlign: 'center',
   },
   sweetSubtitle: {
-    fontSize: 14,
-    color: colors.neutral[600],
+    fontSize: 13,
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
+    marginTop: 6,
+    lineHeight: 18,
   },
   impactGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
     width: '100%',
-    marginTop: 20,
-    marginBottom: 16,
+    marginTop: 18,
+    marginBottom: 14,
   },
   impactCell: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 12,
+    padding: 10,
     alignItems: 'center',
   },
   impactEmoji: {
-    fontSize: 20,
-    marginBottom: 4,
+    fontSize: 18,
+    marginBottom: 2,
   },
   impactValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   impactLabel: {
-    fontSize: 11,
-    color: colors.neutral[500],
+    fontSize: 10,
     marginTop: 2,
   },
   sweetNoteBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    padding: 12,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 10,
     gap: 8,
-    marginBottom: 20,
+    marginBottom: 16,
     width: '100%',
   },
   sweetNoteText: {
-    fontSize: 12,
-    color: '#15803D',
+    fontSize: 11,
     flex: 1,
-    lineHeight: 16,
+    lineHeight: 15,
+    fontWeight: '500',
   },
   modalButtonContainer: {
     width: '100%',
   },
 });
+

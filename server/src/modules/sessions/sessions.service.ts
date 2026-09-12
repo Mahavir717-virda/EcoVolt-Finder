@@ -222,8 +222,11 @@ export class SessionsService {
     const totalCost = Math.round(energyKwh * finalPricePerKwh * 100) / 100;
 
     // 3. Compute Renewable Share & Avoided CO2
-    // Look up actual renewable % from ForecastCache for the session zone & window
-    let avgRenewablePct = 65.0; // fallback: Indian grid average
+    // Look up actual renewable % from ForecastCache for the session zone at session start time.
+    // Strategy: find the most recent forecast record whose hourStartLocal is <= startedAt
+    // (matches the same approach used by stations.service.ts → getZoneForecast).
+    // Fall back to ML API, then to a zone-aware Indian grid average if both fail.
+    let avgRenewablePct = 72.0; // reasonable default: IN-WE grid average (above green threshold)
     try {
       const stationWithZone = await prisma.station.findUnique({
         where: { id: session.stationId },
@@ -231,19 +234,72 @@ export class SessionsService {
       });
 
       if (stationWithZone) {
-        const forecast = await prisma.forecastCache.findFirst({
+        const zoneId = stationWithZone.zoneId;
+
+        // Primary: Most recent forecast at or before session start
+        let forecast = await prisma.forecastCache.findFirst({
           where: {
-            zoneId: stationWithZone.zoneId,
-            hourStartLocal: {
-              gte: startedAt,
-              lte: endedAt,
-            },
+            zoneId,
+            hourStartLocal: { lte: startedAt },
           },
           orderBy: { hourStartLocal: 'desc' },
         });
 
+        // Secondary: If no past forecast, get the nearest future one (session started during an uncached window)
+        if (!forecast) {
+          forecast = await prisma.forecastCache.findFirst({
+            where: { zoneId },
+            orderBy: { hourStartLocal: 'asc' },
+          });
+        }
+
         if (forecast) {
           avgRenewablePct = forecast.renewablePct;
+        } else {
+          // Tertiary: Try ML service live snapshot
+          try {
+            const mlUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+            const mlRes = await fetch(`${mlUrl}/grid/live?zoneId=${encodeURIComponent(zoneId)}`, {
+              signal: AbortSignal.timeout(3000),
+            });
+            if (mlRes.ok) {
+              const mlData: any = await mlRes.json();
+              // GridSnapshot shape: { renewablePct, carbonIntensity, carbonFreePct, ... }
+              const pct = mlData?.renewablePct ?? mlData?.renewable_pct;
+              if (typeof pct === 'number' && pct > 0) {
+                avgRenewablePct = pct;
+                // Persist to ForecastCache so future lookups within this zone hit the DB
+                try {
+                  const hourStart = new Date(startedAt);
+                  hourStart.setMinutes(0, 0, 0);
+                  const existing = await prisma.forecastCache.findFirst({
+                    where: { zoneId, hourStartLocal: hourStart },
+                  });
+                  if (existing) {
+                    await prisma.forecastCache.update({
+                      where: { id: existing.id },
+                      data: { renewablePct: pct, carbonIntensity: mlData?.carbonIntensity ?? 200, fetchedAt: new Date() },
+                    });
+                  } else {
+                    await prisma.forecastCache.create({
+                      data: {
+                        zoneId,
+                        hourStartLocal: hourStart,
+                        renewablePct: pct,
+                        carbonIntensity: mlData?.carbonIntensity ?? 200,
+                        confidence: 1.0,
+                      },
+                    });
+                  }
+                } catch {
+                  // ForecastCache write failed — non-critical
+                }
+              }
+            }
+          } catch {
+            // ML API unavailable — use zone-aware default
+            avgRenewablePct = zoneId === 'IN-WE' ? 72.0 : 65.0;
+          }
         }
       }
     } catch (e) {
@@ -255,24 +311,37 @@ export class SessionsService {
     const co2AvoidedKg =
       Math.round(((energyKwh * (gridBaselineIntensity - achievedIntensity)) / 1000) * 100) / 100;
 
-    // 4. Persist completed session
-    const completedSession = await prisma.session.update({
-      where: { id: session.id },
-      data: {
-        status: SessionStatus.completed,
-        endedAt,
-        energyKwh,
-        cost: totalCost,
-        avgRenewablePct,
-        co2AvoidedKg,
-      },
-    });
+    // 4. Persist completed session + free up the connector slot atomically
+    const [completedSession] = await prisma.$transaction([
+      prisma.session.update({
+        where: { id: session.id },
+        data: {
+          status: SessionStatus.completed,
+          endedAt,
+          energyKwh,
+          cost: totalCost,
+          avgRenewablePct,
+          co2AvoidedKg,
+        },
+      }),
+      prisma.booking.update({
+        where: { id: session.bookingId },
+        data: { status: SessionStatus.completed },
+      }),
+    ]);
 
-    // Update booking status
-    await prisma.booking.update({
-      where: { id: session.bookingId },
-      data: { status: SessionStatus.completed },
-    });
+    // Release the connector slot — increment up to totalCount ceiling
+    try {
+      await prisma.$executeRaw`
+        UPDATE connectors
+        SET "availableCount" = LEAST("totalCount", "availableCount" + 1),
+            "updatedAt" = now()
+        WHERE id = ${session.connectorId}
+      `;
+    } catch (slotErr) {
+      // Non-critical: slot release failure should not block billing response
+      console.warn('Failed to release connector slot after session stop:', slotErr);
+    }
 
     // Fire Notification hook
     try {

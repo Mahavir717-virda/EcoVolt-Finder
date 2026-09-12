@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,7 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DriverStackParamList } from '../../navigation/types';
 import { http } from '../../api/http';
 import { PriceQuote, StationSummary } from '@contracts/types';
@@ -20,50 +20,156 @@ import {
   Text,
   Button,
   Chip,
-  Card,
   TicketCard,
 } from '../../components';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
 
 type BookingConfirmRouteProp = RouteProp<DriverStackParamList, 'BookingConfirm'>;
 
+interface PortDetail {
+  portNumber: number;
+  status: 'available' | 'booked' | 'maintenance' | 'offline';
+}
+
+interface ConnectorSlot {
+  connectorId: string;
+  type: string;
+  powerKw: number;
+  status: string;
+  totalCount: number;
+  availableCount: number;
+  bookedCount: number;
+  ports?: PortDetail[];
+}
+
+interface SlotMatrixResponse {
+  stationId: string;
+  windowStart: string;
+  windowEnd: string;
+  connectors: ConnectorSlot[];
+  totalFree: number;
+  totalOccupied: number;
+  totalCapacity: number;
+}
+
+const START_TIME_OPTIONS = [
+  { label: 'Now (+5m)', offsetMins: 5 },
+  { label: '+15 mins', offsetMins: 15 },
+  { label: '+30 mins', offsetMins: 30 },
+  { label: '+1 hour', offsetMins: 60 },
+  { label: '+2 hours', offsetMins: 120 },
+  { label: '+3 hours', offsetMins: 180 },
+];
+
+const DURATION_OPTIONS = [
+  { label: '30 mins', mins: 30 },
+  { label: '45 mins', mins: 45 },
+  { label: '60 mins (Std)', mins: 60 },
+  { label: '90 mins', mins: 90 },
+  { label: '120 mins', mins: 120 },
+];
+
 export const ConfirmBookingScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const route = useRoute<BookingConfirmRouteProp>();
   const navigation = useNavigation<NativeStackNavigationProp<DriverStackParamList>>();
+  const queryClient = useQueryClient();
   const { getActiveVehicle } = useVehiclesStore();
   const activeVehicle = getActiveVehicle();
 
   const stationId = route.params?.stationId || 'station-001';
-  const connectorType = route.params?.connectorType || 'ccs2';
+  const initialConnector = route.params?.connectorType || 'ccs2';
 
-  // 1. Fetch Station
+  const [selectedConnector, setSelectedConnector] = useState<string>(initialConnector);
+  const [startOffsetMins, setStartOffsetMins] = useState<number>(() => {
+    if (route.params?.windowStart) {
+      const diff = Math.max(0, Math.round((new Date(route.params.windowStart).getTime() - Date.now()) / (60 * 1000)));
+      return diff;
+    }
+    return 5;
+  });
+  const [durationMins, setDurationMins] = useState<number>(route.params?.durationMinutes || 60);
+
+  // 1. Fetch Station Details
   const stationQuery = useQuery<StationSummary>({
     queryKey: ['station', stationId],
     queryFn: async () => {
-      const res = await http.get<StationSummary>(`/stations/${stationId}`);
-      return res;
+      return http.get<StationSummary>(`/stations/${stationId}`);
     },
-    staleTime: 30000,
+    staleTime: 5000,
   });
 
-  // 2. Fetch Pricing Quote
-  const quoteQuery = useQuery<PriceQuote>({
-    queryKey: ['pricing', 'quote', stationId, connectorType],
+  const station = stationQuery.data;
+
+  // Auto-sync selected connector if invalid
+  useEffect(() => {
+    if (station?.connectors && station.connectors.length > 0) {
+      const exists = station.connectors.some((c) => c.type === selectedConnector);
+      if (!exists) {
+        setSelectedConnector(station.connectors[0].type);
+      }
+    }
+  }, [station, selectedConnector]);
+
+  // 2. Stable Dynamic Time Window (Start Time X + Interval Y)
+  const bookingWindow = useMemo(() => {
+    const baseStart = route.params?.windowStart
+      ? new Date(route.params.windowStart)
+      : new Date(Date.now() + startOffsetMins * 60 * 1000);
+    const end = new Date(baseStart.getTime() + durationMins * 60 * 1000);
+    return {
+      startIso: baseStart.toISOString(),
+      endIso: end.toISOString(),
+      label: `${baseStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      durationMinutes: durationMins,
+    };
+  }, [startOffsetMins, durationMins, route.params?.windowStart]);
+
+  // 3. Live Slot Matrix for the exact [X, X + Y] window
+  const slotQuery = useQuery<SlotMatrixResponse>({
+    queryKey: ['slots', stationId, selectedConnector, bookingWindow.startIso, bookingWindow.endIso],
     queryFn: async () => {
-      const res = await http.get<PriceQuote>('/pricing/quote', {
-        params: { stationId, connector: connectorType, kwh: 18 },
+      return http.get<SlotMatrixResponse>(`/bookings/station/${stationId}/slots`, {
+        params: {
+          windowStart: bookingWindow.startIso,
+          windowEnd: bookingWindow.endIso,
+          connectorType: selectedConnector,
+        },
       });
-      return res;
     },
-    staleTime: 30000,
+    enabled: !!stationId && !!selectedConnector,
+    staleTime: 4000,
+    refetchInterval: 8000,
   });
 
-  const now = new Date();
-  const defaultStart = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
-  const defaultEnd = new Date(now.getTime() + 75 * 60 * 1000).toISOString();
+  // Derived slot metrics for selected connector & window
+  const slotMatrix = slotQuery.data;
+  const currentSlot = slotMatrix?.connectors.find((c) => c.type === selectedConnector);
+  const freeSlots = currentSlot ? currentSlot.availableCount : (slotMatrix?.totalFree ?? null);
+  const totalSlots = currentSlot ? currentSlot.totalCount : (slotMatrix?.totalCapacity ?? null);
+  const slotStatus = currentSlot?.status || 'available';
+  const noSlotsLeft = freeSlots !== null && freeSlots <= 0;
 
-  // Price Lock Countdown Timer (Edge Case #17)
+  // Estimated target energy for the selected duration
+  const estimatedKwh = useMemo(() => {
+    const power = currentSlot?.powerKw || 50;
+    const hours = durationMins / 60;
+    const vehicleMax = activeVehicle?.batteryKwh || 40;
+    return Number(Math.min(vehicleMax, power * hours * 0.85).toFixed(1));
+  }, [currentSlot?.powerKw, durationMins, activeVehicle?.batteryKwh]);
+
+  // 4. Fetch Pricing Quote for current connector
+  const quoteQuery = useQuery<PriceQuote>({
+    queryKey: ['pricing', 'quote', stationId, selectedConnector, estimatedKwh],
+    queryFn: async () => {
+      return http.get<PriceQuote>('/pricing/quote', {
+        params: { stationId, connector: selectedConnector, kwh: estimatedKwh },
+      });
+    },
+    staleTime: 10000,
+  });
+
+  // Price Lock Countdown Timer
   const [timeLeftSec, setTimeLeftSec] = useState(1799);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -86,16 +192,32 @@ export const ConfirmBookingScreen: React.FC = () => {
       Alert.alert('No Vehicle', 'Please select or add a vehicle to your garage before booking.');
       return;
     }
+    if (noSlotsLeft) {
+      Alert.alert(
+        'No Slots Available',
+        `All ${formatConnectorName(selectedConnector as any)} ports are booked for ${bookingWindow.label}. Please adjust your start time or duration.`
+      );
+      return;
+    }
     setIsSubmitting(true);
     try {
       await http.post('/bookings', {
         stationId,
-        connectorType,
+        connectorType: selectedConnector,
         vehicleId: activeVehicle.id,
-        windowStart: defaultStart,
-        windowEnd: defaultEnd,
+        windowStart: bookingWindow.startIso,
+        windowEnd: bookingWindow.endIso,
         priceQuoteId: `quote_${Date.now()}`,
       });
+
+      // Immediately invalidate all slot, station, and booking caches across the app
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['slots'] }),
+        queryClient.invalidateQueries({ queryKey: ['station'] }),
+        queryClient.invalidateQueries({ queryKey: ['stations'] }),
+        queryClient.invalidateQueries({ queryKey: ['nearby'] }),
+        queryClient.invalidateQueries({ queryKey: ['bookings'] }),
+      ]);
 
       setIsSubmitting(false);
       setIsSuccess(true);
@@ -114,7 +236,6 @@ export const ConfirmBookingScreen: React.FC = () => {
     );
   }
 
-  const station = stationQuery.data;
   const quote = quoteQuery.data;
 
   if (!station || !quote) {
@@ -130,40 +251,41 @@ export const ConfirmBookingScreen: React.FC = () => {
     return (
       <View style={[styles.container, styles.successContainer]}>
         <Text variant="screenTitle" align="center" style={{ marginBottom: spacing.md }}>
-          Slot Booked!
+          Slot Confirmed & Locked!
         </Text>
         
         <TicketCard
           bookingId={`BK-${Date.now().toString().slice(-6)}`}
           stationName={station.name}
-          dateTime="12:00 PM – 1:30 PM (Solar Peak)"
+          dateTime={`${bookingWindow.label} (${durationMins} mins)`}
           rows={[
-            { label: 'Connector', value: formatConnectorName(connectorType as any) },
+            { label: 'Connector', value: formatConnectorName(selectedConnector as any) },
             { label: 'Vehicle', value: activeVehicle?.model || 'Tata Nexon EV Max' },
             { label: 'Locked Tariff', value: `₹${quote.finalPrice.toFixed(2)}/kWh`, highlight: true },
+            { label: 'Estimated Total', value: `₹${(quote.finalPrice * estimatedKwh).toFixed(2)} (${estimatedKwh} kWh)` },
           ]}
           style={{ marginBottom: spacing.xl }}
         />
 
-          <Button
-            label="View Active Session"
-            variant="primary"
-            onPress={() =>
-              navigation.navigate('DriverTabs', {
-                screen: 'Activity',
-              })
-            }
-            style={styles.doneBtn}
-          />
-          <Button
-            label="Back to Map"
-            variant="ghost"
-            onPress={() =>
-              navigation.navigate('DriverTabs', {
-                screen: 'Explore',
-              })
-            }
-          />
+        <Button
+          label="View Active Session"
+          variant="primary"
+          onPress={() =>
+            navigation.navigate('DriverTabs', {
+              screen: 'Activity',
+            })
+          }
+          style={styles.doneBtn}
+        />
+        <Button
+          label="Back to Map"
+          variant="ghost"
+          onPress={() =>
+            navigation.navigate('DriverTabs', {
+              screen: 'Explore',
+            })
+          }
+        />
       </View>
     );
   }
@@ -184,7 +306,7 @@ export const ConfirmBookingScreen: React.FC = () => {
               Confirm Reservation
             </Text>
             <Text variant="caption" color={colors.ink2}>
-              Review slot parameters and lock quoted charging rate
+              Choose interval & lock live port availability
             </Text>
           </View>
         </View>
@@ -219,24 +341,20 @@ export const ConfirmBookingScreen: React.FC = () => {
                 {activeVehicle?.model || 'Tata Nexon EV Max'}
               </Text>
             </View>
-
-            <View style={styles.connectorInfo}>
-              <Text variant="micro" color={colors.ink3}>
-                Connector
-              </Text>
-              <Text variant="body" color={colors.brand} style={styles.connType}>
-                {formatConnectorName(connectorType as any)}
-              </Text>
-            </View>
           </View>
         </View>
 
-        {/* 2. Scheduled Time Window Card */}
+        {/* 2. Start Time & Duration (X to X+Y) Selector Card */}
         <View style={styles.timeWindowCard}>
           <View style={styles.timeWindowHeader}>
-            <Text variant="cardTitle" style={styles.timeWindowTitle}>
-              Scheduled Slot Window
-            </Text>
+            <View>
+              <Text variant="cardTitle" style={styles.timeWindowTitle}>
+                🕒 Time Window & Duration (X to X+Y)
+              </Text>
+              <Text variant="micro" color={colors.ink2}>
+                Slots for the entire {durationMins}-min interval will be locked
+              </Text>
+            </View>
             <Chip
               label="SOLAR PEAK"
               variant="solid"
@@ -245,17 +363,221 @@ export const ConfirmBookingScreen: React.FC = () => {
             />
           </View>
 
+          {/* Start Time (X) Picker */}
+          <View style={styles.selectorGroup}>
+            <Text variant="caption" style={styles.selectorLabel}>
+              1. Select Start Time (X):
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+              {START_TIME_OPTIONS.map((opt) => {
+                const isSelected = startOffsetMins === opt.offsetMins;
+                return (
+                  <TouchableOpacity
+                    key={opt.offsetMins}
+                    onPress={() => setStartOffsetMins(opt.offsetMins)}
+                    style={[styles.timeChip, isSelected && styles.timeChipActive]}
+                  >
+                    <Text
+                      variant="micro"
+                      style={[styles.timeChipText, isSelected && styles.timeChipTextActive]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Duration (Y) Picker */}
+          <View style={styles.selectorGroup}>
+            <Text variant="caption" style={styles.selectorLabel}>
+              2. Select Charging Interval / Duration (Y):
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+              {DURATION_OPTIONS.map((opt) => {
+                const isSelected = durationMins === opt.mins;
+                return (
+                  <TouchableOpacity
+                    key={opt.mins}
+                    onPress={() => setDurationMins(opt.mins)}
+                    style={[styles.timeChip, isSelected && styles.timeChipActive]}
+                  >
+                    <Text
+                      variant="micro"
+                      style={[styles.timeChipText, isSelected && styles.timeChipTextActive]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Formatted Interval Display */}
           <View style={styles.timeBox}>
             <Text variant="sectionLabel" color={colors.brand} style={styles.timeBig}>
-              12:00 PM – 1:30 PM
+              {bookingWindow.label}
             </Text>
             <Text variant="micro" color={colors.ink2}>
-              Today · 85% expected renewable generation
+              Duration: {durationMins} minutes · Target: ~{estimatedKwh} kWh
             </Text>
           </View>
         </View>
 
-        {/* 3. Price-Lock Guarantee Card (Edge Case #17) */}
+        {/* 3. Live Charger Selection & Port Status Breakdown for this Interval */}
+        <View style={styles.connectorSectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text variant="cardTitle" style={styles.sectionHeading}>
+                Charger Ports for Selected Window
+              </Text>
+              <Text variant="micro" color={colors.ink2}>
+                Availability during {bookingWindow.label} ({slotMatrix?.totalFree ?? 0}/{slotMatrix?.totalCapacity ?? 0} free)
+              </Text>
+            </View>
+          </View>
+
+          {/* Charger Type Selector Pills */}
+          {station.connectors && station.connectors.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chargerPillsList}>
+              {station.connectors.map((c) => {
+                const cSlot = slotMatrix?.connectors.find((item) => item.type === c.type);
+                const freeCount = cSlot ? cSlot.availableCount : (c.available ?? c.total ?? 1);
+                const totCount = cSlot ? cSlot.totalCount : (c.total ?? 1);
+                const isSelected = selectedConnector === c.type;
+
+                return (
+                  <TouchableOpacity
+                    key={c.type}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedConnector(c.type)}
+                    style={[
+                      styles.chargerPill,
+                      isSelected && styles.chargerPillSelected,
+                    ]}
+                  >
+                    <View style={styles.pillTop}>
+                      <Text
+                        variant="bodyMedium"
+                        style={[styles.pillTitle, isSelected && styles.pillTitleSelected]}
+                      >
+                        {formatConnectorName(c.type as any)}
+                      </Text>
+                      <Text variant="micro" color={isSelected ? colors.brand : colors.ink3}>
+                        {c.powerKw}kW
+                      </Text>
+                    </View>
+
+                    <View style={styles.pillBottom}>
+                      <View
+                        style={[
+                          styles.statusDotSmall,
+                          { backgroundColor: freeCount > 0 ? colors.brand : '#EF4444' },
+                        ]}
+                      />
+                      <Text
+                        variant="micro"
+                        style={{
+                          color: freeCount > 0 ? (isSelected ? colors.brand : colors.ink2) : '#EF4444',
+                          fontWeight: '600',
+                        }}
+                      >
+                        {freeCount}/{totCount} Free
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          {/* Detailed Port Status Visualizer for selected connector & window */}
+          <View style={styles.portDetailBox}>
+            <View style={styles.portDetailHeader}>
+              <Text variant="bodyMedium" style={{ fontWeight: '700' }}>
+                {formatConnectorName(selectedConnector as any)} Ports ({bookingWindow.label})
+              </Text>
+              <Chip
+                label={
+                  slotStatus === 'maintenance' || slotStatus === 'offline'
+                    ? `⛔ ${slotStatus}`
+                    : freeSlots === 0
+                    ? '🔴 0 Ports Free'
+                    : freeSlots === 1
+                    ? '🟡 1 Port Left'
+                    : `🟢 ${freeSlots} of ${totalSlots} Ports Free`
+                }
+                variant="subtle"
+                color={freeSlots === 0 ? '#EF4444' : freeSlots === 1 ? '#D97706' : colors.brand}
+                backgroundColor={freeSlots === 0 ? '#FEF2F2' : freeSlots === 1 ? '#FFFBEB' : '#EDF7F0'}
+              />
+            </View>
+
+            {/* Visual Ports Grid */}
+            <View style={styles.portsGrid}>
+              {currentSlot?.ports && currentSlot.ports.length > 0 ? (
+                currentSlot.ports.map((port) => (
+                  <View
+                    key={port.portNumber}
+                    style={[
+                      styles.portBox,
+                      port.status === 'available'
+                        ? styles.portBoxAvailable
+                        : styles.portBoxBooked,
+                    ]}
+                  >
+                    <Text style={styles.portIcon}>
+                      {port.status === 'available' ? '⚡' : '🔒'}
+                    </Text>
+                    <Text variant="micro" style={styles.portName}>
+                      Port #{port.portNumber}
+                    </Text>
+                    <Text
+                      variant="micro"
+                      style={[
+                        styles.portStatusText,
+                        { color: port.status === 'available' ? colors.brand : '#EF4444' },
+                      ]}
+                    >
+                      {port.status === 'available' ? 'Free for Window' : 'Booked for Window'}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                Array.from({ length: totalSlots || 2 }).map((_, idx) => {
+                  const isAvailable = idx < (freeSlots ?? 1);
+                  return (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.portBox,
+                        isAvailable ? styles.portBoxAvailable : styles.portBoxBooked,
+                      ]}
+                    >
+                      <Text style={styles.portIcon}>{isAvailable ? '⚡' : '🔒'}</Text>
+                      <Text variant="micro" style={styles.portName}>
+                        Port #{idx + 1}
+                      </Text>
+                      <Text
+                        variant="micro"
+                        style={[
+                          styles.portStatusText,
+                          { color: isAvailable ? colors.brand : '#EF4444' },
+                        ]}
+                      >
+                        {isAvailable ? 'Free for Window' : 'Booked for Window'}
+                      </Text>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* 4. Price-Lock Guarantee Card */}
         <View style={styles.priceLockCard}>
           <View style={styles.priceLockHeader}>
             <View style={styles.priceLockTitleCol}>
@@ -288,10 +610,10 @@ export const ConfirmBookingScreen: React.FC = () => {
 
             <View style={styles.priceCol}>
               <Text variant="micro" color={colors.ink3}>
-                Target kWh
+                Estimated kWh
               </Text>
               <Text variant="cardTitle" style={styles.priceValue}>
-                18.0 kWh
+                {estimatedKwh} kWh
               </Text>
             </View>
 
@@ -302,19 +624,19 @@ export const ConfirmBookingScreen: React.FC = () => {
                 Estimated Cost
               </Text>
               <Text variant="cardTitle" color={colors.ink} style={styles.priceValue}>
-                ₹{(quote.finalPrice * 18).toFixed(2)}
+                ₹{(quote.finalPrice * estimatedKwh).toFixed(2)}
               </Text>
             </View>
           </View>
 
           <View style={styles.priceLockFooter}>
             <Text variant="micro" color={colors.ink3}>
-              🛡️ Session bills at locked ₹{quote.finalPrice.toFixed(2)}/kWh even if manager tariffs change.
+              🛡️ Locked at ₹{quote.finalPrice.toFixed(2)}/kWh for full {durationMins}-min duration.
             </Text>
           </View>
         </View>
 
-        {/* 4. Cancellation Policy */}
+        {/* 5. Cancellation Policy */}
         <View style={styles.policyCard}>
           <Text variant="micro" color={colors.ink2}>
             ℹ️ <Text variant="micro" style={styles.boldText}>Free Cancellation:</Text> Cancel anytime up to 15 minutes before your slot with zero cancellation fees.
@@ -330,11 +652,18 @@ export const ConfirmBookingScreen: React.FC = () => {
         ]}
       >
         <Button
-          label={isSubmitting ? 'Reserving Slot…' : `Confirm & Lock Slot (₹${(quote.finalPrice * 18).toFixed(0)})`}
+          label={
+            noSlotsLeft
+              ? '🔴 Selected Interval Fully Booked'
+              : isSubmitting
+              ? 'Reserving Slot…'
+              : `Confirm & Lock Slot (₹${(quote.finalPrice * estimatedKwh).toFixed(0)})`
+          }
           variant="primary"
           busy={isSubmitting}
+          disabled={noSlotsLeft || isSubmitting}
           onPress={handleConfirmBooking}
-          style={styles.confirmBtn}
+          style={noSlotsLeft ? { ...styles.confirmBtn, ...styles.confirmBtnDisabled } : styles.confirmBtn}
         />
       </View>
     </View>
@@ -386,6 +715,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colors.border,
+    marginVertical: 4,
   },
   vehicleRow: {
     flexDirection: 'row',
@@ -393,16 +723,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   vehicleInfo: {
+    flex: 1,
     gap: 2,
   },
   vehicleModel: {
-    fontFamily: 'Manrope_700Bold',
-  },
-  connectorInfo: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  connType: {
     fontFamily: 'Manrope_700Bold',
   },
   timeWindowCard: {
@@ -411,40 +735,181 @@ const styles = StyleSheet.create({
     padding: spacing.base,
     borderWidth: 1,
     borderColor: colors.border,
-    gap: spacing.sm,
+    gap: spacing.md,
     ...shadows.e1,
   },
   timeWindowHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   timeWindowTitle: {
+    fontFamily: 'Manrope_700Bold',
+  },
+  selectorGroup: {
+    gap: 6,
+  },
+  selectorLabel: {
     fontFamily: 'Manrope_600SemiBold',
+    color: colors.ink2,
+  },
+  chipsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  timeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceSunken,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  timeChipActive: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
+  },
+  timeChipText: {
+    color: colors.ink,
+    fontWeight: '600',
+  },
+  timeChipTextActive: {
+    color: '#FFFFFF',
   },
   timeBox: {
     backgroundColor: colors.surfaceSunken,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     padding: spacing.md,
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   timeBig: {
     fontFamily: 'Manrope_700Bold',
   },
-  priceLockCard: {
-    backgroundColor: '#F3FAF5',
+  connectorSectionCard: {
+    backgroundColor: colors.surface,
     borderRadius: radii.xl,
     padding: spacing.base,
-    borderWidth: 1.5,
-    borderColor: colors.brand,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.md,
+    ...shadows.e1,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sectionHeading: {
+    fontFamily: 'Manrope_700Bold',
+  },
+  chargerPillsList: {
+    flexDirection: 'row',
     gap: spacing.sm,
-    ...shadows.e2,
+    paddingVertical: 4,
+  },
+  chargerPill: {
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surfaceSunken,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    minWidth: 120,
+    gap: 4,
+  },
+  chargerPillSelected: {
+    borderColor: colors.brand,
+    backgroundColor: '#EDF7F0',
+  },
+  pillTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pillTitle: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 13,
+    color: colors.ink,
+  },
+  pillTitleSelected: {
+    color: colors.brand,
+  },
+  pillBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  statusDotSmall: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  portDetailBox: {
+    backgroundColor: colors.surfaceSunken,
+    borderRadius: radii.lg,
+    padding: spacing.sm + 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.sm,
+  },
+  portDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  portsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  portBox: {
+    flex: 1,
+    minWidth: '28%',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    gap: 2,
+    borderWidth: 1,
+  },
+  portBoxAvailable: {
+    backgroundColor: '#FFFFFF',
+    borderColor: colors.brand,
+  },
+  portBoxBooked: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  portIcon: {
+    fontSize: 16,
+  },
+  portName: {
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  portStatusText: {
+    fontSize: 9,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  priceLockCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    padding: spacing.base,
+    borderWidth: 1,
+    borderColor: colors.brandTint,
+    gap: spacing.md,
+    ...shadows.e1,
   },
   priceLockHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   priceLockTitleCol: {
     flex: 1,
@@ -455,7 +920,7 @@ const styles = StyleSheet.create({
   },
   timerBadge: {
     backgroundColor: colors.brandTint,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: radii.pill,
     borderWidth: 1,
@@ -468,18 +933,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
+    backgroundColor: colors.surfaceSunken,
+    borderRadius: radii.lg,
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   priceCol: {
     flex: 1,
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
   },
   priceValue: {
     fontFamily: 'Manrope_700Bold',
-    fontSize: 16,
   },
   priceDivider: {
     width: 1,
@@ -491,11 +957,14 @@ const styles = StyleSheet.create({
   },
   policyCard: {
     backgroundColor: colors.surfaceSunken,
+    borderRadius: radii.lg,
     padding: spacing.md,
-    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   boldText: {
     fontFamily: 'Manrope_700Bold',
+    color: colors.ink,
   },
   bottomBar: {
     position: 'absolute',
@@ -505,51 +974,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.base,
     paddingHorizontal: spacing.base,
     ...shadows.e2,
   },
   confirmBtn: {
-    height: 50,
+    width: '100%',
+  },
+  confirmBtnDisabled: {
+    opacity: 0.6,
   },
   successContainer: {
     justifyContent: 'center',
-    padding: spacing.base,
-  },
-  successCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
+    alignItems: 'center',
     padding: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.e2,
-  },
-  successIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.brand,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  successTitle: {
-    fontFamily: 'Manrope_700Bold',
-  },
-  successMsg: {
-    lineHeight: 22,
-  },
-  successDetailsBox: {
-    backgroundColor: colors.surfaceSunken,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    width: '100%',
-    gap: 4,
   },
   doneBtn: {
     width: '100%',
-    height: 48,
-    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
   },
 });

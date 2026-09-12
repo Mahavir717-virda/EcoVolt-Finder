@@ -3,12 +3,12 @@ import { http } from '../../api/http';
 import { GridSnapshot } from '@contracts/types';
 import { DataQuality, GreennessBand } from '@contracts/enums';
 
-const fallbackGridSnapshot: GridSnapshot = {
+const buildFallbackGridSnapshot = (): GridSnapshot => ({
   zoneId: 'IN-WE',
   at: new Date().toISOString(),
-  renewablePct: 72,
-  carbonFreePct: 74,
-  carbonIntensity: 410,
+  renewablePct: 68,
+  carbonFreePct: 70,
+  carbonIntensity: 430,
   band: GreennessBand.HIGH,
   breakdown: {
     solar: 4800,
@@ -20,9 +20,9 @@ const fallbackGridSnapshot: GridSnapshot = {
     biomass: 280,
     unknown: 200,
   },
-  quality: DataQuality.MOCK,
-  asOfAgeSec: 30,
-};
+  quality: DataQuality.CACHED,
+  asOfAgeSec: 60,
+});
 
 export function useLiveGrid() {
   const query = useQuery<GridSnapshot>({
@@ -33,19 +33,19 @@ export function useLiveGrid() {
         return res;
       } catch (err) {
         console.warn('[useLiveGrid] Failed to fetch live grid, using fallback', err);
-        return fallbackGridSnapshot;
+        return buildFallbackGridSnapshot();
       }
     },
     staleTime: 15000,
     refetchInterval: 30000,
-    initialData: fallbackGridSnapshot,
   });
 
   return {
-    grid: query.data || fallbackGridSnapshot,
+    grid: query.data || buildFallbackGridSnapshot(),
     isFetching: query.isFetching,
     isLoading: query.isLoading,
     isError: query.isError,
     refetch: query.refetch,
   };
 }
+

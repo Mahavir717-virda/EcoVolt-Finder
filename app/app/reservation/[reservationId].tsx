@@ -157,8 +157,8 @@ export default function ReservationDetailScreen() {
   };
 
   const handleStartCharging = useCallback(() => {
-    // Navigate to charging session screen
-    router.push({
+    // Navigate to charging session screen (replace to prevent stale back-navigation after completion)
+    router.replace({
       pathname: '/reservation/charging',
       params: {
         reservationId,
@@ -497,19 +497,11 @@ export default function ReservationDetailScreen() {
           {reservationStatus === 'upcoming' && (
             <>
               <Button
-                title={t('reservations.check_in_start', '⚡ Check In / Start Charging Session')}
+                title={t('reservations.start_charging_now', '⚡ Check In & Start Charging')}
                 variant="primary"
-                onPress={handleSendReminder}
-                loading={sendingReminder}
-                fullWidth
-                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
-              />
-              <Button
-                title={t('reservations.check_in_start', '⚡ Check In / Start Charging Now')}
-                variant="outline"
                 onPress={handleStartCharging}
                 fullWidth
-                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
+                style={{ backgroundColor: themeColors.primary, marginBottom: 10 }}
               />
               <Button
                 title={t('support.cancel', 'Cancel Reservation')}
@@ -525,11 +517,11 @@ export default function ReservationDetailScreen() {
           {reservationStatus === 'in-progress' && (
             <>
               <Button
-                title={t('charging.start_btn', '⚡ View / Resume Charging Session')}
+                title={t('charging.resume_btn', '⚡ View / Resume Active Charging')}
                 variant="primary"
                 onPress={handleStartCharging}
                 fullWidth
-                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
+                style={{ backgroundColor: themeColors.primary, marginBottom: 10 }}
               />
               <Button
                 title={t('reservations.send_reminder', '🔔 Send Status Reminder')}
@@ -537,7 +529,7 @@ export default function ReservationDetailScreen() {
                 onPress={handleSendReminder}
                 loading={sendingReminder}
                 fullWidth
-                style={styles.cancelButton}
+                style={{ marginBottom: 10, borderColor: isDark ? themeColors.border : colors.neutral[300] }}
               />
             </>
           )}
