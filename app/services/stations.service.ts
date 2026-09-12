@@ -135,6 +135,11 @@ export async function getNearbyStations(
     .filter((s) => s.distance <= radius)
     .sort((a, b) => a.distance - b.distance);
 
+  // If no station falls strictly within the radius, return the closest stations
+  if (results.length === 0 && withDistance.length > 0) {
+    results = [...withDistance].sort((a, b) => a.distance - b.distance);
+  }
+
   if (limit) {
     results = results.slice(0, limit);
   }

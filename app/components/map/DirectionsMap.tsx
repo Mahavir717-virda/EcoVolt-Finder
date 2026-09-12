@@ -85,24 +85,42 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
     }
   }, []);
 
-  // Get user's current location
+  // Get user's current location with instant last-known and timeout fallback
   useEffect(() => {
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setError('Location permission denied');
-          return;
-        }
+        if (status === 'granted') {
+          // Try last known first for instant rendering
+          try {
+            const lastKnown = await Location.getLastKnownPositionAsync();
+            if (lastKnown?.coords) {
+              setUserLocation({
+                latitude: lastKnown.coords.latitude,
+                longitude: lastKnown.coords.longitude,
+              });
+            }
+          } catch {}
 
-        const location = await Location.getCurrentPositionAsync({});
-        setUserLocation({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
+          // Race current position with a 4.5s timeout
+          const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4500));
+          const posPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const result = await Promise.race([posPromise, timeoutPromise]);
+
+          if (result && result.coords) {
+            setUserLocation({
+              latitude: result.coords.latitude,
+              longitude: result.coords.longitude,
+            });
+            return;
+          }
+        }
+        
+        // Fallback default: Navrangpura Ahmedabad EV Hub if no location acquired
+        setUserLocation((prev) => prev || { latitude: 23.0370, longitude: 72.5622 });
       } catch (err) {
-        console.error('Error getting location:', err);
-        setError('Could not get your location');
+        console.warn('DirectionsMap location error, using fallback hub:', err);
+        setUserLocation((prev) => prev || { latitude: 23.0370, longitude: 72.5622 });
       }
     })();
   }, []);

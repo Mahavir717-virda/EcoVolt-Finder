@@ -6,12 +6,12 @@
 import { EmptyState } from '@/components/common';
 import { colors } from '@/constants/colors';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import { spacing } from '@/styles/spacing';
 import { formatDistance } from '@/utils/distance';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -27,37 +27,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function FavoritesScreen() {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const { coords: userLocation, refreshLocation } = useUserLocation();
   
   // Fetch favorites
   const { favorites, loading, refresh, remove } = useFavorites();
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  // Get user location for distance calculation
-  useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const location = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          setUserLocation({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          });
-        }
-      } catch (error) {
-        console.log('Location error:', error);
-      }
-    })();
-  }, []);
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refresh();
+    await Promise.all([refresh(), refreshLocation()]);
     setRefreshing(false);
-  }, [refresh]);
+  }, [refresh, refreshLocation]);
 
   const handleStationPress = (stationId: string) => {
     router.push(`/station/${stationId}`);

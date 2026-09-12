@@ -8,14 +8,15 @@ import { WebViewMap } from '@/components/map';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { useNearbyStations, useStations } from '@/hooks/useStations';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import { spacing } from '@/styles/spacing';
 import { formatDistance } from '@/utils/distance';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,37 +29,43 @@ export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useAuth();
   
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [loadingLocation, setLoadingLocation] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch stations - use nearby if location available, otherwise all
+  // Reliable location hook with instant cache and fallback
+  const {
+    coords: userCoords,
+    isLoading: loadingLocation,
+    isFallback,
+    refreshLocation,
+  } = useUserLocation();
+
+  // Always fetch all stations
   const { 
     stations: allStations, 
     loading: loadingAll, 
     refresh: refreshAll,
-    search 
-  } = useStations({ autoFetch: !location });
+  } = useStations({ autoFetch: true });
   
+  // Calculate nearby stations from coordinates
   const { 
     stations: nearbyStations, 
     loading: loadingNearby, 
     refresh: refreshNearby 
   } = useNearbyStations({
-    latitude: location?.coords.latitude || null,
-    longitude: location?.coords.longitude || null,
-    radiusKm: 15,
-    enabled: !!location,
+    latitude: userCoords.latitude,
+    longitude: userCoords.longitude,
+    radiusKm: 35,
+    enabled: true,
   });
 
   // Use nearby stations if available, otherwise all stations
   const stations = useMemo(() => {
-    if (location && nearbyStations.length > 0) {
+    if (nearbyStations && nearbyStations.length > 0) {
       return nearbyStations;
     }
     return allStations;
-  }, [location, nearbyStations, allStations]);
+  }, [nearbyStations, allStations]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -70,28 +77,13 @@ export default function HomeScreen() {
     return { totalStations, availableChargers, lowestPrice };
   }, [stations]);
 
-  const stationsLoading = loadingAll || loadingNearby;
+  const stationsLoading = (loadingAll || loadingNearby) && stations.length === 0;
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setLoadingLocation(false);
-          return;
-        }
-
-        const currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        setLocation(currentLocation);
-      } catch (error) {
-        console.log('Location error:', error);
-      } finally {
-        setLoadingLocation(false);
-      }
-    })();
-  }, []);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([refreshAll(), refreshNearby(), refreshLocation()]);
+    setRefreshing(false);
+  };
 
   const handleStationPress = (stationId: string) => {
     router.push(`/station/${stationId}`);
@@ -102,16 +94,13 @@ export default function HomeScreen() {
   };
 
   const handleMarkerPress = (stationId: string) => {
-    // Navigate to station details when marker is pressed
     router.push(`/station/${stationId}`);
   };
 
-  const userLocation = location
-    ? {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      }
-    : null;
+  const userLocation = useMemo(() => ({
+    latitude: userCoords.latitude,
+    longitude: userCoords.longitude,
+  }), [userCoords.latitude, userCoords.longitude]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -137,29 +126,42 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </TouchableOpacity>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary[500]]} />
+        }
+      >
+        {/* Fallback Location Notice if GPS pending or permission not given */}
+        {isFallback && (
+          <TouchableOpacity 
+            style={styles.fallbackNotice}
+            onPress={refreshLocation}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="navigate-circle-outline" size={16} color={colors.primary[500]} />
+            <Text style={styles.fallbackNoticeText}>
+              Showing Ahmedabad EV Hub • Tap to locate me
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Map View with Animations */}
         <ScaleIn delay={100} duration={400}>
           <View style={styles.mapContainer}>
-            {loadingLocation ? (
-              <View style={styles.mapLoading}>
-                <ActivityIndicator size="large" color={colors.primary[500]} />
-                <Text style={styles.mapLoadingText}>Getting your location...</Text>
-              </View>
-            ) : (
-              <WebViewMap
-                stations={stations.map(s => ({
-                  id: s.id,
-                  name: s.name,
-                  latitude: s.latitude,
-                  longitude: s.longitude,
-                  availableChargers: s.available_chargers || 0,
-                  totalChargers: s.total_chargers || 0,
-                }))}
-                userLocation={userLocation}
-                onMarkerPress={handleMarkerPress}
-              />
-            )}
+            <WebViewMap
+              stations={stations.map(s => ({
+                id: s.id,
+                name: s.name,
+                latitude: s.latitude,
+                longitude: s.longitude,
+                availableChargers: s.available_chargers || 0,
+                totalChargers: s.total_chargers || 0,
+              }))}
+              userLocation={userLocation}
+              onMarkerPress={handleMarkerPress}
+            />
           </View>
         </ScaleIn>
 
@@ -312,6 +314,23 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  fallbackNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.primary[50],
+    marginHorizontal: spacing.screenPadding,
+    marginBottom: spacing.sm,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.radius.full,
+  },
+  fallbackNoticeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.primary[700],
   },
   mapContainer: {
     marginHorizontal: spacing.screenPadding,
