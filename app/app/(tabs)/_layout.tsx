@@ -41,7 +41,7 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="index"
-      tabBar={(props) => <CapsuleTabBar {...props} />}
+      tabBar={(props) => (isAdmin || isManager) ? null : <CapsuleTabBar {...props} />}
       screenOptions={{
         headerShown: false,
       }}
