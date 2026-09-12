@@ -189,6 +189,7 @@ export class StationsService {
         operatorName: station.operator.name,
         provider: station.provider,
         connectors: station.connectors.map((c) => ({
+          id: c.id,
           type: c.type,
           powerKw: c.powerKw,
           available: c.availableCount,
@@ -359,6 +360,58 @@ export class StationsService {
         availableCount: input.availableCount,
         status: input.status,
       },
+    });
+  }
+
+  /**
+   * Get connector by ID
+   */
+  public static async getConnectorDetail(connectorId: string) {
+    const connector = await prisma.connector.findUnique({
+      where: { id: connectorId },
+      include: {
+        station: {
+          include: {
+            pricingRules: true,
+            zone: {
+              include: { tariffs: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!connector) {
+      throw new NotFoundError(`Connector not found with id: ${connectorId}`);
+    }
+
+    // Calculate price
+    const station = connector.station;
+    const tariff = station.zone.tariffs.find((t) => t.provider === station.provider);
+    const baseRate = tariff ? tariff.baseRate : 13.0;
+    const markup = station.pricingRules[0]?.providerMarkup ?? 2.5;
+    const pricePerKwh = Math.round((baseRate + markup) * 10) / 10;
+
+    // Return flattened object matching what the frontend expects
+    return {
+      id: connector.id,
+      stationId: connector.stationId,
+      type: connector.type,
+      powerKw: connector.powerKw,
+      status: connector.status,
+      pricePerKwh: pricePerKwh,
+      createdAt: connector.createdAt,
+      updatedAt: connector.updatedAt,
+    };
+  }
+
+  /**
+   * Update connector status
+   */
+  public static async updateConnectorStatus(connectorId: string, status: string) {
+    return prisma.connector.update({
+      where: { id: connectorId },
+      data: { status },
     });
   }
 }
