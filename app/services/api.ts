@@ -77,7 +77,13 @@ export async function apiRequest<T = any>(
       let errMsg = `API error ${response.status}`;
       try {
         const errBody = await response.json();
-        errMsg = errBody?.message || errBody?.error || errMsg;
+        if (typeof errBody?.error === 'string') {
+          errMsg = errBody.error;
+        } else if (typeof errBody?.error?.message === 'string') {
+          errMsg = errBody.error.message;
+        } else if (typeof errBody?.message === 'string') {
+          errMsg = errBody.message;
+        }
       } catch {}
       throw new Error(errMsg);
     }

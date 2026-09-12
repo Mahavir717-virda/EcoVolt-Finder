@@ -73,7 +73,7 @@ export async function signUp(
   try {
     const res = await apiRequest<any>('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ email, password, name: fullName }),
+      body: JSON.stringify({ email, password, name: fullName, role: 'driver' }),
     });
 
     if (res?.accessToken) {

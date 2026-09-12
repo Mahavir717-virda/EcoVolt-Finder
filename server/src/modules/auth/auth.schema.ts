@@ -4,9 +4,7 @@ export const signupSchema = z.object({
   email: z.string().trim().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters long'),
   name: z.string().trim().min(2, 'Name must be at least 2 characters long'),
-  role: z.enum(['driver', 'manager', 'admin'], {
-    errorMap: () => ({ message: 'Role must be driver, manager, or admin' }),
-  }),
+  role: z.enum(['driver', 'manager', 'admin']).default('driver'),
 });
 
 export const loginSchema = z.object({

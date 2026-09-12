@@ -82,11 +82,7 @@ export default function SignUpScreen() {
     if (error) {
       Alert.alert('Sign Up Failed', error);
     } else {
-      Alert.alert(
-        'Account Created',
-        'Please check your email to verify your account.',
-        [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
-      );
+      router.replace('/(tabs)');
     }
   };
 
