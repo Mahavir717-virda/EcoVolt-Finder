@@ -3,8 +3,10 @@
     "id": "station-001",
     "name": "Torrent Charging Hub – CG Road",
     "location": { "lat": 23.0370, "lng": 72.5622 },
+    "address": "Nr. Pantaloons, CG Road, Ahmedabad, Gujarat 380006",
     "operatorName": "Green Drive Pvt Ltd",
     "provider": "torrent_power",
+    "image_url": "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&auto=format&fit=crop&q=80",
     "connectors": [
       { "type": "ccs2", "powerKw": 60, "available": 2, "total": 3 },
       { "type": "type2_ac", "powerKw": 22, "available": 1, "total": 2 }
@@ -20,8 +22,10 @@
     "id": "station-002",
     "name": "GUVNL Fast Charger – Navrangpura",
     "location": { "lat": 23.0469, "lng": 72.5631 },
+    "address": "Opp. University Ground, Navrangpura, Ahmedabad 380009",
     "operatorName": "EV Point Gujarat",
     "provider": "guvnl_gb",
+    "image_url": "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=1200&auto=format&fit=crop&q=80",
     "connectors": [
       { "type": "bharat_dc_001", "powerKw": 15, "available": 0, "total": 2 },
       { "type": "type2_ac", "powerKw": 7.4, "available": 3, "total": 4 }
@@ -37,8 +41,10 @@
     "id": "station-003",
     "name": "Adani EV Point – Satellite",
     "location": { "lat": 23.0225, "lng": 72.5059 },
+    "address": "Ramdevnagar Cross Road, Satellite, Ahmedabad 380015",
     "operatorName": "Adani Total Energies",
     "provider": "adani_energy",
+    "image_url": "https://images.unsplash.com/photo-1558441719-2345b85ab814?w=1200&auto=format&fit=crop&q=80",
     "connectors": [
       { "type": "ccs2", "powerKw": 50, "available": 1, "total": 2 },
       { "type": "chademo", "powerKw": 50, "available": 1, "total": 1 }
@@ -54,8 +60,10 @@
     "id": "station-004",
     "name": "Tata Power EZ Charge – SG Highway",
     "location": { "lat": 23.0712, "lng": 72.5184 },
+    "address": "SG Highway, Bodakdev, Ahmedabad, Gujarat 380054",
     "operatorName": "Tata Power Mobility",
     "provider": "tata_power",
+    "image_url": "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1200&auto=format&fit=crop&q=80",
     "connectors": [
       { "type": "ccs2", "powerKw": 60, "available": 3, "total": 4 },
       { "type": "type2_ac", "powerKw": 22, "available": 2, "total": 2 },
@@ -72,8 +80,10 @@
     "id": "station-005",
     "name": "Charanka Solar Park Fast Hub – Mehsana Outskirts",
     "location": { "lat": 23.5880, "lng": 72.3693 },
+    "address": "Charanka Solar Park Highway Exit, Mehsana District, Gujarat 384002",
     "operatorName": "Gujarat Solar Grid Corp",
     "provider": "guvnl_gb",
+    "image_url": "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=1200&auto=format&fit=crop&q=80",
     "connectors": [
       { "type": "ccs2", "powerKw": 120, "available": 4, "total": 4 }
     ],

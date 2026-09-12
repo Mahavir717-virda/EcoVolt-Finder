@@ -140,7 +140,7 @@ export class SessionsService {
     sessionId: string,
     input: StopSessionInput = {}
   ) {
-    const session = await prisma.session.findFirst({
+    let session = await prisma.session.findFirst({
       where: {
         OR: [{ id: sessionId }, { bookingId: sessionId }],
         userId,
@@ -149,11 +149,50 @@ export class SessionsService {
         booking: true,
         connector: true,
         vehicle: true,
+        station: { select: { id: true, name: true, address: true } },
       },
     });
 
     if (!session) {
-      throw new NotFoundError(`Session not found with id: ${sessionId}`);
+      // Check if a booking exists for this ID
+      const booking = await prisma.booking.findFirst({
+        where: {
+          id: sessionId,
+          userId,
+        },
+        include: {
+          connector: true,
+          vehicle: true,
+          station: { select: { id: true, name: true, address: true } },
+        },
+      });
+
+      if (!booking) {
+        throw new NotFoundError(`Session or booking not found with id: ${sessionId}`);
+      }
+
+      // Create session on the fly
+      const now = new Date();
+      session = await prisma.session.create({
+        data: {
+          bookingId: booking.id,
+          stationId: booking.stationId,
+          connectorId: booking.connectorId,
+          connectorType: booking.connectorType,
+          vehicleId: booking.vehicleId,
+          userId,
+          status: SessionStatus.active,
+          startedAt: booking.windowStart || new Date(now.getTime() - 30 * 60 * 1000),
+          energyKwh: 0.0,
+          cost: 0.0,
+        },
+        include: {
+          booking: true,
+          connector: true,
+          vehicle: true,
+          station: { select: { id: true, name: true, address: true } },
+        },
+      });
     }
 
     if (session.status === SessionStatus.completed) {
@@ -183,7 +222,34 @@ export class SessionsService {
     const totalCost = Math.round(energyKwh * finalPricePerKwh * 100) / 100;
 
     // 3. Compute Renewable Share & Avoided CO2
-    const avgRenewablePct = 76.5; // Average renewable share during session window
+    // Look up actual renewable % from ForecastCache for the session zone & window
+    let avgRenewablePct = 65.0; // fallback: Indian grid average
+    try {
+      const stationWithZone = await prisma.station.findUnique({
+        where: { id: session.stationId },
+        select: { zoneId: true },
+      });
+
+      if (stationWithZone) {
+        const forecast = await prisma.forecastCache.findFirst({
+          where: {
+            zoneId: stationWithZone.zoneId,
+            hourStartLocal: {
+              gte: startedAt,
+              lte: endedAt,
+            },
+          },
+          orderBy: { hourStartLocal: 'desc' },
+        });
+
+        if (forecast) {
+          avgRenewablePct = forecast.renewablePct;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch forecast for session zone, using fallback:', e);
+    }
+
     const gridBaselineIntensity = 710.0; // Indian grid average gCO2eq/kWh
     const achievedIntensity = gridBaselineIntensity * (1 - avgRenewablePct / 100);
     const co2AvoidedKg =
@@ -210,11 +276,16 @@ export class SessionsService {
 
     // Fire Notification hook
     try {
+      const stationName = session.station?.name || 'EcoVolt Supercharger';
+      const points = Math.max(25, Math.round(co2AvoidedKg * 10));
+
       await NotificationsService.notifySessionComplete(
         userId,
         energyKwh,
         totalCost,
-        co2AvoidedKg
+        co2AvoidedKg,
+        stationName,
+        points
       );
     } catch (e) {
       console.warn('Failed to dispatch session complete notification:', e);

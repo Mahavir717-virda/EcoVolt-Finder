@@ -50,22 +50,7 @@ export const VerifyOtpScreen: React.FC = () => {
     }
 
     setBusy(true);
-    const success = await verifyOtp(email, otp);
-    if (success) {
-      // Set mock active session
-      await setAuthSession(
-        {
-          id: `usr_new_${Date.now()}`,
-          email,
-          name: 'New ecoVolt User',
-          role: 'driver',
-          phone: '+919876543210',
-          createdAt: new Date().toISOString(),
-        },
-        `mock_jwt_access_${Date.now()}`,
-        `mock_jwt_refresh_${Date.now()}`
-      );
-    }
+    await verifyOtp(email, otp);
     setBusy(false);
   };
 
@@ -111,7 +96,7 @@ export const VerifyOtpScreen: React.FC = () => {
             keyboardType="number-pad"
             maxLength={6}
             error={fieldError}
-            helperText="Mock mode: any 6 digits (or 123456) will succeed"
+            helperText="Enter the 6-digit verification code"
           />
 
           <Button

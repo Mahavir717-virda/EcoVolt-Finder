@@ -16,10 +16,11 @@ import { useCallback, useEffect, useState } from 'react';
 interface UseStationsOptions {
   autoFetch?: boolean;
   filters?: StationFilters;
+  userCoords?: { latitude: number; longitude: number } | null;
 }
 
 interface UseStationsReturn {
-  stations: Station[];
+  stations: (Station & { distance?: number })[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -30,8 +31,8 @@ interface UseStationsReturn {
  * Hook to fetch all stations
  */
 export function useStations(options: UseStationsOptions = {}): UseStationsReturn {
-  const { autoFetch = true, filters } = options;
-  const [stations, setStations] = useState<Station[]>([]);
+  const { autoFetch = true, filters, userCoords } = options;
+  const [stations, setStations] = useState<(Station & { distance?: number })[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +40,7 @@ export function useStations(options: UseStationsOptions = {}): UseStationsReturn
     setLoading(true);
     setError(null);
     try {
-      const data = await getStations(filters);
+      const data = await getStations(filters, userCoords);
       setStations(data);
     } catch (err) {
       setError('Failed to fetch stations');
@@ -47,7 +48,7 @@ export function useStations(options: UseStationsOptions = {}): UseStationsReturn
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, userCoords]);
 
   const search = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -98,12 +99,12 @@ interface UseNearbyStationsOptions {
 export function useNearbyStations({
   latitude,
   longitude,
-  radiusKm = 10,
+  radiusKm = 25,
   limit = 20,
   filters,
   enabled = true,
 }: UseNearbyStationsOptions) {
-  const [stations, setStations] = useState<Station[]>([]);
+  const [stations, setStations] = useState<(Station & { distance?: number })[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,8 +145,11 @@ export function useNearbyStations({
 /**
  * Hook to fetch a single station
  */
-export function useStation(stationId: string | null) {
-  const [station, setStation] = useState<Station | null>(null);
+export function useStation(
+  stationId: string | null,
+  userCoords?: { latitude: number; longitude: number } | null
+) {
+  const [station, setStation] = useState<(Station & { chargers?: any[]; distance?: number }) | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,7 +159,7 @@ export function useStation(stationId: string | null) {
     setLoading(true);
     setError(null);
     try {
-      const data = await getStationById(stationId);
+      const data = await getStationById(stationId, userCoords);
       setStation(data);
     } catch (err) {
       setError('Failed to fetch station');
@@ -163,7 +167,7 @@ export function useStation(stationId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [stationId]);
+  }, [stationId, userCoords]);
 
   useEffect(() => {
     fetchStation();

@@ -219,3 +219,67 @@ export interface DriverImpact {
   co2AvoidedKg:   number
   avgRenewablePct: number
 }
+
+// ─── Gamification & Leaderboard ───────────────────────────────
+
+export type GreenTier = 'Eco Sprout' | 'Solar Cruiser' | 'Green Pioneer' | 'Net-Zero Champion'
+
+export interface Badge {
+  id:          string
+  title:       string
+  description: string
+  icon:        string
+  unlocked:    boolean
+  progress:    number // 0..100
+  unlockedAt?: string
+}
+
+export interface LeaderboardEntry {
+  rank:          number
+  userId:        string
+  name:          string
+  avatarInitial: string
+  tier:          GreenTier
+  tierColor:     string
+  greenScore:    number
+  co2AvoidedKg:  number
+  cleanKwh:      number
+  greenStreak:   number
+  isCurrentUser: boolean
+}
+
+export interface LeaderboardResponse {
+  leaderboard: LeaderboardEntry[]
+  currentUserRank: {
+    rank:              number
+    totalUsers:        number
+    pointsToNextRank:  number
+    nextRankUser?:     string
+  }
+}
+
+export interface GamificationProfile {
+  userId:             string
+  name:               string
+  avatarInitial:      string
+  greenScore:         number
+  tier:               GreenTier
+  tierColor:          string
+  currentStreak:      number
+  longestStreak:      number
+  streakBonusPct:     number
+  co2AvoidedKg:       number
+  cleanKwh:           number
+  totalSessions:      number
+  treesEquivalent:    number
+  cleanKmDriven:      number
+  ledHoursPowered:    number
+  totalSavingsInr:    number
+  badges:             Badge[]
+  rank:               number
+  totalUsers:         number
+  pointsToNextTier:   number
+  nextTier?:          GreenTier
+  shareableSummary:   string
+}
+

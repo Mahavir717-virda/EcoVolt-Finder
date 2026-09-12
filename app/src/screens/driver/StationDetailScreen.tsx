@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,11 +18,12 @@ import {
   StationRecommendation,
   StationSummary,
 } from '@contracts/types';
-import { DataQuality, GreennessBand, PowerProvider } from '@contracts/enums';
+import { DataQuality, GreennessBand, PowerProvider, VehicleClass } from '@contracts/enums';
 import {
   Text,
   Button,
   Chip,
+  Skeleton,
   SkeletonCard,
   GreennessGauge,
   ForecastStrip,
@@ -29,8 +31,14 @@ import {
   TrueCostCard,
   LocationLine,
 } from '../../components';
-import { formatProviderName } from '../../features/stations/utils';
+import {
+  formatProviderName,
+  calculateHaversineDistanceKm,
+  estimateTravelMinutes,
+} from '../../features/stations/utils';
+import { useDriverLocation } from '../../features/stations/useDriverLocation';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
+import { getStationImageSource } from '../../constants/stationImages';
 
 type StationDetailRouteProp = RouteProp<DriverStackParamList, 'StationDetail'>;
 
@@ -41,6 +49,7 @@ interface FullStationDetail extends StationSummary {
   pricing?: PriceQuote[];
   amenities?: string[];
   openHours?: string;
+  distanceKm?: number;
 }
 
 export const StationDetailScreen: React.FC = () => {
@@ -48,6 +57,7 @@ export const StationDetailScreen: React.FC = () => {
   const route = useRoute<StationDetailRouteProp>();
   const navigation = useNavigation<NativeStackNavigationProp<DriverStackParamList>>();
   const stationId = route.params?.stationId || 'station-001';
+  const [isHeroLoading, setIsHeroLoading] = useState(true);
 
   // 1. Fetch Station Details
   const stationQuery = useQuery<FullStationDetail>({
@@ -79,37 +89,47 @@ export const StationDetailScreen: React.FC = () => {
     staleTime: 30000,
   });
 
+  const { coords: driverCoords } = useDriverLocation();
+
   const isLoading = stationQuery.isLoading;
   const station = stationQuery.data;
   const forecast = forecastQuery.data || [];
   const recommendations = recQuery.data || [];
 
-  // Find matching recommendation for this station
-  const activeRec: Partial<StationRecommendation> =
-    recommendations.find(
-      (r) => r.station?.id === stationId || r.stationId === stationId
-    ) ||
-    recommendations[0] || {
-      station: station,
-      stationId: station?.id || stationId,
-      distanceKm: 2.4,
-      travelMinutes: 8,
-      energyNeededKwh: 18.0,
-      chargingCost: 111.6,
-      travelCost: 14.4,
-      trueTotalCost: 126.0,
-      vsCheapestSticker: -9.0,
-      reachable: true,
-      connectorCompatible: true,
-      recommendedWindow: {
-        startLocal: '2026-09-12T12:00:00+05:30',
-        endLocal: '2026-09-12T13:30:00+05:30',
-        renewablePct: 85,
-        confidence: 0.74,
-      },
-      reason:
-        'Closest station with 85% renewable solar window at noon — ₹9 cheaper than far station once travel is added.',
-    };
+  // Live dynamic Haversine distance and travel metrics
+  const liveDistKm = station?.location
+    ? calculateHaversineDistanceKm(driverCoords, station.location)
+    : (station?.distanceKm ?? 2.4);
+  const liveTravelMinutes = estimateTravelMinutes(liveDistKm, VehicleClass.CAR);
+  const liveTravelCost = Number((liveDistKm * 0.14 * 6.5).toFixed(1));
+  const liveChargingCost = Number((18.0 * (station?.priceFrom || 6.2)).toFixed(1));
+  const liveTrueTotal = Number((liveChargingCost + liveTravelCost).toFixed(1));
+
+  // Find matching recommendation for this station or construct dynamic live recommendation
+  const matchedRec = recommendations.find(
+    (r) => r.station?.id === stationId || r.stationId === stationId
+  );
+
+  const activeRec: Partial<StationRecommendation> = matchedRec || {
+    station: station,
+    stationId: station?.id || stationId,
+    distanceKm: liveDistKm,
+    travelMinutes: liveTravelMinutes,
+    energyNeededKwh: 18.0,
+    chargingCost: liveChargingCost,
+    travelCost: liveTravelCost,
+    trueTotalCost: liveTrueTotal,
+    vsCheapestSticker: -9.0,
+    reachable: true,
+    connectorCompatible: true,
+    recommendedWindow: {
+      startLocal: '2026-09-12T12:00:00+05:30',
+      endLocal: '2026-09-12T13:30:00+05:30',
+      renewablePct: 85,
+      confidence: 0.74,
+    },
+    reason: `Optimal route (${liveDistKm} km · ${liveTravelMinutes}m) with live grid solar pricing.`,
+  };
 
   // Fallback pricing if not embedded in station response
   const pricingQuotes: PriceQuote[] =
@@ -167,6 +187,37 @@ export const StationDetailScreen: React.FC = () => {
           </View>
         ) : (
           <>
+            {/* Hero Station Image with Skeleton Loader */}
+            <View style={styles.heroImageContainer}>
+              {isHeroLoading && (
+                <Skeleton
+                  width="100%"
+                  height={190}
+                  borderRadius={radii.xl}
+                  style={StyleSheet.absoluteFillObject}
+                />
+              )}
+              <Image
+                source={getStationImageSource(station.id || station.name)}
+                style={styles.heroImage}
+                contentFit="cover"
+                transition={150}
+                cachePolicy="memory-disk"
+                priority="high"
+                onLoadStart={() => setIsHeroLoading(true)}
+                onLoad={() => setIsHeroLoading(false)}
+                onError={() => setIsHeroLoading(false)}
+              />
+              <View style={styles.heroBadge}>
+                <Chip
+                  label={station.openHours || '24/7 OPEN'}
+                  variant="solid"
+                  color="#FFFFFF"
+                  backgroundColor="rgba(0,0,0,0.65)"
+                />
+              </View>
+            </View>
+
             {/* 1. Header Information Card */}
             <View style={styles.headerCard}>
               <View style={styles.headerTop}>
@@ -178,13 +229,6 @@ export const StationDetailScreen: React.FC = () => {
                     {formatProviderName(station.provider)} · {station.operatorName}
                   </Text>
                 </View>
-
-                <Chip
-                  label={station.openHours || '24/7 OPEN'}
-                  variant="subtle"
-                  color={colors.brand}
-                  backgroundColor={colors.brandTint}
-                />
               </View>
 
               {station.address && (
@@ -209,7 +253,7 @@ export const StationDetailScreen: React.FC = () => {
                     Distance
                   </Text>
                   <Text variant="body" style={styles.summaryVal}>
-                    {activeRec.distanceKm ?? 2.4} km ({activeRec.travelMinutes ?? 8}m)
+                    {activeRec.distanceKm ?? liveDistKm} km ({activeRec.travelMinutes ?? liveTravelMinutes}m)
                   </Text>
                 </View>
 
@@ -298,6 +342,24 @@ const styles = StyleSheet.create({
   },
   skeletonGroup: {
     gap: spacing.base,
+  },
+  heroImageContainer: {
+    height: 190,
+    borderRadius: radii.xl,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceSunken,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.e1,
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
   },
   headerCard: {
     backgroundColor: colors.surface,

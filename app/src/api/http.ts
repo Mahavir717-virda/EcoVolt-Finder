@@ -51,6 +51,12 @@ async function refreshAuthToken(): Promise<string | null> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        try {
+          const { useAuthStore } = require('../src/features/auth/authStore');
+          useAuthStore.getState().logout();
+        } catch {}
+      }
       await storage.clearAll();
       return null;
     }
@@ -160,6 +166,12 @@ export async function request<T>(
 
   // 4. Parse response
   if (!response.ok) {
+    if (response.status === 401 && !options.skipAuth) {
+      try {
+        const { useAuthStore } = require('../features/auth/authStore');
+        useAuthStore.getState().logout();
+      } catch {}
+    }
     let errorData: unknown;
     try {
       errorData = await response.json();
@@ -169,6 +181,9 @@ export async function request<T>(
     throw new ApiError(response.status, errorData);
   }
 
+  if (response.status === 204) {
+    return {} as T;
+  }
   return (await response.json()) as T;
 }
 

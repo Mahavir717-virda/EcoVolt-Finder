@@ -20,9 +20,9 @@ const connectorTypeEnum = z.enum([
 ]);
 
 export const searchStationsQuerySchema = z.object({
-  lat: z.coerce.number().min(-90).max(90),
-  lng: z.coerce.number().min(-180).max(180),
-  radiusKm: z.coerce.number().positive().max(150).default(15),
+  lat: z.coerce.number().min(-90).max(90).optional().default(23.0225),
+  lng: z.coerce.number().min(-180).max(180).optional().default(72.5714),
+  radiusKm: z.coerce.number().positive().max(500).default(100),
   connector: connectorTypeEnum.optional(),
   class: z.enum(['car', 'bike']).optional(),
   sort: z.enum(['nearest', 'greenest', 'true_cost']).default('nearest'),

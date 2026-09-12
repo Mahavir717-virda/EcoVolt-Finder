@@ -9,6 +9,7 @@ import {
     getActiveReservationCount,
     getReservationById,
     getUserReservations,
+    getStationAvailability,
     ReservationWithDetails
 } from '@/services/reservations.service';
 import { Reservation } from '@/types/database.types';
@@ -93,7 +94,9 @@ export function useCreateReservation() {
   const [error, setError] = useState<string | null>(null);
 
   const create = useCallback(async (
-    chargerId: string,
+    stationId: string,
+    connectorType: string,
+    vehicleId: string,
     startTime: Date,
     endTime: Date
   ): Promise<Reservation | null> => {
@@ -107,8 +110,9 @@ export function useCreateReservation() {
     try {
       const reservation = await createReservation({
         userId: user.id,
-        stationId: 'station-001',
-        chargerId,
+        stationId,
+        connectorType,
+        vehicleId,
         startTime: startTime instanceof Date ? startTime.toISOString() : String(startTime),
         endTime: endTime instanceof Date ? endTime.toISOString() : String(endTime),
       });
@@ -234,5 +238,41 @@ export function useReservation(reservationId: string | null) {
     loading,
     error,
     refresh: fetchReservation,
+  };
+}
+
+/**
+ * Hook to get station availability for a given date
+ */
+export function useStationAvailability(stationId: string | null, date: Date | null) {
+  const [availability, setAvailability] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchAvailability = useCallback(async () => {
+    if (!stationId || !date) return;
+    
+    setLoading(true);
+    try {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      const data = await getStationAvailability(stationId, dateStr);
+      setAvailability(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [stationId, date]);
+
+  useEffect(() => {
+    fetchAvailability();
+  }, [fetchAvailability]);
+
+  return {
+    availability,
+    loading,
+    refresh: fetchAvailability
   };
 }

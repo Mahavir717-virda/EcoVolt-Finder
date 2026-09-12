@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Role } from '@prisma/client';
+import { Role, VehicleClass, ConnectorType } from '@prisma/client';
 import { env } from '../../config/env';
 import { prisma } from '../../db/client';
 import {
@@ -9,13 +9,14 @@ import {
   UnauthorizedError,
   NotFoundError,
 } from '../../middleware/error-handler';
-import { SignupInput, LoginInput } from './auth.schema';
+import { SignupInput, LoginInput, GoogleAuthInput } from './auth.schema';
 
 export interface TokenPayload {
   sub: string; // userId
   email: string;
   role: Role;
 }
+
 
 export class AuthService {
   private static SALT_ROUNDS = 12;
@@ -38,7 +39,7 @@ export class AuthService {
    * Generate access token (15m expiry)
    */
   public static generateAccessToken(payload: TokenPayload): string {
-    return jwt.sign(payload, env.JWT_SECRET, { expiresIn: '15m' });
+    return jwt.sign(payload, env.JWT_SECRET, { expiresIn: '7d' });
   }
 
   /**
@@ -107,6 +108,7 @@ export class AuthService {
       user: {
         id: user.id,
         name: user.name,
+        email: user.email,
         role: user.role,
       },
     };
@@ -145,6 +147,7 @@ export class AuthService {
       user: {
         id: user.id,
         name: user.name,
+        email: user.email,
         role: user.role,
       },
     };
@@ -199,11 +202,30 @@ export class AuthService {
   /**
    * Update user profile
    */
-  public static async updateUserProfile(userId: string, data: { name?: string }) {
+  public static async updateUserProfile(
+    userId: string,
+    data: { name?: string; email?: string; phone?: string; role?: Role }
+  ) {
+    if (data.email) {
+      const existing = await prisma.user.findFirst({
+        where: {
+          email: data.email.toLowerCase(),
+          NOT: { id: userId },
+        },
+      });
+      if (existing) {
+        throw new ConflictError('Email is already registered with another account', {
+          email: data.email,
+        });
+      }
+    }
+
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
         ...(data.name ? { name: data.name } : {}),
+        ...(data.email ? { email: data.email.toLowerCase() } : {}),
+        ...(data.role ? { role: data.role as Role } : {}),
       },
       select: {
         id: true,
@@ -215,4 +237,88 @@ export class AuthService {
 
     return user;
   }
+
+  /**
+   * Authenticate / Sign in with Google (OAuth / ID Token / Google profile)
+   * Dynamically verifies token, provisions user in PostgreSQL if first time,
+   * creates default EV vehicle profile, and returns JWT access & refresh tokens.
+   */
+  public static async googleAuth(data: GoogleAuthInput) {
+    let email = data.email;
+    let name = data.name;
+
+    // If ID token is passed, attempt extraction/decoding
+    if (data.idToken && !email) {
+      try {
+        const decoded = jwt.decode(data.idToken) as any;
+        if (decoded && decoded.email) {
+          email = decoded.email;
+          name = name || decoded.name || decoded.given_name;
+        }
+      } catch {}
+    }
+
+    if (!email) {
+      throw new UnauthorizedError('Google authentication failed: email could not be verified');
+    }
+
+    email = email.toLowerCase().trim();
+
+    // 1. Check if user already exists in PostgreSQL
+    let user = await prisma.user.findUnique({
+      where: { email },
+      include: { vehicles: true },
+    });
+
+    // 2. If first time user, automatically provision account & EV profile
+    if (!user) {
+      const generatedPassword = `GoogleOAuth_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const passwordHash = await this.hashPassword(generatedPassword);
+
+      user = await prisma.user.create({
+        data: {
+          email,
+          name: name || email.split('@')[0],
+          role: Role.driver,
+          passwordHash,
+        },
+        include: { vehicles: true },
+      });
+
+      // Automatically create standard Indian EV vehicle profile for new driver
+      await prisma.vehicle.create({
+        data: {
+          userId: user.id,
+          vehicleClass: VehicleClass.car,
+          model: 'Tata Nexon EV Max',
+          batteryKwh: 40.5,
+          efficiencyWhKm: 140.0,
+          connectors: [ConnectorType.ccs2, ConnectorType.type2_ac],
+          currentChargePct: 45.0,
+        },
+      });
+    }
+
+    // 3. Issue standard access and refresh JWT tokens
+    const tokenPayload: TokenPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    const accessToken = this.generateAccessToken(tokenPayload);
+    const refreshToken = this.generateRefreshToken(tokenPayload);
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
 }
+

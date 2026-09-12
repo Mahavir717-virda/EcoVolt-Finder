@@ -1,29 +1,46 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { colors } from '@/constants/colors';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
+  const { t } = useLanguage();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // While checking token on mount, show a centered spinner
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // Not authenticated — redirect to login screen
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary[500],
-        tabBarInactiveTintColor: isDark ? colors.neutral[500] : colors.neutral[400],
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: isDark ? colors.textMuted : colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: isDark ? colors.background.card.dark : colors.white,
-          borderTopColor: isDark ? colors.neutral[800] : colors.neutral[200],
+          backgroundColor: colors.tabBarBg,
+          borderTopColor: colors.tabBarBorder,
           paddingTop: 8,
           height: 88,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '500',
+          fontWeight: '600',
           marginTop: 4,
         },
         headerShown: false,
@@ -32,7 +49,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: t('tab.home', 'Home'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? 'map' : 'map-outline'} 
@@ -45,7 +62,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="reservations"
         options={{
-          title: 'Reservations',
+          title: t('tab.reservations', 'Reservations'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? 'calendar' : 'calendar-outline'} 
@@ -58,10 +75,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="favorites"
         options={{
-          title: 'Favorites',
+          title: t('tab.saved', 'Saved'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? 'heart' : 'heart-outline'} 
+              name={focused ? 'bookmark' : 'bookmark-outline'} 
               size={24} 
               color={color} 
             />
@@ -71,7 +88,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: t('tab.profile', 'Profile'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? 'person' : 'person-outline'} 
@@ -81,7 +98,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Hide explore from tabs - we'll remove it */}
+      {/* Hide explore from tabs */}
       <Tabs.Screen
         name="explore"
         options={{
@@ -91,3 +108,5 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+

@@ -30,6 +30,13 @@ import { GreennessPin } from '../../features/stations/GreennessPin';
 import { generateInterpolatedRoute, LatLng } from '../../lib/polyline';
 import { colors, radii, shadows, spacing } from '../../theme/tokens';
 
+import {
+  calculateHaversineDistanceKm,
+  estimateTravelMinutes,
+  calculateTravelCost,
+} from '../../features/stations/utils';
+import { useDriverLocation } from '../../features/stations/useDriverLocation';
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type RouteCompareRouteProp = RouteProp<DriverStackParamList, 'RouteCompare'>;
@@ -40,10 +47,12 @@ export const RouteCompareScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<DriverStackParamList>>();
   const mapRef = useRef<MapView | null>(null);
 
+  const { coords: liveDriverCoords } = useDriverLocation();
+
   const stationId = route.params?.stationId || 'station-001';
   const driverOrigin: GeoPoint = {
-    lat: route.params?.originLat || 23.0370,
-    lng: route.params?.originLng || 72.5622,
+    lat: route.params?.originLat || liveDriverCoords.lat || 23.0370,
+    lng: route.params?.originLng || liveDriverCoords.lng || 72.5622,
   };
 
   const [vehicleClass, setVehicleClass] = useState<VehicleClass>(VehicleClass.CAR);
@@ -67,11 +76,13 @@ export const RouteCompareScreen: React.FC = () => {
     staleTime: 30000,
   });
 
-  // 2. Fetch Recommendations
+  // 2. Fetch Recommendations with dynamic origin coordinates
   const recQuery = useQuery<StationRecommendation[]>({
-    queryKey: ['recommendations'],
+    queryKey: ['recommendations', driverOrigin.lat, driverOrigin.lng],
     queryFn: async () => {
-      const res = await http.get<StationRecommendation[]>('/recommendations');
+      const res = await http.get<StationRecommendation[]>(
+        `/recommendations?originLat=${driverOrigin.lat}&originLng=${driverOrigin.lng}`
+      );
       return res;
     },
     staleTime: 30000,
@@ -88,7 +99,7 @@ export const RouteCompareScreen: React.FC = () => {
       operatorName: 'Green Drive Pvt Ltd',
       provider: PowerProvider.TORRENT,
       connectors: [{ type: ConnectorType.CCS2, powerKw: 60, available: 2, total: 3 }],
-      greenness: { renewablePct: 85, band: GreennessBand.VERY_HIGH, quality: DataQuality.MOCK },
+      greenness: { renewablePct: 85, band: GreennessBand.VERY_HIGH, quality: DataQuality.LIVE },
       priceFrom: 6.2,
     };
 
@@ -102,16 +113,7 @@ export const RouteCompareScreen: React.FC = () => {
     }
     return (
       allStations[0] ||
-      chosenStation || {
-        id: 'station-001',
-        name: 'Torrent Charging Hub – CG Road',
-        location: { lat: 23.0370, lng: 72.5622 },
-        operatorName: 'Green Drive Pvt Ltd',
-        provider: PowerProvider.TORRENT,
-        connectors: [{ type: ConnectorType.CCS2, powerKw: 60, available: 2, total: 3 }],
-        greenness: { renewablePct: 85, band: GreennessBand.VERY_HIGH, quality: DataQuality.MOCK },
-        priceFrom: 6.2,
-      }
+      chosenStation
     );
   };
 
@@ -121,23 +123,37 @@ export const RouteCompareScreen: React.FC = () => {
     station: getStationForRec(r),
   }));
 
-  // Recommended station (default to best ranked station)
+  // Dynamic calculations for recommended station
+  const bestRecStation = getStationForRec(hydratedRecommendations[0]);
+  const recDistanceKm = calculateHaversineDistanceKm(driverOrigin, bestRecStation.location);
+  const recTravelMins = estimateTravelMinutes(recDistanceKm, vehicleClass);
+  const recTravelCost = calculateTravelCost(recDistanceKm, vehicleClass === VehicleClass.BIKE ? 40 : 140, bestRecStation.priceFrom);
+  const recChargingCost = Math.round(bestRecStation.priceFrom * (vehicleClass === VehicleClass.BIKE ? 2.5 : 18.0) * 10) / 10;
+  const recTrueCost = Math.round((recChargingCost + recTravelCost) * 10) / 10;
+
+  // Recommended station (default to best ranked station with dynamic metrics)
   const recommendedRec: StationRecommendation & { station: StationSummary } =
     hydratedRecommendations[0] || {
-      station: getStationForRec(),
-      stationId: 'station-001',
-      distanceKm: 2.4,
-      travelMinutes: 8,
-      energyNeededKwh: 18.0,
-      chargingCost: 111.6,
-      travelCost: 14.4,
-      trueTotalCost: 126.0,
+      station: bestRecStation,
+      stationId: bestRecStation.id,
+      distanceKm: recDistanceKm,
+      travelMinutes: recTravelMins,
+      energyNeededKwh: vehicleClass === VehicleClass.BIKE ? 2.5 : 18.0,
+      chargingCost: recChargingCost,
+      travelCost: recTravelCost,
+      trueTotalCost: recTrueCost,
       vsCheapestSticker: -9.0,
       reachable: true,
       connectorCompatible: true,
-      reason:
-        'Closest station with 85% renewable solar window at noon — ₹9 cheaper than far station once travel is added.',
+      reason: `Closest optimal station (${recDistanceKm} km · ${recTravelMins} mins) with true total cost.`,
     };
+
+  // Dynamic calculations for chosen station
+  const chosenDistKm = calculateHaversineDistanceKm(driverOrigin, chosenStation.location);
+  const chosenTravelMins = estimateTravelMinutes(chosenDistKm, vehicleClass);
+  const chosenTravelCost = calculateTravelCost(chosenDistKm, vehicleClass === VehicleClass.BIKE ? 40 : 140, chosenStation.priceFrom);
+  const chosenChargingCost = Math.round(chosenStation.priceFrom * (vehicleClass === VehicleClass.BIKE ? 2.5 : 18.0) * 10) / 10;
+  const chosenTrueCost = Math.round((chosenChargingCost + chosenTravelCost) * 10) / 10;
 
   // Chosen station recommendation
   const chosenRec: StationRecommendation & { station: StationSummary } =
@@ -146,17 +162,16 @@ export const RouteCompareScreen: React.FC = () => {
     ) || {
       station: chosenStation,
       stationId: chosenStation.id,
-      distanceKm: 4.1,
-      travelMinutes: 14,
-      energyNeededKwh: 18.0,
-      chargingCost: 104.4,
-      travelCost: 24.6,
-      trueTotalCost: 129.0,
-      vsCheapestSticker: 3.0,
+      distanceKm: chosenDistKm,
+      travelMinutes: chosenTravelMins,
+      energyNeededKwh: vehicleClass === VehicleClass.BIKE ? 2.5 : 18.0,
+      chargingCost: chosenChargingCost,
+      travelCost: chosenTravelCost,
+      trueTotalCost: chosenTrueCost,
+      vsCheapestSticker: Math.round((chosenTrueCost - recTrueCost) * 10) / 10,
       reachable: true,
       connectorCompatible: true,
-      reason:
-        'Cheaper per kWh (₹5.8/kWh vs ₹6.2) but ₹10 extra travel makes it ₹3 worse overall.',
+      reason: `Route calculated (${chosenDistKm} km · ${chosenTravelMins} mins) at ₹${chosenStation.priceFrom}/kWh.`,
     };
 
   // Generate route polylines

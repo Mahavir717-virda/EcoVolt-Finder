@@ -31,7 +31,9 @@ export class StationsController {
     try {
       const rawId = req.params.id;
       const stationId = Array.isArray(rawId) ? rawId[0] : rawId;
-      const station = await StationsService.getStationDetail(stationId);
+      const userLat = req.query.lat ? parseFloat(String(req.query.lat)) : undefined;
+      const userLng = req.query.lng ? parseFloat(String(req.query.lng)) : undefined;
+      const station = await StationsService.getStationDetail(stationId, userLat, userLng);
       res.status(200).json(station);
     } catch (err) {
       next(err);
@@ -92,6 +94,33 @@ export class StationsController {
       const stationId = Array.isArray(rawId) ? rawId[0] : rawId;
       const connector = await StationsService.addConnector(stationId, parsed.data);
       res.status(201).json(connector);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async getConnector(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const rawId = req.params.id;
+      const connectorId = Array.isArray(rawId) ? rawId[0] : rawId;
+      const connector = await StationsService.getConnectorDetail(connectorId);
+      res.status(200).json(connector);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async updateConnectorStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const status = req.body.status;
+    if (!status || typeof status !== 'string') {
+      return next(new ValidationError('Invalid status', { status: { _errors: ['Required string'] } }));
+    }
+
+    try {
+      const rawId = req.params.id;
+      const connectorId = Array.isArray(rawId) ? rawId[0] : rawId;
+      const updated = await StationsService.updateConnectorStatus(connectorId, status);
+      res.status(200).json(updated);
     } catch (err) {
       next(err);
     }

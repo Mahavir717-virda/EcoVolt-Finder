@@ -1,6 +1,7 @@
 import express, { Express } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
 import yaml from 'yamljs';
@@ -18,12 +19,16 @@ import { pricingRouter } from './modules/pricing/pricing.router';
 import { bookingsRouter } from './modules/bookings/bookings.router';
 import { sessionsRouter } from './modules/sessions/sessions.router';
 import { recommendationsRouter } from './modules/recommendations/recommendations.router';
-import { forecastRouter } from './modules/forecast/forecast.router';
+import { forecastRouter, gridRouter } from './modules/forecast/forecast.router';
 import { impactRouter, analyticsRouter } from './modules/analytics/analytics.router';
+import { gamificationRouter } from './modules/gamification/gamification.router';
 import { notificationsRouter } from './modules/notifications/notifications.router';
 
 export const createApp = (): Express => {
   const app = express();
+
+  // Response Compression (Gzip / Brotli for ultra-low latency over mobile networks)
+  app.use(compression());
 
   // Security Middleware
   app.use(
@@ -68,20 +73,29 @@ export const createApp = (): Express => {
     }
   }
 
-  // Routes
-  app.use('/health', healthRouter);
-  app.use('/auth', authRouter);
-  app.use('/me', meRouter);
-  app.use('/vehicles', vehiclesRouter);
-  app.use('/stations', stationsRouter);
-  app.use('/pricing', pricingRouter);
-  app.use('/bookings', bookingsRouter);
-  app.use('/sessions', sessionsRouter);
-  app.use('/recommendations', recommendationsRouter);
-  app.use('/forecast', forecastRouter);
-  app.use('/impact', impactRouter);
-  app.use('/analytics', analyticsRouter);
-  app.use('/notifications', notificationsRouter);
+  // Routes (Registered at root and /api/v1 for universal client compatibility)
+  const routeDefinitions = [
+    { path: '/health', router: healthRouter },
+    { path: '/auth', router: authRouter },
+    { path: '/me', router: meRouter },
+    { path: '/vehicles', router: vehiclesRouter },
+    { path: '/stations', router: stationsRouter },
+    { path: '/pricing', router: pricingRouter },
+    { path: '/bookings', router: bookingsRouter },
+    { path: '/sessions', router: sessionsRouter },
+    { path: '/recommendations', router: recommendationsRouter },
+    { path: '/forecast', router: forecastRouter },
+    { path: '/grid', router: gridRouter },
+    { path: '/impact', router: impactRouter },
+    { path: '/gamification', router: gamificationRouter },
+    { path: '/analytics', router: analyticsRouter },
+    { path: '/notifications', router: notificationsRouter },
+  ];
+
+  for (const { path: routePath, router } of routeDefinitions) {
+    app.use(routePath, router);
+    app.use(`/api/v1${routePath}`, router);
+  }
 
   // 404 Handler
   app.use((req, _res, next) => {

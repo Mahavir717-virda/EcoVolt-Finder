@@ -6,9 +6,51 @@ import {
   BadRequestError,
 } from '../../middleware/error-handler';
 import { PricingService } from '../pricing/pricing.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBookingInput } from './bookings.schema';
 
 export class BookingsService {
+  /**
+   * Get active reservations for a station on a given date to calculate availability
+   */
+  public static async getStationAvailability(stationId: string, dateStr: string) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dayStart = !isNaN(y) && !isNaN(m) && !isNaN(d)
+      ? new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
+      : new Date(dateStr);
+    
+    // Pad +- 14 hours to safely cover any client local timezone offsets
+    const rangeStart = new Date(dayStart.getTime() - 14 * 3600 * 1000);
+    const rangeEnd = new Date(dayStart.getTime() + 38 * 3600 * 1000);
+
+    const bookings = await prisma.booking.findMany({
+      where: {
+        stationId,
+        status: { in: [SessionStatus.reserved, SessionStatus.scheduled, SessionStatus.active] },
+        AND: [
+          { windowStart: { lt: rangeEnd } },
+          { windowEnd: { gt: rangeStart } },
+        ],
+      },
+      select: {
+        id: true,
+        connectorType: true,
+        windowStart: true,
+        windowEnd: true,
+      },
+    });
+
+    const station = await prisma.station.findUnique({
+      where: { id: stationId },
+      include: { connectors: true },
+    });
+
+    return {
+      bookings,
+      connectors: station?.connectors || [],
+    };
+  }
+
   /**
    * List all bookings for a user
    */
@@ -40,6 +82,37 @@ export class BookingsService {
   }
 
   /**
+   * Get a single booking by ID with full details (station, vehicle, connector, session)
+   */
+  public static async getBookingById(userId: string, bookingId: string, role?: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        station: {
+          include: {
+            connectors: true,
+            operator: true,
+          },
+        },
+        vehicle: true,
+        connector: true,
+        session: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundError(`Booking not found with id: ${bookingId}`);
+    }
+
+    // Authorization check: Driver can only view their own bookings
+    if (booking.userId !== userId && role !== 'admin' && role !== 'manager') {
+      throw new NotFoundError(`Booking not found with id: ${bookingId}`);
+    }
+
+    return booking;
+  }
+
+  /**
    * Create a booking with anti-double-booking transaction and locked price snapshot
    * Edge Case #15: Uses row-level lock (FOR UPDATE) inside PostgreSQL transaction to serialize concurrent reservations
    * Edge Case #16: Peak stacking cap enforcement
@@ -58,7 +131,7 @@ export class BookingsService {
       at: startDate,
     });
 
-    return prisma.$transaction(
+    const booking = await prisma.$transaction(
       async (tx) => {
         // 1. Verify vehicle exists and belongs to user
         const vehicle = await tx.vehicle.findFirst({
@@ -167,6 +240,66 @@ export class BookingsService {
         timeout: 10000,
       }
     );
+
+    // Dynamic Notification Hook: Dispatch real booking confirmation notification to user
+    try {
+      const stationName = booking.station?.name || 'EcoVolt Supercharger';
+      const vehicleModel = booking.vehicle?.model || 'EV Vehicle';
+      const finalPrice = lockedPrice?.finalPrice;
+
+      await NotificationsService.notifyBookingConfirmed(
+        userId,
+        booking.id,
+        stationName,
+        vehicleModel,
+        startDate,
+        endDate,
+        connectorType,
+        finalPrice
+      );
+    } catch (notifErr) {
+      console.warn('Failed to dispatch booking confirmed notification:', notifErr);
+    }
+
+    return booking;
+  }
+
+  /**
+   * Dynamically calculate remaining time and trigger arrival / slot reminder
+   */
+  public static async triggerBookingReminder(userId: string, bookingId: string) {
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, userId },
+      include: {
+        station: { select: { id: true, name: true, address: true } },
+        vehicle: { select: { id: true, model: true } },
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundError(`Booking not found with id: ${bookingId}`);
+    }
+
+    const now = Date.now();
+    const startTime = new Date(booking.windowStart).getTime();
+    const diffMs = startTime - now;
+    const minutesRemaining = Math.max(0, Math.round(diffMs / (1000 * 60)));
+
+    const notif = await NotificationsService.notifyBookingReminder(
+      userId,
+      booking.station.name,
+      booking.windowStart,
+      minutesRemaining,
+      booking.id
+    );
+
+    return {
+      success: true,
+      bookingId: booking.id,
+      stationName: booking.station.name,
+      minutesRemaining,
+      notification: notif,
+    };
   }
 
   /**

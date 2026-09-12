@@ -166,7 +166,37 @@ describe('M2-C7 Booking & Scheduling Engine Acceptance Tests', () => {
     expect(res.body[0].station).toBeDefined();
   });
 
-  it('4. PATCH /bookings/:id/cancel - cancels booking and releases slot (Edge Case #23)', async () => {
+  it('4. GET /bookings/:id - returns booking details with joined relations', async () => {
+    const res = await request(app)
+      .get(`/bookings/${testBookingId}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(testBookingId);
+    expect(res.body.station).toBeDefined();
+    expect(res.body.station.name).toBe('Single-Plug Concurrency Test Station');
+    expect(res.body.vehicle).toBeDefined();
+    expect(res.body.connector).toBeDefined();
+    expect(res.body.lockedPrice).toBeDefined();
+  });
+
+  it('5. GET /bookings/:id - returns 404 for non-existent booking or unauthorized user', async () => {
+    // Other user trying to view User A's booking
+    const resForbidden = await request(app)
+      .get(`/bookings/${testBookingId}`)
+      .set('Authorization', `Bearer ${tokenB}`);
+
+    expect(resForbidden.status).toBe(404);
+
+    // Non-existent ID
+    const resNotFound = await request(app)
+      .get('/bookings/9f2d03ff-a959-495f-b48a-d58a6ee71589')
+      .set('Authorization', `Bearer ${tokenA}`);
+
+    expect(resNotFound.status).toBe(404);
+  });
+
+  it('6. PATCH /bookings/:id/cancel - cancels booking and releases slot (Edge Case #23)', async () => {
     const res = await request(app)
       .patch(`/bookings/${testBookingId}/cancel`)
       .set('Authorization', `Bearer ${tokenA}`);

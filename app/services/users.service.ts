@@ -1,22 +1,11 @@
 /**
  * Users Service
- * Manages user profile, favorites, vehicles, and plan operations
+ * Manages user profile, favorites, and vehicles via EcoVolt Express API.
+ * All operations hit real DB endpoints — no in-memory state.
  */
 
-import { Profile, PlanType, Station } from '@/types/database.types';
-import { apiRequest, MockFallbacks, getStoredUser, setStoredUser } from './api';
-import { getStations } from './stations.service';
-
-const DEFAULT_PROFILE: Profile = {
-  id: 'usr_driver_101',
-  full_name: 'Deep Pathak',
-  email: 'deep@ecovolt.io',
-  phone: '+91 98765 43210',
-  plan_type: 'premium',
-  avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
+import { Profile, PlanType } from '@/types/database.types';
+import { apiRequest, setStoredUser } from './api';
 
 export interface UpdateProfileParams {
   fullName?: string;
@@ -24,122 +13,132 @@ export interface UpdateProfileParams {
   phone?: string;
 }
 
+/**
+ * Map raw server user object → Profile shape
+ */
+function mapRawToProfile(raw: any): Profile {
+  return {
+    id: raw.id,
+    full_name: raw.name || raw.fullName || raw.full_name || '',
+    email: raw.email || '',
+    phone: raw.phone || '',
+    plan_type: (raw.planType || raw.plan_type || 'basic') as Profile['plan_type'],
+    avatar_url: raw.avatarUrl || raw.avatar_url || null,
+    created_at: raw.createdAt || raw.created_at || new Date().toISOString(),
+    updated_at: raw.updatedAt || raw.updated_at || new Date().toISOString(),
+  };
+}
+
 export async function getProfile(userId: string): Promise<Profile | null> {
   return getUserProfile(userId);
 }
 
-export async function getUserProfile(userId: string): Promise<Profile | null> {
-  const cached = await getStoredUser();
-  if (cached) return cached;
-
-  try {
-    const raw = await apiRequest<any>('/me', { method: 'GET' }, MockFallbacks.me);
-    if (raw) {
-      const p: Profile = {
-        id: raw.id || userId,
-        full_name: raw.fullName || raw.name || DEFAULT_PROFILE.full_name,
-        email: raw.email || DEFAULT_PROFILE.email,
-        phone: raw.phone || DEFAULT_PROFILE.phone,
-        plan_type: raw.planType || 'premium',
-        avatar_url: DEFAULT_PROFILE.avatar_url,
-        created_at: raw.createdAt || DEFAULT_PROFILE.created_at,
-        updated_at: raw.updatedAt || DEFAULT_PROFILE.updated_at,
-      };
-      await setStoredUser(p);
-      return p;
-    }
-  } catch {}
-
-  return DEFAULT_PROFILE;
+export async function getUserProfile(_userId: string): Promise<Profile | null> {
+  const raw = await apiRequest<any>('/me', { method: 'GET' });
+  if (!raw) return null;
+  const profile = mapRawToProfile(raw);
+  await setStoredUser(profile);
+  return profile;
 }
 
 export async function updateProfile(
-  userId: string,
+  _userId: string,
   updates: UpdateProfileParams
 ): Promise<Profile | null> {
-  const current = await getUserProfile(userId);
-  const updated: Profile = {
-    ...current!,
-    full_name: updates.fullName !== undefined ? updates.fullName : current!.full_name,
-    avatar_url: updates.avatarUrl !== undefined ? updates.avatarUrl : current!.avatar_url,
-    phone: updates.phone !== undefined ? updates.phone : current!.phone,
-    updated_at: new Date().toISOString(),
-  };
-  await setStoredUser(updated);
-  return updated;
+  const raw = await apiRequest<any>('/me', {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ...(updates.fullName !== undefined ? { name: updates.fullName } : {}),
+      ...(updates.avatarUrl !== undefined ? { avatarUrl: updates.avatarUrl } : {}),
+      ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+    }),
+  });
+  if (!raw) return null;
+  const profile = mapRawToProfile(raw);
+  await setStoredUser(profile);
+  return profile;
 }
 
 export async function updateUserProfile(
-  userId: string,
+  _userId: string,
   updates: Partial<Profile>
 ): Promise<Profile | null> {
-  const current = await getUserProfile(userId);
-  const updated: Profile = {
-    ...current!,
-    ...updates,
-    updated_at: new Date().toISOString(),
-  };
-  await setStoredUser(updated);
-  return updated;
+  const raw = await apiRequest<any>('/me', {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ...(updates.full_name !== undefined ? { name: updates.full_name } : {}),
+      ...(updates.avatar_url !== undefined ? { avatarUrl: updates.avatar_url } : {}),
+      ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+    }),
+  });
+  if (!raw) return null;
+  const profile = mapRawToProfile(raw);
+  await setStoredUser(profile);
+  return profile;
 }
 
-export async function updatePlanType(
-  userId: string,
-  planType: PlanType
-): Promise<Profile | null> {
-  const current = await getUserProfile(userId);
-  const updated: Profile = {
-    ...current!,
-    plan_type: planType,
-    updated_at: new Date().toISOString(),
-  };
-  await setStoredUser(updated);
-  return updated;
+
+// ─── Favorites ────────────────────────────────────────────────────────────────
+
+/**
+ * Get all favorite stations for the current user from DB.
+ */
+export async function getFavoriteStations(_userId: string): Promise<any[]> {
+  const raw = await apiRequest<any[]>('/me/favorites', { method: 'GET' });
+  return raw || [];
 }
 
-// In-memory favorite station IDs for driver
-let favoriteStationIds = new Set<string>(['station-001', 'station-002']);
-
-export async function getFavoriteStations(userId: string): Promise<any[]> {
-  const allStations = await getStations();
-  return allStations
-    .filter((s) => favoriteStationIds.has(s.id))
-    .map((s) => ({
-      id: `fav_${s.id}`,
-      created_at: new Date().toISOString(),
-      station: s,
-    }));
+/**
+ * Check if a station is in the user's favorites (client-side check from list).
+ */
+export async function isFavorite(_userId: string, stationId: string): Promise<boolean> {
+  const favorites = await getFavoriteStations(_userId);
+  return favorites.some((f: any) => f.stationId === stationId || f.station?.id === stationId);
 }
 
-export async function isFavorite(userId: string, stationId: string): Promise<boolean> {
-  return favoriteStationIds.has(stationId);
+/**
+ * Add a station to favorites (POST /me/favorites/:stationId).
+ */
+export async function addFavorite(_userId: string, stationId: string): Promise<boolean> {
+  try {
+    await apiRequest<any>(`/me/favorites/${stationId}`, { method: 'POST' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export async function addFavorite(userId: string, stationId: string): Promise<boolean> {
-  favoriteStationIds.add(stationId);
-  return true;
+/**
+ * Remove a station from favorites (DELETE /me/favorites/:stationId).
+ */
+export async function removeFavorite(_userId: string, stationId: string): Promise<boolean> {
+  try {
+    await apiRequest<any>(`/me/favorites/${stationId}`, { method: 'DELETE' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export async function removeFavorite(userId: string, stationId: string): Promise<boolean> {
-  favoriteStationIds.delete(stationId);
-  return true;
-}
-
-export async function toggleFavorite(userId: string, stationId: string): Promise<boolean> {
-  if (favoriteStationIds.has(stationId)) {
-    favoriteStationIds.delete(stationId);
+/**
+ * Toggle a station's favorite status. Returns new status (true = now favorited).
+ */
+export async function toggleFavorite(_userId: string, stationId: string): Promise<boolean> {
+  const currentlyFav = await isFavorite(_userId, stationId);
+  if (currentlyFav) {
+    await removeFavorite(_userId, stationId);
     return false;
   } else {
-    favoriteStationIds.add(stationId);
+    await addFavorite(_userId, stationId);
     return true;
   }
 }
 
-export async function getUserVehicles(userId: string): Promise<any[]> {
-  try {
-    const raw = await apiRequest<any[]>('/vehicles', { method: 'GET' }, MockFallbacks.vehicles);
-    return raw || MockFallbacks.vehicles;
-  } catch {
-    return MockFallbacks.vehicles;
-  }
+// ─── Vehicles ─────────────────────────────────────────────────────────────────
+
+export async function getUserVehicles(userId?: string): Promise<any[]> {
+  const query = userId ? `?userId=${userId}` : '';
+  const raw = await apiRequest<any[]>(`/vehicles${query}`, { method: 'GET' });
+  const list = Array.isArray(raw) ? raw : (raw as any)?.data || (raw as any)?.vehicles || [];
+  return list;
 }

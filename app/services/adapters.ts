@@ -17,29 +17,57 @@ export interface ReservationWithDetails extends Reservation {
   station: Station;
 }
 
-export function adaptEcoVoltStation(raw: any): Station {
+export function adaptEcoVoltStation(raw: any): Station & {
+  chargers?: Charger[];
+  connectors?: any[];
+  distance?: number;
+} {
   const connectors = raw.connectors || [];
-  const totalChargers = connectors.reduce((acc: number, c: any) => acc + (c.total || 1), 0) || raw.total_chargers || raw.totalChargers || 4;
-  const availableChargers = connectors.reduce((acc: number, c: any) => acc + (c.available ?? 1), 0) || raw.available_chargers || raw.availableChargers || 2;
+  const totalChargers =
+    connectors.reduce((acc: number, c: any) => acc + (c.total || c.totalCount || 1), 0) ||
+    raw.total_chargers ||
+    raw.totalChargers ||
+    4;
+  const availableChargers =
+    connectors.reduce((acc: number, c: any) => acc + (c.available ?? c.availableCount ?? 1), 0) ||
+    raw.available_chargers ||
+    raw.availableChargers ||
+    2;
   const greenPct = raw.greenness?.renewablePct ?? raw.greennessPct ?? raw.greenness_score ?? 85;
 
+  const idStr = String(raw.id || raw.stationId || 'station-001');
+  const stationImageFallbacks: Record<string, string> = {
+    'station-001': 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&auto=format&fit=crop&q=80',
+    'station-002': 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=1200&auto=format&fit=crop&q=80',
+    'station-003': 'https://images.unsplash.com/photo-1558441719-2345b85ab814?w=1200&auto=format&fit=crop&q=80',
+    'station-004': 'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1200&auto=format&fit=crop&q=80',
+    'station-005': 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=1200&auto=format&fit=crop&q=80',
+    'station-006': 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&auto=format&fit=crop&q=80',
+  };
+
+  const chargers = adaptEcoVoltChargers(raw);
+
   return {
-    id: String(raw.id || raw.stationId || 'station-001'),
+    id: idStr,
     name: raw.name || raw.stationName || 'EcoVolt Green Hub',
-    latitude: raw.location?.lat ?? raw.latitude ?? 23.0370,
-    longitude: raw.location?.lng ?? raw.longitude ?? 72.5622,
+    latitude: raw.location?.lat ?? raw.latitude ?? raw.lat ?? 23.0370,
+    longitude: raw.location?.lng ?? raw.longitude ?? raw.lng ?? 72.5622,
     address: raw.address || `${raw.operatorName || 'Green Grid'}, Ahmedabad`,
     city: raw.city || 'Ahmedabad',
     total_chargers: totalChargers,
     available_chargers: availableChargers,
     rating: raw.rating ?? 4.8,
-    amenities: raw.amenities || ['wifi', 'restrooms', 'cafe', 'solar_canopy'],
-    image_url: raw.image_url || raw.imageUrl || 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=800&auto=format&fit=crop&q=60',
+    amenities: raw.amenities || ['wifi', 'restrooms', 'cafe', 'parking', '24h'],
+    image_url: raw.image_url || raw.imageUrl || stationImageFallbacks[idStr] || stationImageFallbacks['station-001'],
     is_active: raw.is_active ?? true,
     greenness_score: greenPct,
     co2_saved_kg: raw.co2_saved_kg ?? raw.co2AvoidedKg ?? 15.2,
+    price_from: raw.priceFrom ?? raw.price_from ?? 12.5,
     created_at: raw.createdAt || raw.created_at || new Date().toISOString(),
     updated_at: raw.updatedAt || raw.updated_at || new Date().toISOString(),
+    chargers,
+    connectors: raw.connectors || [],
+    distance: raw.distanceKm ?? raw.distance,
   };
 }
 
@@ -70,7 +98,7 @@ export function adaptEcoVoltChargers(rawStation: any): Charger[] {
     const connectorType = c.type === 'ccs2' ? 'ccs' : c.type === 'type2_ac' ? 'type2' : 'chademo';
     const chargerType = (c.powerKw || 50) >= 50 ? 'dc_fast' : 'level_2';
     return {
-      id: `${stationId}-c${index + 1}`,
+      id: c.id || `${stationId}-c${index + 1}`,
       station_id: stationId,
       charger_type: chargerType as any,
       connector_type: connectorType as any,
@@ -84,7 +112,8 @@ export function adaptEcoVoltChargers(rawStation: any): Charger[] {
 }
 
 export function adaptEcoVoltReservation(raw: any, stationData?: any): ReservationWithDetails {
-  const station = stationData ? adaptEcoVoltStation(stationData) : {
+  const stationRaw = stationData || raw.station;
+  const station = stationRaw ? adaptEcoVoltStation(stationRaw) : {
     id: String(raw.stationId || 'station-001'),
     name: raw.stationName || 'Torrent Charging Hub – CG Road',
     latitude: 23.0370,
@@ -103,16 +132,24 @@ export function adaptEcoVoltReservation(raw: any, stationData?: any): Reservatio
     updated_at: raw.createdAt || new Date().toISOString(),
   };
 
-  const charger: Charger = {
-    id: String(raw.chargerId || `${station.id}-c1`),
+  const rawPrice =
+    typeof raw.lockedPrice === 'object' && raw.lockedPrice !== null
+      ? (raw.lockedPrice.finalPrice ?? raw.lockedPrice.baseTariff ?? 6.2)
+      : raw.lockedPrice;
+  const pricePerKwh = Number(rawPrice) || 6.2;
+  const powerKw = Number(raw.connector?.powerKw || raw.powerKw || 60);
+
+  const charger: Charger & { station?: Station } = {
+    id: String(raw.connectorId || raw.chargerId || `${station.id}-c1`),
     station_id: station.id,
-    charger_type: 'dc_fast',
+    charger_type: powerKw >= 50 ? 'dc_fast' : 'level_2',
     connector_type: raw.connectorType === 'type2_ac' ? 'type2' : 'ccs',
-    power_kw: 60,
-    price_per_kwh: Number(raw.lockedPrice || 6.2),
+    power_kw: powerKw,
+    price_per_kwh: pricePerKwh,
     status: raw.status === 'active' ? 'in_use' : 'available',
     created_at: raw.createdAt || new Date().toISOString(),
     updated_at: raw.createdAt || new Date().toISOString(),
+    station,
   };
 
   let mappedStatus: 'active' | 'completed' | 'cancelled' | 'expired' = 'active';
@@ -121,17 +158,33 @@ export function adaptEcoVoltReservation(raw: any, stationData?: any): Reservatio
   else if (raw.status === 'expired') mappedStatus = 'expired';
   else mappedStatus = 'active';
 
+  const startTime = raw.windowStart || raw.start_time || new Date().toISOString();
+  const endTime = raw.windowEnd || raw.end_time || new Date(Date.now() + 3600000).toISOString();
+  const durationMinutes =
+    Number(raw.durationMinutes || raw.duration_minutes) ||
+    Math.max(15, Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000));
+
+  const calculatedCost =
+    raw.cost != null
+      ? Number(raw.cost)
+      : raw.energyKwh != null
+      ? Number(raw.energyKwh) * pricePerKwh
+      : Number((powerKw * (durationMinutes / 60) * pricePerKwh).toFixed(2));
+
   return {
     id: String(raw.id || `book_${Date.now()}`),
-    user_id: String(raw.userId || 'usr_driver_101'),
+    user_id: String(raw.userId || raw.user_id || 'usr_driver_101'),
     charger_id: charger.id,
-    start_time: raw.windowStart || new Date().toISOString(),
-    end_time: raw.windowEnd || new Date(Date.now() + 3600000).toISOString(),
+    start_time: startTime,
+    end_time: endTime,
+    duration_minutes: durationMinutes,
     status: mappedStatus,
-    total_price: Number(raw.cost || (raw.energyKwh ? raw.energyKwh * (raw.lockedPrice || 6.2) : (raw.lockedPrice || 6.2) * 15)),
+    total_price: calculatedCost,
+    estimated_cost: calculatedCost,
     created_at: raw.createdAt || new Date().toISOString(),
-    updated_at: raw.createdAt || new Date().toISOString(),
+    updated_at: raw.updatedAt || raw.createdAt || new Date().toISOString(),
     station,
     charger,
-  };
+    vehicle: raw.vehicle,
+  } as any;
 }

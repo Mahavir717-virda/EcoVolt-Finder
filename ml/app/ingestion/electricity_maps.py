@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 import httpx
 
 from app.ingestion.base import GridSource, IngestionError
-from app.classify import band_from_pct, compute_metrics
+from app.classify import band_from_pct, compute_metrics, compute_carbon_intensity
 from app.models import GridSnapshot
 
 # ── Zone mapping ──────────────────────────────────────────────────────────────
@@ -128,16 +128,21 @@ class ElectricityMapsClient:
             our_key = _KEY_MAP.get(em_key.lower(), "unknown")
             breakdown[our_key] = breakdown.get(our_key, 0.0) + (mw or 0.0)
 
-        # Carbon intensity — prefer the API value
-        carbon_intensity: float = float(
-            raw.get("fossilFreePercentage")
-            and raw.get("carbonIntensity")  # prefer direct field
-            or raw.get("carbonIntensity", 0)
-            or 0
-        )
-        # Some responses have it at top level
-        if "carbonIntensity" in raw:
-            carbon_intensity = float(raw["carbonIntensity"] or 0)
+        # Carbon intensity — prefer the API value if positive, otherwise compute dynamically from live breakdown
+        carbon_intensity: float = 0.0
+        if "carbonIntensity" in raw and raw["carbonIntensity"]:
+            try:
+                carbon_intensity = float(raw["carbonIntensity"])
+            except (ValueError, TypeError):
+                carbon_intensity = 0.0
+        elif raw.get("fossilFreePercentage") and raw.get("carbonIntensity"):
+            try:
+                carbon_intensity = float(raw["carbonIntensity"])
+            except (ValueError, TypeError):
+                carbon_intensity = 0.0
+
+        if carbon_intensity <= 0:
+            carbon_intensity = compute_carbon_intensity(breakdown)
 
         # Compute renewable/carbonFree percentages
         metrics = compute_metrics(breakdown)

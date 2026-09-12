@@ -6,9 +6,12 @@
 import { Button } from '@/components/ui';
 import { CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
+import { DEFAULT_FILTERS, FilterState, useFilters } from '@/hooks/useFilters';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 import { spacing } from '@/styles/spacing';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
     ScrollView,
@@ -37,6 +40,7 @@ const DISTANCE_OPTIONS = [
   { value: 15, label: '15 km' },
   { value: 25, label: '25 km' },
   { value: 50, label: '50 km' },
+  { value: 100, label: '100+ km' },
 ];
 
 // Price range options (per kWh) - INR
@@ -47,37 +51,19 @@ const PRICE_RANGES = [
   { min: 20, max: Infinity, label: 'Over ₹20' },
 ];
 
-export interface FilterState {
-  chargerTypes: string[];
-  connectorTypes: string[];
-  amenities: string[];
-  maxDistance: number;
-  priceRange: { min: number; max: number } | null;
-  availableOnly: boolean;
-}
-
-const DEFAULT_FILTERS: FilterState = {
-  chargerTypes: [],
-  connectorTypes: [],
-  amenities: [],
-  maxDistance: 15,
-  priceRange: null,
-  availableOnly: false,
-};
 
 export default function FiltersModal() {
-  const params = useLocalSearchParams();
-  
-  // Initialize filters from params or defaults
-  const [filters, setFilters] = useState<FilterState>(() => {
-    try {
-      const filtersParam = params.filters as string;
-      if (filtersParam) {
-        return JSON.parse(filtersParam);
-      }
-    } catch {}
-    return DEFAULT_FILTERS;
-  });
+  const { filters: globalFilters, setFilters: setGlobalFilters } = useFilters();
+  const { colors: themeColors, isDark } = useTheme();
+  const { t } = useLanguage();
+
+  // Initialize local state from global context
+  const [filters, setFilters] = useState<FilterState>(globalFilters);
+
+  // Sync when global filters change (e.g. from clear button on explore screen)
+  React.useEffect(() => {
+    setFilters(globalFilters);
+  }, [globalFilters]);
 
   const handleChargerTypeToggle = useCallback((type: string) => {
     setFilters(prev => ({
@@ -107,7 +93,10 @@ export default function FiltersModal() {
   }, []);
 
   const handleDistanceChange = useCallback((distance: number) => {
-    setFilters(prev => ({ ...prev, maxDistance: distance }));
+    setFilters(prev => ({
+      ...prev,
+      maxDistance: prev.maxDistance === distance ? null : distance,
+    }));
   }, []);
 
   const handlePriceRangeChange = useCallback((range: { min: number; max: number } | null) => {
@@ -126,12 +115,10 @@ export default function FiltersModal() {
   }, []);
 
   const handleApply = useCallback(() => {
-    // Navigate back with filters
+    // Save filters to global context so consuming screens re-render immediately
+    setGlobalFilters(filters);
     router.back();
-    // You would typically store these in a global state or context
-    // For now, we'll just log them
-    console.log('Applied filters:', filters);
-  }, [filters]);
+  }, [filters, setGlobalFilters]);
 
   const activeFiltersCount = 
     filters.chargerTypes.length +
@@ -139,22 +126,23 @@ export default function FiltersModal() {
     filters.amenities.length +
     (filters.priceRange ? 1 : 0) +
     (filters.availableOnly ? 1 : 0) +
-    (filters.maxDistance !== 15 ? 1 : 0);
+    (filters.maxDistance != null && filters.maxDistance < 100 ? 1 : 0);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'bottom']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
-          <Ionicons name="close" size={24} color={colors.neutral[800]} />
+          <Ionicons name="close" size={24} color={themeColors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Filters</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('filter.title', 'Filters')}</Text>
         <TouchableOpacity onPress={handleReset} disabled={activeFiltersCount === 0}>
           <Text style={[
             styles.resetText,
             activeFiltersCount === 0 && styles.resetTextDisabled,
+            activeFiltersCount > 0 && { color: themeColors.primary }
           ]}>
-            Reset
+            {t('filter.reset', 'Reset')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -162,17 +150,17 @@ export default function FiltersModal() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Available Only Toggle */}
         <View style={styles.section}>
-          <View style={styles.switchRow}>
+          <View style={[styles.switchRow, { backgroundColor: themeColors.surface }]}>
             <View>
-              <Text style={styles.switchLabel}>Available Chargers Only</Text>
-              <Text style={styles.switchDescription}>
-                Show only stations with available chargers
+              <Text style={[styles.switchLabel, { color: themeColors.textPrimary }]}>{t('filter.available_only', 'Available Chargers Only')}</Text>
+              <Text style={[styles.switchDescription, { color: themeColors.textSecondary }]}>
+                {t('filter.available_desc', 'Show only stations with available chargers')}
               </Text>
             </View>
             <Switch
               value={filters.availableOnly}
               onValueChange={handleAvailableOnlyToggle}
-              trackColor={{ false: colors.neutral[200], true: colors.primary[500] }}
+              trackColor={{ false: isDark ? '#374151' : colors.neutral[200], true: themeColors.primary }}
               thumbColor={colors.white}
             />
           </View>
@@ -180,20 +168,22 @@ export default function FiltersModal() {
 
         {/* Distance */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Maximum Distance</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('filter.max_distance', 'Maximum Distance')}</Text>
           <View style={styles.chipContainer}>
             {DISTANCE_OPTIONS.map((option) => (
               <TouchableOpacity
                 key={option.value}
                 style={[
                   styles.chip,
-                  filters.maxDistance === option.value && styles.chipSelected,
+                  { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                  filters.maxDistance === option.value && { backgroundColor: themeColors.primary, borderColor: themeColors.primary },
                 ]}
                 onPress={() => handleDistanceChange(option.value)}
               >
                 <Text style={[
                   styles.chipText,
-                  filters.maxDistance === option.value && styles.chipTextSelected,
+                  { color: themeColors.textPrimary },
+                  filters.maxDistance === option.value && { color: colors.white },
                 ]}>
                   {option.label}
                 </Text>
@@ -204,14 +194,15 @@ export default function FiltersModal() {
 
         {/* Charger Type */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Charger Type</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('filter.charger_type', 'Charger Type')}</Text>
           <View style={styles.optionList}>
             {Object.entries(CHARGER_TYPES).map(([key, type]) => (
               <TouchableOpacity
                 key={key}
                 style={[
                   styles.optionRow,
-                  filters.chargerTypes.includes(key) && styles.optionRowSelected,
+                  { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                  filters.chargerTypes.includes(key) && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : colors.primary[50], borderColor: themeColors.primary },
                 ]}
                 onPress={() => handleChargerTypeToggle(key)}
               >
@@ -219,11 +210,11 @@ export default function FiltersModal() {
                   <Ionicons name="flash" size={18} color={type.color} />
                 </View>
                 <View style={styles.optionInfo}>
-                  <Text style={styles.optionLabel}>{type.name}</Text>
-                  <Text style={styles.optionDescription}>{type.power}</Text>
+                  <Text style={[styles.optionLabel, { color: themeColors.textPrimary }]}>{type.name}</Text>
+                  <Text style={[styles.optionDescription, { color: themeColors.textSecondary }]}>{type.power}</Text>
                 </View>
                 {filters.chargerTypes.includes(key) && (
-                  <Ionicons name="checkmark-circle" size={24} color={colors.primary[500]} />
+                  <Ionicons name="checkmark-circle" size={24} color={themeColors.primary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -232,20 +223,22 @@ export default function FiltersModal() {
 
         {/* Connector Type */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Connector Type</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('filter.connector_type', 'Connector Type')}</Text>
           <View style={styles.chipContainer}>
             {Object.entries(CONNECTOR_TYPES).map(([key, type]) => (
               <TouchableOpacity
                 key={key}
                 style={[
                   styles.chip,
-                  filters.connectorTypes.includes(key) && styles.chipSelected,
+                  { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                  filters.connectorTypes.includes(key) && { backgroundColor: themeColors.primary, borderColor: themeColors.primary },
                 ]}
                 onPress={() => handleConnectorTypeToggle(key)}
               >
                 <Text style={[
                   styles.chipText,
-                  filters.connectorTypes.includes(key) && styles.chipTextSelected,
+                  { color: themeColors.textPrimary },
+                  filters.connectorTypes.includes(key) && { color: colors.white },
                 ]}>
                   {type.name}
                 </Text>
@@ -256,20 +249,22 @@ export default function FiltersModal() {
 
         {/* Price Range */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Price per kWh</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('filter.price_per_kwh', 'Price per kWh')}</Text>
           <View style={styles.chipContainer}>
             {PRICE_RANGES.map((range, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
                   styles.chip,
-                  filters.priceRange?.min === range.min && styles.chipSelected,
+                  { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                  filters.priceRange?.min === range.min && { backgroundColor: themeColors.primary, borderColor: themeColors.primary },
                 ]}
                 onPress={() => handlePriceRangeChange(range)}
               >
                 <Text style={[
                   styles.chipText,
-                  filters.priceRange?.min === range.min && styles.chipTextSelected,
+                  { color: themeColors.textPrimary },
+                  filters.priceRange?.min === range.min && { color: colors.white },
                 ]}>
                   {range.label}
                 </Text>
@@ -280,14 +275,15 @@ export default function FiltersModal() {
 
         {/* Amenities */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Amenities</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('filter.amenities', 'Amenities')}</Text>
           <View style={styles.amenitiesGrid}>
             {AMENITIES.map((amenity) => (
               <TouchableOpacity
                 key={amenity.id}
                 style={[
                   styles.amenityItem,
-                  filters.amenities.includes(amenity.id) && styles.amenityItemSelected,
+                  { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                  filters.amenities.includes(amenity.id) && { backgroundColor: themeColors.primary, borderColor: themeColors.primary },
                 ]}
                 onPress={() => handleAmenityToggle(amenity.id)}
               >
@@ -296,15 +292,16 @@ export default function FiltersModal() {
                   size={20}
                   color={
                     filters.amenities.includes(amenity.id)
-                      ? colors.primary[500]
-                      : colors.neutral[500]
+                      ? colors.white
+                      : themeColors.textSecondary
                   }
                 />
                 <Text style={[
                   styles.amenityText,
-                  filters.amenities.includes(amenity.id) && styles.amenityTextSelected,
+                  { color: themeColors.textPrimary },
+                  filters.amenities.includes(amenity.id) && { color: colors.white },
                 ]}>
-                  {amenity.label}
+                  {t(`station.amenity.${amenity.id}`, amenity.label)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -315,9 +312,9 @@ export default function FiltersModal() {
       </ScrollView>
 
       {/* Apply Button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
         <Button
-          title={`Apply Filters${activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}`}
+          title={`${t('filter.apply', 'Apply Filters')}${activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}`}
           onPress={handleApply}
           fullWidth
           size="lg"

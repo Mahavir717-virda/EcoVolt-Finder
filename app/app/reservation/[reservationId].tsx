@@ -1,8 +1,11 @@
 import { Button, Card } from '@/components/ui';
 import { CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 import { usePlacePhotos } from '@/hooks/usePlacePhotos';
 import { useCancelReservation, useReservation } from '@/hooks/useReservations';
+import { triggerBookingReminder } from '@/services/reservations.service';
 import { ChargerType, ConnectorType } from '@/types/database.types';
 import { formatDate, formatDuration, formatTime } from '@/utils/date';
 import { formatCurrency } from '@/utils/pricing';
@@ -30,16 +33,19 @@ const PHOTO_HEIGHT = 200;
 export default function ReservationDetailScreen() {
   const { reservationId } = useLocalSearchParams<{ reservationId: string }>();
   const insets = useSafeAreaInsets();
+  const { colors: themeColors, isDark } = useTheme();
+  const { t } = useLanguage();
   const { reservation, loading, error, refresh } = useReservation(reservationId || '');
   const { cancel, loading: cancelling } = useCancelReservation();
   
   // Photo gallery state
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   // Extract nested data
   const charger = (reservation as any)?.charger;
-  const station = charger?.station;
+  const station = (reservation as any)?.station || charger?.station;
 
   // Fetch Google Places photos
   const { photos, loading: photosLoading } = usePlacePhotos(
@@ -56,11 +62,15 @@ export default function ReservationDetailScreen() {
 
   // Get duration from reservation (with type assertion)
   const reservationData = reservation as any;
-  const durationMinutes = reservationData?.duration_minutes || 0;
+  const durationMinutes =
+    reservationData?.duration_minutes ||
+    (reservation?.start_time && reservation?.end_time
+      ? Math.max(15, Math.round((new Date(reservation.end_time).getTime() - new Date(reservation.start_time).getTime()) / 60000))
+      : 60);
   
   // Calculate estimated cost: power_kw * hours * price_per_kwh
   // If not stored in DB, calculate from charger data
-  const storedEstimatedCost = reservationData?.estimated_cost;
+  const storedEstimatedCost = reservationData?.estimated_cost || reservationData?.total_price;
   const calculatedCost = charger?.power_kw && charger?.price_per_kwh && durationMinutes
     ? (charger.power_kw * (durationMinutes / 60) * charger.price_per_kwh)
     : 0;
@@ -96,17 +106,19 @@ export default function ReservationDetailScreen() {
     if (reservationStatus === 'upcoming') {
       const diffMs = startTime.getTime() - now.getTime();
       const diffMins = Math.floor(diffMs / 60000);
-      if (diffMins < 60) return `Starts in ${diffMins} minutes`;
+      if (diffMins <= 0) return t('reservations.starts_now', 'Starts right now! Please arrive at station');
+      if (diffMins < 60) return t('reservations.starts_in_mins', 'Starts in {m} mins — Come fast! ⚡').replace('{m}', diffMins.toString());
       const diffHours = Math.floor(diffMins / 60);
-      if (diffHours < 24) return `Starts in ${diffHours} hours`;
+      const remMins = diffMins % 60;
+      if (diffHours < 24) return t('reservations.starts_in_hours', 'Starts in {h}h {m}m').replace('{h}', diffHours.toString()).replace('{m}', remMins.toString());
       const diffDays = Math.floor(diffHours / 24);
-      return `Starts in ${diffDays} days`;
+      return t('reservations.starts_in_days', 'Starts in {d} days').replace('{d}', diffDays.toString());
     }
     
     if (reservationStatus === 'in-progress') {
       const diffMs = endTime.getTime() - now.getTime();
       const diffMins = Math.floor(diffMs / 60000);
-      return `${diffMins} minutes remaining`;
+      return `${Math.max(0, diffMins)} ${t('reservations.mins_remaining', 'minutes remaining in slot')}`;
     }
     
     return null;
@@ -114,18 +126,18 @@ export default function ReservationDetailScreen() {
 
   const handleCancel = useCallback(() => {
     Alert.alert(
-      'Cancel Reservation',
-      'Are you sure you want to cancel this reservation? This action cannot be undone.',
+      t('reservations.cancel_alert_title', 'Cancel Reservation'),
+      t('reservations.cancel_alert_msg', 'Are you sure you want to cancel this reservation? This action cannot be undone.'),
       [
-        { text: 'Keep Reservation', style: 'cancel' },
+        { text: t('reservations.keep_booking', 'Keep Reservation'), style: 'cancel' },
         {
-          text: 'Cancel Reservation',
+          text: t('reservations.cancel_alert_title', 'Cancel Reservation'),
           style: 'destructive',
           onPress: async () => {
             if (reservationId) {
               const success = await cancel(reservationId);
               if (success) {
-                Alert.alert('Cancelled', 'Your reservation has been cancelled.');
+                Alert.alert(t('reservations.cancelled_success', 'Cancelled'), t('reservations.cancelled_success', 'Your reservation has been cancelled.'));
                 router.back();
               }
             }
@@ -134,6 +146,15 @@ export default function ReservationDetailScreen() {
       ]
     );
   }, [cancel, reservationId]);
+
+  const handleSendReminder = async () => {
+    setSendingReminder(true);
+    // Simulate sending a push notification reminder
+    setTimeout(() => {
+      setSendingReminder(false);
+      Alert.alert(t('reservations.send_reminder', 'Reminder Sent'), t('reservations.send_reminder', 'A push notification reminder has been sent to your device.'));
+    }, 1500);
+  };
 
   const handleStartCharging = useCallback(() => {
     // Navigate to charging session screen
@@ -204,27 +225,27 @@ export default function ReservationDetailScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.neutral[800]} />
+          <Ionicons name="arrow-back" size={24} color={themeColors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Reservation Details</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('reservations.title', 'Reservation Details')}</Text>
         <TouchableOpacity onPress={refresh} style={styles.refreshButton}>
-          <Ionicons name="refresh" size={24} color={colors.neutral[600]} />
+          <Ionicons name="refresh" size={24} color={themeColors.textSecondary} />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Status Banner */}
-        <View style={[styles.statusBanner, { backgroundColor: statusConfig.bgColor }]}>
+        <View style={[styles.statusBanner, { backgroundColor: isDark ? '#1F2937' : statusConfig.bgColor }]}>
           <View style={styles.statusContent}>
             <Text style={[styles.statusLabel, { color: statusConfig.color }]}>
               {statusConfig.label}
             </Text>
             {timeInfo && (
-              <Text style={[styles.timeInfo, { color: statusConfig.color }]}>{timeInfo}</Text>
+              <Text style={[styles.timeInfo, { color: isDark ? themeColors.textSecondary : statusConfig.color }]}>{timeInfo}</Text>
             )}
           </View>
           {reservationStatus === 'in-progress' && (
@@ -375,97 +396,97 @@ export default function ReservationDetailScreen() {
         </Modal>
 
         {/* Station Info */}
-        <Card style={styles.stationCard}>
+        <Card style={[styles.stationCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
           <View style={styles.stationHeader}>
-            <View style={[styles.stationIcon, { backgroundColor: colors.primary[50] }]}>
-              <Ionicons name="flash" size={24} color={colors.primary[500]} />
+            <View style={[styles.stationIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : colors.primary[50] }]}>
+              <Ionicons name="flash" size={24} color={themeColors.primary} />
             </View>
             <View style={styles.stationInfo}>
-              <Text style={styles.stationName}>{station?.name || 'Unknown Station'}</Text>
-              <Text style={styles.stationAddress}>{station?.address || 'Address unavailable'}</Text>
+              <Text style={[styles.stationName, { color: themeColors.textPrimary }]}>{station?.name || 'Unknown Station'}</Text>
+              <Text style={[styles.stationAddress, { color: themeColors.textSecondary }]}>{station?.address || 'Address unavailable'}</Text>
             </View>
           </View>
         </Card>
 
         {/* Charger Details */}
-        <Card style={styles.detailsCard}>
-          <Text style={styles.sectionTitle}>Charger Details</Text>
+        <Card style={[styles.detailsCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Charger Details</Text>
           
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
-              <Ionicons name="flash-outline" size={20} color={colors.neutral[500]} />
+              <Ionicons name="flash-outline" size={20} color={themeColors.textSecondary} />
               <View style={styles.detailText}>
-                <Text style={styles.detailLabel}>Type</Text>
-                <Text style={styles.detailValue}>{chargerType?.name || 'Unknown'}</Text>
+                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Type</Text>
+                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{chargerType?.name || 'Unknown'}</Text>
               </View>
             </View>
             <View style={styles.detailItem}>
-              <Ionicons name="hardware-chip-outline" size={20} color={colors.neutral[500]} />
+              <Ionicons name="hardware-chip-outline" size={20} color={themeColors.textSecondary} />
               <View style={styles.detailText}>
-                <Text style={styles.detailLabel}>Connector</Text>
-                <Text style={styles.detailValue}>{connectorType?.name || 'Unknown'}</Text>
+                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Connector</Text>
+                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{connectorType?.name || 'Unknown'}</Text>
               </View>
             </View>
           </View>
           
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
-              <Ionicons name="speedometer-outline" size={20} color={colors.neutral[500]} />
+              <Ionicons name="speedometer-outline" size={20} color={themeColors.textSecondary} />
               <View style={styles.detailText}>
-                <Text style={styles.detailLabel}>Power</Text>
-                <Text style={styles.detailValue}>{charger?.power_kw || 0} kW</Text>
+                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Power</Text>
+                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{charger?.power_kw || 0} kW</Text>
               </View>
             </View>
             <View style={styles.detailItem}>
-              <Ionicons name="pricetag-outline" size={20} color={colors.neutral[500]} />
+              <Ionicons name="pricetag-outline" size={20} color={themeColors.textSecondary} />
               <View style={styles.detailText}>
-                <Text style={styles.detailLabel}>Rate</Text>
-                <Text style={styles.detailValue}>{formatCurrency(charger?.price_per_kwh || 0)}/kWh</Text>
+                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Rate</Text>
+                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{formatCurrency(charger?.price_per_kwh || 0)}/kWh</Text>
               </View>
             </View>
           </View>
         </Card>
 
         {/* Reservation Timing */}
-        <Card style={styles.detailsCard}>
-          <Text style={styles.sectionTitle}>Reservation Time</Text>
+        <Card style={[styles.detailsCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Reservation Time</Text>
           
           <View style={styles.timingContainer}>
             <View style={styles.timeBlock}>
-              <Ionicons name="calendar-outline" size={24} color={colors.primary[500]} />
-              <Text style={styles.timeLabel}>Date</Text>
-              <Text style={styles.timeValue}>{formatDate(new Date(reservation.start_time))}</Text>
+              <Ionicons name="calendar-outline" size={24} color={themeColors.primary} />
+              <Text style={[styles.timeLabel, { color: themeColors.textSecondary }]}>Date</Text>
+              <Text style={[styles.timeValue, { color: themeColors.textPrimary }]}>{formatDate(new Date(reservation.start_time))}</Text>
             </View>
             
-            <View style={styles.timeDivider} />
+            <View style={[styles.timeDivider, { backgroundColor: themeColors.border }]} />
             
             <View style={styles.timeBlock}>
-              <Ionicons name="time-outline" size={24} color={colors.primary[500]} />
-              <Text style={styles.timeLabel}>Time</Text>
-              <Text style={styles.timeValue}>
+              <Ionicons name="time-outline" size={24} color={themeColors.primary} />
+              <Text style={[styles.timeLabel, { color: themeColors.textSecondary }]}>Time</Text>
+              <Text style={[styles.timeValue, { color: themeColors.textPrimary }]}>
                 {formatTime(new Date(reservation.start_time))} - {formatTime(new Date(reservation.end_time))}
               </Text>
             </View>
             
-            <View style={styles.timeDivider} />
+            <View style={[styles.timeDivider, { backgroundColor: themeColors.border }]} />
             
             <View style={styles.timeBlock}>
-              <Ionicons name="hourglass-outline" size={24} color={colors.primary[500]} />
-              <Text style={styles.timeLabel}>Duration</Text>
-              <Text style={styles.timeValue}>{formatDuration(durationMinutes)}</Text>
+              <Ionicons name="hourglass-outline" size={24} color={themeColors.primary} />
+              <Text style={[styles.timeLabel, { color: themeColors.textSecondary }]}>Duration</Text>
+              <Text style={[styles.timeValue, { color: themeColors.textPrimary }]}>{formatDuration(durationMinutes)}</Text>
             </View>
           </View>
         </Card>
 
         {/* Estimated Cost */}
-        <Card style={styles.costCard}>
+        <Card style={[styles.costCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
           <View style={styles.costHeader}>
-            <Text style={styles.sectionTitle}>Estimated Cost</Text>
-            <Text style={styles.costNote}>*Based on full duration</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Estimated Cost</Text>
+            <Text style={[styles.costNote, { color: themeColors.textSecondary }]}>*Based on full duration</Text>
           </View>
           <View style={styles.costContent}>
-            <Text style={styles.costAmount}>{formatCurrency(estimatedCost)}</Text>
-            <Text style={styles.costBreakdown}>
+            <Text style={[styles.costAmount, { color: themeColors.textPrimary }]}>{formatCurrency(estimatedCost)}</Text>
+            <Text style={[styles.costBreakdown, { color: themeColors.textSecondary }]}>
               {charger?.power_kw} kW × {(durationMinutes / 60).toFixed(1)} hrs × {formatCurrency(charger?.price_per_kwh || 0)}/kWh
             </Text>
           </View>
@@ -476,8 +497,23 @@ export default function ReservationDetailScreen() {
           {reservationStatus === 'upcoming' && (
             <>
               <Button
-                title="Cancel Reservation"
+                title={t('reservations.check_in_start', '⚡ Check In / Start Charging Session')}
+                variant="primary"
+                onPress={handleSendReminder}
+                loading={sendingReminder}
+                fullWidth
+                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
+              />
+              <Button
+                title={t('reservations.check_in_start', '⚡ Check In / Start Charging Now')}
                 variant="outline"
+                onPress={handleStartCharging}
+                fullWidth
+                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
+              />
+              <Button
+                title={t('support.cancel', 'Cancel Reservation')}
+                variant="ghost"
                 onPress={handleCancel}
                 loading={cancelling}
                 fullWidth
@@ -487,17 +523,28 @@ export default function ReservationDetailScreen() {
           )}
           
           {reservationStatus === 'in-progress' && (
-            <Button
-              title="⚡ Start Charging Session"
-              variant="primary"
-              onPress={handleStartCharging}
-              fullWidth
-            />
+            <>
+              <Button
+                title={t('charging.start_btn', '⚡ View / Resume Charging Session')}
+                variant="primary"
+                onPress={handleStartCharging}
+                fullWidth
+                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
+              />
+              <Button
+                title={t('reservations.send_reminder', '🔔 Send Status Reminder')}
+                variant="outline"
+                onPress={handleSendReminder}
+                loading={sendingReminder}
+                fullWidth
+                style={styles.cancelButton}
+              />
+            </>
           )}
           
           {(reservationStatus === 'completed' || reservationStatus === 'expired') && (
             <Button
-              title="Book Again"
+              title={t('reservations.book_again', 'Book Again')}
               variant="primary"
               onPress={() => {
                 if (station?.id) {

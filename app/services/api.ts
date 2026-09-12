@@ -1,18 +1,12 @@
 /**
- * EcoVolt Express REST API Client with Offline Mock Fallback
+ * EcoVolt Express REST API Client
  */
 
 import * as SecureStore from 'expo-secure-store';
+import { ENV } from '../src/api/config';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 const TOKEN_KEY = 'ecovolt_access_token';
 const USER_KEY = 'ecovolt_user_data';
-
-// Local mock data imports for zero-downtime offline fallback
-const mockStations = require('../src/api/mocks/data/stations.json');
-const mockBookings = require('../src/api/mocks/data/bookings.json');
-const mockVehicles = require('../src/api/mocks/data/vehicles.json');
-const mockMe = require('../src/api/mocks/data/me.json');
 
 export async function getAuthToken(): Promise<string | null> {
   try {
@@ -46,14 +40,24 @@ export async function getStoredUser(): Promise<any | null> {
 
 export async function setStoredUser(user: any): Promise<void> {
   try {
-    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+    if (!user) return;
+    const cleanUser = {
+      id: user.id,
+      name: user.name || user.full_name || user.fullName,
+      email: user.email,
+      phone: user.phone,
+      role: user.role || user.plan_type,
+    };
+    const str = JSON.stringify(cleanUser);
+    if (str.length < 2000) {
+      await SecureStore.setItemAsync(USER_KEY, str);
+    }
   } catch {}
 }
 
 export async function apiRequest<T = any>(
   path: string,
-  options: RequestInit = {},
-  fallbackData?: any
+  options: RequestInit = {}
 ): Promise<T> {
   const token = await getAuthToken();
   const headers: Record<string, string> = {
@@ -66,12 +70,12 @@ export async function apiRequest<T = any>(
   }
 
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const url = `${API_BASE_URL}${cleanPath}`;
+  const url = `${ENV.API_BASE_URL}${cleanPath}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
-
     const response = await fetch(url, {
       ...options,
       headers,
@@ -80,25 +84,34 @@ export async function apiRequest<T = any>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.warn(`API request ${cleanPath} returned status ${response.status}. Using fallback if available.`);
-      if (fallbackData !== undefined) return fallbackData;
-      throw new Error(`API error ${response.status}`);
+      if (response.status === 401) {
+        try {
+          const { useAuthStore } = require('../src/features/auth/authStore');
+          useAuthStore.getState().logout();
+        } catch {}
+      }
+      // Try to parse a server error message
+      let errMsg = `API error ${response.status}`;
+      try {
+        const errBody = await response.json();
+        if (typeof errBody?.error === 'string') {
+          errMsg = errBody.error;
+        } else if (typeof errBody?.error?.message === 'string') {
+          errMsg = errBody.error.message;
+        } else if (typeof errBody?.message === 'string') {
+          errMsg = errBody.message;
+        }
+      } catch {}
+      throw new Error(errMsg);
     }
 
     const data = await response.json();
     return data?.data ?? data;
-  } catch (error) {
-    // Graceful fallback to mock fixtures if server is offline
-    if (fallbackData !== undefined) {
-      return fallbackData;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection and try again.');
     }
     throw error;
   }
 }
-
-export const MockFallbacks = {
-  stations: mockStations,
-  bookings: mockBookings,
-  vehicles: mockVehicles,
-  me: mockMe,
-};

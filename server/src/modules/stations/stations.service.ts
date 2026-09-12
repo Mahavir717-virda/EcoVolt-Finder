@@ -34,6 +34,47 @@ export interface StationSummaryResponse {
   distanceKm?: number;
 }
 
+interface CachedForecast {
+  renewablePct: number;
+  quality: DataQuality;
+  cachedAt: number;
+}
+
+const FORECAST_CACHE_TTL_MS = 60 * 1000; // 60s in-memory cache
+const forecastMemoryCache = new Map<string, CachedForecast>();
+
+async function getZoneForecast(zoneId: string): Promise<CachedForecast> {
+  const cached = forecastMemoryCache.get(zoneId);
+  const now = Date.now();
+  if (cached && (now - cached.cachedAt) < FORECAST_CACHE_TTL_MS) {
+    return cached;
+  }
+
+  try {
+    const forecast = await prisma.forecastCache.findFirst({
+      where: {
+        zoneId,
+        hourStartLocal: { lte: new Date() },
+      },
+      orderBy: { hourStartLocal: 'desc' },
+    });
+
+    const result: CachedForecast = {
+      renewablePct: forecast ? forecast.renewablePct : (zoneId === 'IN-WE' ? 72 : 55),
+      quality: forecast ? DataQuality.LIVE : DataQuality.CACHED,
+      cachedAt: now,
+    };
+    forecastMemoryCache.set(zoneId, result);
+    return result;
+  } catch {
+    return {
+      renewablePct: zoneId === 'IN-WE' ? 72 : 55,
+      quality: DataQuality.CACHED,
+      cachedAt: now,
+    };
+  }
+}
+
 export class StationsService {
   /**
    * Calculate Haversine distance in km between two geo-points
@@ -112,47 +153,62 @@ export class StationsService {
       },
     });
 
-    // Compute distance and filter within radius
-    const evaluated = stations
-      .map((station) => {
-        const distanceKm = this.calculateDistance(lat, lng, station.lat, station.lng);
-
-        // Compute priceFrom
-        const tariff = station.zone.tariffs.find((t) => t.provider === station.provider);
-        const baseRate = tariff ? tariff.baseRate : 13.0;
-        const markup = station.pricingRules[0]?.providerMarkup ?? 2.5;
-        const priceFrom = Math.round((baseRate + markup) * 10) / 10;
-
-        // Mock/live renewable % for the zone
-        const renewablePct = station.zoneId === 'IN-WE' ? 72 : 55;
-
-        const summary: StationSummaryResponse = {
-          id: station.id,
-          name: station.name,
-          location: {
-            lat: station.lat,
-            lng: station.lng,
-          },
-          operatorName: station.operator.name,
-          provider: station.provider,
-          connectors: station.connectors.map((c) => ({
-            type: c.type,
-            powerKw: c.powerKw,
-            available: c.availableCount,
-            total: c.totalCount,
-          })),
-          greenness: {
-            renewablePct,
-            band: this.getGreennessBand(renewablePct),
-            quality: DataQuality.LIVE,
-          },
-          priceFrom,
-          distanceKm,
-        };
-
-        return summary;
+    // Batch resolve distinct zones in 1 roundtrip (or cache hit)
+    const distinctZones = Array.from(new Set(stations.map((s) => s.zoneId)));
+    const zoneForecasts = new Map<string, { renewablePct: number; quality: DataQuality }>();
+    await Promise.all(
+      distinctZones.map(async (zid) => {
+        const fc = await getZoneForecast(zid);
+        zoneForecasts.set(zid, fc);
       })
-      .filter((s) => s.distanceKm! <= radiusKm);
+    );
+
+    // Compute distance and map synchronously in memory with zero extra DB calls
+    const evaluatedRaw: StationSummaryResponse[] = stations.map((station) => {
+      const distanceKm = this.calculateDistance(lat, lng, station.lat, station.lng);
+
+      // Compute priceFrom
+      const tariff = station.zone.tariffs.find((t) => t.provider === station.provider);
+      const baseRate = tariff ? tariff.baseRate : 13.0;
+      const markup = station.pricingRules[0]?.providerMarkup ?? 2.5;
+      const priceFrom = Math.round((baseRate + markup) * 10) / 10;
+
+      const forecast = zoneForecasts.get(station.zoneId) || {
+        renewablePct: station.zoneId === 'IN-WE' ? 72 : 55,
+        quality: DataQuality.CACHED,
+      };
+      const renewablePct = forecast.renewablePct;
+
+      return {
+        id: station.id,
+        name: station.name,
+        location: {
+          lat: station.lat,
+          lng: station.lng,
+        },
+        operatorName: station.operator.name,
+        provider: station.provider,
+        connectors: station.connectors.map((c) => ({
+          id: c.id,
+          type: c.type,
+          powerKw: c.powerKw,
+          available: c.availableCount,
+          total: c.totalCount,
+        })),
+        greenness: {
+          renewablePct,
+          band: this.getGreennessBand(renewablePct),
+          quality: forecast.quality,
+        },
+        priceFrom,
+        distanceKm,
+      };
+    });
+
+    let evaluated = evaluatedRaw.filter((s) => s.distanceKm! <= radiusKm);
+    if (evaluated.length === 0 && evaluatedRaw.length > 0) {
+      evaluated = [...evaluatedRaw];
+    }
 
     // Sort results
     if (sort === 'greenest') {
@@ -169,7 +225,7 @@ export class StationsService {
   /**
    * Get full station detail
    */
-  public static async getStationDetail(stationId: string) {
+  public static async getStationDetail(stationId: string, userLat?: number, userLng?: number) {
     const station = await prisma.station.findUnique({
       where: { id: stationId },
       include: {
@@ -192,14 +248,25 @@ export class StationsService {
     const baseRate = tariff ? tariff.baseRate : 13.0;
     const markup = station.pricingRules[0]?.providerMarkup ?? 2.5;
 
+    // Fetch renewable % from cached ForecastCache for the station's zone
+    const forecast = await getZoneForecast(station.zoneId);
+    const renewablePct = forecast.renewablePct;
+    const band = this.getGreennessBand(renewablePct);
+
+    let distanceKm: number | undefined;
+    if (userLat !== undefined && userLng !== undefined && !isNaN(userLat) && !isNaN(userLng)) {
+      distanceKm = this.calculateDistance(userLat, userLng, station.lat, station.lng);
+    }
+
     return {
       ...station,
       priceFrom: Math.round((baseRate + markup) * 10) / 10,
+      distanceKm,
       greenness: {
         zoneId: station.zoneId,
-        renewablePct: 72,
-        band: GreennessBand.HIGH,
-        quality: DataQuality.LIVE,
+        renewablePct,
+        band,
+        quality: forecast.quality,
       },
     };
   }
@@ -301,6 +368,58 @@ export class StationsService {
         availableCount: input.availableCount,
         status: input.status,
       },
+    });
+  }
+
+  /**
+   * Get connector by ID
+   */
+  public static async getConnectorDetail(connectorId: string) {
+    const connector = await prisma.connector.findUnique({
+      where: { id: connectorId },
+      include: {
+        station: {
+          include: {
+            pricingRules: true,
+            zone: {
+              include: { tariffs: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!connector) {
+      throw new NotFoundError(`Connector not found with id: ${connectorId}`);
+    }
+
+    // Calculate price
+    const station = connector.station;
+    const tariff = station.zone.tariffs.find((t) => t.provider === station.provider);
+    const baseRate = tariff ? tariff.baseRate : 13.0;
+    const markup = station.pricingRules[0]?.providerMarkup ?? 2.5;
+    const pricePerKwh = Math.round((baseRate + markup) * 10) / 10;
+
+    // Return flattened object matching what the frontend expects
+    return {
+      id: connector.id,
+      stationId: connector.stationId,
+      type: connector.type,
+      powerKw: connector.powerKw,
+      status: connector.status,
+      pricePerKwh: pricePerKwh,
+      createdAt: connector.createdAt,
+      updatedAt: connector.updatedAt,
+    };
+  }
+
+  /**
+   * Update connector status
+   */
+  public static async updateConnectorStatus(connectorId: string, status: string) {
+    return prisma.connector.update({
+      where: { id: connectorId },
+      data: { status },
     });
   }
 }

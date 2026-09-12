@@ -44,7 +44,7 @@ describe('M2-C3 Auth & RBAC Acceptance Tests', () => {
     expect(res.status).toBe(201);
     expect(res.body.accessToken).toBeDefined();
     expect(res.body.refreshToken).toBeDefined();
-    expect(res.body.user.email).toBeUndefined(); // OpenAPI spec doesn't expose email in signup return
+    expect(res.body.user.email).toBe(testEmail);
     expect(res.body.user.name).toBe('Test Driver');
     expect(res.body.user.role).toBe('driver');
 

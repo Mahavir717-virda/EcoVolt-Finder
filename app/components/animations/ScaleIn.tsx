@@ -3,7 +3,7 @@
  * Animates children with a scale-in effect (zoom)
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Animated, {
     Easing,
     useAnimatedStyle,
@@ -33,7 +33,13 @@ export function ScaleIn({
   const opacity = useSharedValue(0);
   const scale = useSharedValue(initialScale);
 
+  // Block touches while the view is animating to prevent hit-test mismatches
+  const [animationDone, setAnimationDone] = useState(false);
+
   useEffect(() => {
+    const totalDuration = useSpringAnimation ? delay + 600 : delay + duration;
+    const timer = setTimeout(() => setAnimationDone(true), totalDuration + 50);
+
     opacity.value = withDelay(
       delay,
       withTiming(1, { duration: duration * 0.6 })
@@ -50,6 +56,8 @@ export function ScaleIn({
         withTiming(1, { duration, easing: Easing.out(Easing.back(1.5)) })
       );
     }
+
+    return () => clearTimeout(timer);
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -58,7 +66,10 @@ export function ScaleIn({
   }));
 
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <Animated.View
+      style={[animatedStyle, style]}
+      pointerEvents={animationDone ? 'box-none' : 'none'}
+    >
       {children}
     </Animated.View>
   );

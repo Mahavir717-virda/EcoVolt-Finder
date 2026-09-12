@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
@@ -58,28 +59,9 @@ export const ConfirmBookingScreen: React.FC = () => {
     staleTime: 30000,
   });
 
-  const station = stationQuery.data || {
-    id: 'station-001',
-    name: 'Torrent Charging Hub – CG Road',
-    location: { lat: 23.0370, lng: 72.5622 },
-    operatorName: 'Green Drive Pvt Ltd',
-    provider: 'torrent_power' as const,
-    connectors: [],
-    greenness: { renewablePct: 85, band: 'very_high' as const, quality: 'mock' as const },
-    priceFrom: 6.2,
-  };
-
-  const quote = quoteQuery.data || {
-    stationId,
-    connectorType: connectorType as any,
-    baseTariff: 5.5,
-    providerMarkup: 0.5,
-    touAdjustment: 0.2,
-    finalPrice: 6.2,
-    isEstimate: true,
-    currency: 'INR' as const,
-    validUntil: new Date(Date.now() + 1800000).toISOString(),
-  };
+  const now = new Date();
+  const defaultStart = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
+  const defaultEnd = new Date(now.getTime() + 75 * 60 * 1000).toISOString();
 
   // Price Lock Countdown Timer (Edge Case #17)
   const [timeLeftSec, setTimeLeftSec] = useState(1799);
@@ -100,24 +82,49 @@ export const ConfirmBookingScreen: React.FC = () => {
   };
 
   const handleConfirmBooking = async () => {
+    if (!activeVehicle?.id) {
+      Alert.alert('No Vehicle', 'Please select or add a vehicle to your garage before booking.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await http.post('/bookings', {
         stationId,
         connectorType,
-        vehicleId: activeVehicle?.id || 'veh_nexon_1',
-        windowStart: '2026-09-12T12:00:00+05:30',
-        windowEnd: '2026-09-12T13:30:00+05:30',
+        vehicleId: activeVehicle.id,
+        windowStart: defaultStart,
+        windowEnd: defaultEnd,
         priceQuoteId: `quote_${Date.now()}`,
       });
 
       setIsSubmitting(false);
       setIsSuccess(true);
-    } catch {
+    } catch (err: any) {
       setIsSubmitting(false);
-      Alert.alert('Booking Error', 'Could not lock the slot. Please try again.');
+      Alert.alert('Booking Error', err?.message || 'Could not lock the slot. Please try again.');
     }
   };
+
+  if (stationQuery.isLoading || quoteQuery.isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={colors.brand} />
+        <Text style={{ marginTop: 12, color: colors.ink2 }}>Loading booking details...</Text>
+      </View>
+    );
+  }
+
+  const station = stationQuery.data;
+  const quote = quoteQuery.data;
+
+  if (!station || !quote) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20, paddingTop: insets.top }]}>
+        <Text style={{ color: colors.danger, textAlign: 'center' }}>Station or quote details unavailable.</Text>
+        <Button label="Go Back" variant="secondary" onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
+      </View>
+    );
+  }
 
   if (isSuccess) {
     return (

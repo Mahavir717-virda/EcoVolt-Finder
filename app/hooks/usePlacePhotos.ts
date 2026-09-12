@@ -1,6 +1,6 @@
 /**
  * usePlacePhotos Hook
- * Fetches and caches Google Places photos for stations
+ * Fetches and caches Google Places photos for stations with instant local fallback
  */
 
 import { getPlacePhotos, getSatelliteMapUrl } from '@/services/googlePlaces.service';
@@ -23,8 +23,9 @@ export function usePlacePhotos(
   placeName: string | undefined,
   existingImageUrl?: string | null
 ): UsePlacePhotosResult {
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialPhotos = existingImageUrl ? [existingImageUrl] : [];
+  const [photos, setPhotos] = useState<string[]>(initialPhotos);
+  const [loading, setLoading] = useState(initialPhotos.length === 0);
   const [error, setError] = useState<string | null>(null);
 
   const cacheKey = `${latitude}-${longitude}-${placeName}`;
@@ -37,12 +38,18 @@ export function usePlacePhotos(
 
     // Check cache first
     if (photoCache.has(cacheKey)) {
-      setPhotos(photoCache.get(cacheKey) || []);
+      const cached = photoCache.get(cacheKey) || [];
+      if (cached.length > 0) {
+        setPhotos(cached);
+      }
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    // If we don't have any images yet, show loading
+    if (photos.length === 0 && !existingImageUrl) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -52,20 +59,24 @@ export function usePlacePhotos(
         photoCache.set(cacheKey, fetchedPhotos);
         setPhotos(fetchedPhotos);
       } else {
-        // Use existing image or satellite map as fallback
         const fallback = existingImageUrl || getSatelliteMapUrl(latitude, longitude);
         setPhotos([fallback]);
       }
     } catch (err) {
-      console.error('Error fetching place photos:', err);
-      setError('Failed to load photos');
-      // Use fallback
+      console.warn('Place photos fallback to local image asset:', err);
       const fallback = existingImageUrl || getSatelliteMapUrl(latitude, longitude);
       setPhotos([fallback]);
     } finally {
       setLoading(false);
     }
-  }, [latitude, longitude, placeName, existingImageUrl, cacheKey]);
+  }, [latitude, longitude, placeName, existingImageUrl, cacheKey, photos.length]);
+
+  useEffect(() => {
+    if (existingImageUrl && photos.length === 0) {
+      setPhotos([existingImageUrl]);
+      setLoading(false);
+    }
+  }, [existingImageUrl, photos.length]);
 
   useEffect(() => {
     fetchPhotos();
@@ -76,7 +87,7 @@ export function usePlacePhotos(
   return {
     photos,
     primaryPhoto,
-    loading,
+    loading: loading && photos.length === 0,
     error,
     refresh: fetchPhotos,
   };
@@ -90,16 +101,13 @@ export function getStationImageUrl(
   longitude: number | undefined,
   existingImageUrl?: string | null
 ): string {
-  // If station has its own image, use it
   if (existingImageUrl) {
     return existingImageUrl;
   }
   
-  // Otherwise use satellite map
   if (latitude && longitude) {
     return getSatelliteMapUrl(latitude, longitude);
   }
   
-  // Default placeholder
-  return 'https://via.placeholder.com/800x400?text=No+Image';
+  return 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=600&auto=format&fit=crop&q=80';
 }
