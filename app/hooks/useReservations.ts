@@ -107,9 +107,10 @@ export function useCreateReservation() {
     try {
       const reservation = await createReservation({
         userId: user.id,
+        stationId: 'station-001',
         chargerId,
-        startTime,
-        endTime,
+        startTime: startTime instanceof Date ? startTime.toISOString() : String(startTime),
+        endTime: endTime instanceof Date ? endTime.toISOString() : String(endTime),
       });
       return reservation;
     } catch (err: any) {
