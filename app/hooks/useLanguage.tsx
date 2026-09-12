@@ -84,7 +84,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'support.sign_out': 'Sign Out',
     'support.sign_out_confirm': 'Are you sure you want to sign out?',
     'support.cancel': 'Cancel',
-    'support.app_version': 'VoltSpot v1.0.0',
+    'support.app_version': 'EcoVolt-finder v1.0.0',
 
     // Edit Profile Modal
     'edit_profile.title': 'Edit Profile',
@@ -439,7 +439,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'support.sign_out': 'साइन आउट करें',
     'support.sign_out_confirm': 'क्या आप वाकई साइन आउट करना चाहते हैं?',
     'support.cancel': 'रद्द करें',
-    'support.app_version': 'VoltSpot v1.0.0',
+    'support.app_version': 'EcoVolt-finder v1.0.0',
 
     // Edit Profile Modal
     'edit_profile.title': 'प्रोफ़ाइल संपादित करें',

@@ -171,23 +171,29 @@ export default function HomeScreen() {
     } catch {}
   }, [allStations, userCoords]);
 
+  // Live grid snapshot (dynamic from ML service & backend)
+  const { liveGrid, isLive, refresh: refreshLiveGrid } = useLiveGrid('IN-WE');
+  const gridColor = greennessColor(liveGrid.renewablePct);
+  const gridBandLabel = greennessBandLabel(liveGrid.band);
+
   // Dynamic live sync: on screen focus and every 10s so badge updates across all phones
   useFocusEffect(
     useCallback(() => {
       checkNotificationsAndDeals();
+      refreshLiveGrid();
       const interval = setInterval(() => {
         checkNotificationsAndDeals();
+        refreshLiveGrid();
       }, 10000);
       return () => clearInterval(interval);
-    }, [checkNotificationsAndDeals])
+    }, [checkNotificationsAndDeals, refreshLiveGrid])
   );
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refreshAll(), refreshNearby(), refreshLocation(), checkNotificationsAndDeals()]);
+    await Promise.all([refreshAll(), refreshNearby(), refreshLocation(), checkNotificationsAndDeals(), refreshLiveGrid()]);
     setRefreshing(false);
   };
-
 
   const handleStationPress = (stationId: string) => {
     router.push(`/station/${stationId}`);
@@ -205,11 +211,6 @@ export default function HomeScreen() {
     latitude: userCoords.latitude,
     longitude: userCoords.longitude,
   }), [userCoords.latitude, userCoords.longitude]);
-
-  // Live grid snapshot (dynamic from ML service & backend)
-  const { liveGrid, isLive } = useLiveGrid('IN-WE');
-  const gridColor = greennessColor(liveGrid.renewablePct);
-  const gridBandLabel = greennessBandLabel(liveGrid.band);
 
   // Breakdown pct for display
   const breakdownTotal = Object.values(liveGrid.breakdown).reduce((a, b) => a + b, 0);

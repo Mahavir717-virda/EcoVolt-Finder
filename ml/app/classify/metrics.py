@@ -8,6 +8,30 @@ from __future__ import annotations
 from app.classify.taxonomy import EXCLUDE_KEYS, get_carbon_free_keys, get_renewable_keys
 from app.models import GreennessBand
 
+EMISSION_FACTORS: dict[str, float] = {
+    "coal": 820.0,
+    "gas": 490.0,
+    "oil": 650.0,
+    "biomass": 230.0,
+    "nuclear": 12.0,
+    "hydro": 24.0,
+    "solar": 45.0,
+    "wind": 11.0,
+    "geothermal": 38.0,
+    "unknown": 650.0,
+}
+
+def compute_carbon_intensity(breakdown: dict[str, float]) -> float:
+    """
+    Computes dynamic weighted carbon intensity (gCO2eq/kWh) from the live generation breakdown.
+    Based on standard CEA (Central Electricity Authority of India) and IPCC lifecycle factors.
+    """
+    total_mw = sum(max(0.0, v) for v in breakdown.values())
+    if total_mw <= 0:
+        return 420.0
+    total_emissions = sum(max(0.0, mw) * EMISSION_FACTORS.get(k.lower(), 650.0) for k, mw in breakdown.items())
+    return round(total_emissions / total_mw, 1)
+
 def compute_metrics(breakdown: dict[str, float]) -> dict[str, float]:
     """
     Returns a dictionary with renewablePct, carbonFreePct, and unclassifiedPct.

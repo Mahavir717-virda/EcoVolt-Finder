@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Animated,
+  BackHandler,
   Modal,
   StyleSheet,
   Text,
@@ -151,17 +152,20 @@ export default function ChargingSessionScreen() {
             setIsEnding(true);
             
             try {
-              // Complete the reservation on server (marks session stopped & triggers dynamic sweet notification)
+              // Complete the reservation on server (persists session, calculates CO2 & clean energy, triggers dynamic sweet notification)
+              let stopResult: any = null;
               if (reservationId) {
-                await completeReservation(reservationId, energyDelivered);
+                stopResult = await completeReservation(reservationId, energyDelivered);
               }
 
-              const co2 = parseFloat((energyDelivered * 0.72).toFixed(2));
-              const pts = Math.max(10, Math.round(energyDelivered * 15));
+              const finalEnergy = stopResult?.energyKwh ?? energyDelivered;
+              const finalCost = stopResult?.cost ?? currentCost;
+              const co2 = stopResult?.co2AvoidedKg ?? parseFloat((finalEnergy * 0.72).toFixed(2));
+              const pts = Math.max(10, Math.round(co2 * 10 + finalEnergy * 2));
 
               setCompletedStats({
-                energy: energyDelivered,
-                cost: currentCost,
+                energy: finalEnergy,
+                cost: finalCost,
                 co2Avoided: co2,
                 ecoPoints: pts,
                 duration: formattedTime,
@@ -180,14 +184,63 @@ export default function ChargingSessionScreen() {
     );
   }, [energyDelivered, currentCost, formattedTime, reservationId, chargerId, t]);
 
+  // Intercept hardware and software back button to lock completed lifecycle
+  useEffect(() => {
+    const onBackPress = () => {
+      if (completedStats !== null || isEnding) {
+        // Charging finished: navigate forward to home / leaderboard
+        router.replace('/(tabs)');
+        return true;
+      }
+      if (sessionStarted) {
+        Alert.alert(
+          t('charging.in_progress_title', 'Charging in Progress'),
+          t('charging.in_progress_desc', 'Your charging session is currently running. Please stop the session before leaving.'),
+          [
+            { text: t('charging.continue', 'Continue Charging'), style: 'cancel' },
+            { text: t('charging.end_btn', 'End Session'), style: 'destructive', onPress: handleEndSession },
+          ]
+        );
+        return true;
+      }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [completedStats, isEnding, sessionStarted, handleEndSession, t]);
+
+  const handleHeaderBack = () => {
+    if (completedStats !== null || isEnding) {
+      router.replace('/(tabs)');
+    } else if (sessionStarted) {
+      Alert.alert(
+        t('charging.in_progress_title', 'Charging in Progress'),
+        t('charging.in_progress_desc', 'Your charging session is currently running. Please stop the session before leaving.'),
+        [
+          { text: t('charging.continue', 'Continue Charging'), style: 'cancel' },
+          { text: t('charging.end_btn', 'End Session'), style: 'destructive', onPress: handleEndSession },
+        ]
+      );
+    } else {
+      router.back();
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
-        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{stationName || t('charging.title', 'Charging Session')}</Text>
-        {!sessionStarted && (
-          <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>{t('charging.ready', 'Ready to charge')}</Text>
-        )}
+        <TouchableOpacity onPress={handleHeaderBack} style={styles.headerBackButton}>
+          <Ionicons name="arrow-back" size={24} color={themeColors.textPrimary} />
+        </TouchableOpacity>
+        <View style={styles.headerTitleWrap}>
+          <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{stationName || t('charging.title', 'Charging Session')}</Text>
+          {!sessionStarted && (
+            <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>{t('charging.ready', 'Ready to charge')}</Text>
+          )}
+        </View>
+        <View style={{ width: 40 }} />
       </View>
 
       {/* Main Content */}
@@ -356,8 +409,18 @@ export default function ChargingSessionScreen() {
             {/* Buttons */}
             <View style={styles.modalButtonContainer}>
               <Button
-                title={t('charging.view_reservations', 'View All Reservations')}
+                title="🏆 View Live Leaderboard & Rank"
                 variant="primary"
+                onPress={() => {
+                  setShowSweetModal(false);
+                  router.push('/leaderboard');
+                }}
+                fullWidth
+                style={{ marginBottom: 10, backgroundColor: '#059669' }}
+              />
+              <Button
+                title={t('charging.view_reservations', 'View All Reservations')}
+                variant="outline"
                 onPress={() => {
                   setShowSweetModal(false);
                   router.replace({
@@ -370,7 +433,7 @@ export default function ChargingSessionScreen() {
               />
               <Button
                 title={t('charging.go_home', 'Go to Home')}
-                variant="outline"
+                variant="ghost"
                 onPress={() => {
                   setShowSweetModal(false);
                   router.replace('/(tabs)');
@@ -391,21 +454,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral[50],
   },
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral[200],
   },
+  headerBackButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  headerTitleWrap: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.neutral[800],
+    textAlign: 'center',
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.neutral[500],
-    marginTop: 4,
+    marginTop: 2,
+    textAlign: 'center',
   },
   content: {
     flex: 1,

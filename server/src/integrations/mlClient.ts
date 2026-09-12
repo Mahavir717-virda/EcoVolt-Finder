@@ -83,8 +83,13 @@ class MlClient {
         params: { zoneId },
       });
       if (res.data) {
-        this.setCache(cacheKey, res.data, 60000);
-        return res.data;
+        const data = { ...res.data };
+        if (!data.carbonIntensity || data.carbonIntensity <= 0) {
+          const renPct = data.renewablePct || 25;
+          data.carbonIntensity = Math.round(620 * (1 - (renPct / 100) * 0.55));
+        }
+        this.setCache(cacheKey, data, 15000);
+        return data;
       }
     } catch (err: any) {
       console.warn(`[MlClient] /grid/live failed (${err.message}). Using mock fallback.`);

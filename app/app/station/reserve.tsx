@@ -220,11 +220,8 @@ export default function ReserveScreen() {
       );
 
       if (reservation && reservation.id) {
-        // Dynamic Redirection: Navigate immediately to the dynamic confirmed booking page / pass
-        router.replace({
-          pathname: '/reservation/[reservationId]',
-          params: { reservationId: reservation.id },
-        });
+        // Dynamic Redirection: Navigate to Home page and notify user
+        router.replace('/(tabs)');
       } else {
         Alert.alert('Reservation Failed', t('reserve.failed_alert', 'The time slot may already be taken or the charger is unavailable. Please try a different time.'));
       }

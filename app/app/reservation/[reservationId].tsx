@@ -509,7 +509,7 @@ export default function ReservationDetailScreen() {
                 variant="outline"
                 onPress={handleStartCharging}
                 fullWidth
-                style={{ marginBottom: 8 }}
+                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
               />
               <Button
                 title={t('support.cancel', 'Cancel Reservation')}
@@ -525,11 +525,11 @@ export default function ReservationDetailScreen() {
           {reservationStatus === 'in-progress' && (
             <>
               <Button
-                title={t('charging.start_btn', '⚡ Start Charging Session')}
+                title={t('charging.start_btn', '⚡ View / Resume Charging Session')}
                 variant="primary"
                 onPress={handleStartCharging}
                 fullWidth
-                style={{ marginBottom: 8 }}
+                style={{ backgroundColor: themeColors.primary, marginBottom: 8 }}
               />
               <Button
                 title={t('reservations.send_reminder', '🔔 Send Status Reminder')}
@@ -537,6 +537,7 @@ export default function ReservationDetailScreen() {
                 onPress={handleSendReminder}
                 loading={sendingReminder}
                 fullWidth
+                style={styles.cancelButton}
               />
             </>
           )}
