@@ -215,21 +215,12 @@ export default function ReserveScreen() {
         endTime
       );
 
-      if (reservation) {
-        Alert.alert(
-          'Reservation Confirmed! ⚡',
-          `Your charger is reserved for ${formatDuration(selectedDuration)} starting at ${formatTime(startTime)}.`,
-          [
-            {
-              text: 'View Reservations',
-              onPress: () => router.replace('/(tabs)/reservations'),
-            },
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ]
-        );
+      if (reservation && reservation.id) {
+        // Dynamic Redirection: Navigate immediately to the dynamic confirmed booking page / pass
+        router.replace({
+          pathname: '/reservation/[reservationId]',
+          params: { reservationId: reservation.id },
+        });
       } else {
         Alert.alert('Reservation Failed', 'The time slot may already be taken or the charger is unavailable. Please try a different time.');
       }

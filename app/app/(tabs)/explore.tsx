@@ -95,7 +95,7 @@ export default function ExploreScreen() {
     return (
       <StationCard
         station={station}
-        distance={distance}
+        distance={station.distance}
         isSaved={isFavorited(station.id)}
         onSave={() => toggleFavorite(station.id)}
         onPress={() => handleStationPress(station.id)}

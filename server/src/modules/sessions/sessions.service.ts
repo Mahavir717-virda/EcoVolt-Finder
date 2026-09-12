@@ -149,6 +149,7 @@ export class SessionsService {
         booking: true,
         connector: true,
         vehicle: true,
+        station: { select: { id: true, name: true, address: true } },
       },
     });
 
@@ -237,11 +238,16 @@ export class SessionsService {
 
     // Fire Notification hook
     try {
+      const stationName = session.station?.name || 'EcoVolt Supercharger';
+      const points = Math.max(25, Math.round(co2AvoidedKg * 10));
+
       await NotificationsService.notifySessionComplete(
         userId,
         energyKwh,
         totalCost,
-        co2AvoidedKg
+        co2AvoidedKg,
+        stationName,
+        points
       );
     } catch (e) {
       console.warn('Failed to dispatch session complete notification:', e);

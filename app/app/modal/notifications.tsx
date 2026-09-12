@@ -61,7 +61,9 @@ export default function NotificationsModal() {
       prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
     );
 
-    if (notif.data?.stationId) {
+    if (notif.data?.bookingId) {
+      router.push(`/reservation/${notif.data.bookingId}`);
+    } else if (notif.data?.stationId) {
       router.push(`/station/${notif.data.stationId}`);
     }
   };
@@ -73,6 +75,21 @@ export default function NotificationsModal() {
       await fetchNotifications();
     } finally {
       setSimulating(false);
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'booking_confirmed':
+        return { name: 'checkmark-circle' as const, bg: '#EFF6FF', color: '#2563EB' };
+      case 'booking_reminder':
+        return { name: 'alarm' as const, bg: '#FEF3C7', color: '#D97706' };
+      case 'session_complete':
+        return { name: 'leaf' as const, bg: '#DCFCE7', color: '#16A34A' };
+      case 'smart_savings_alert':
+        return { name: 'flash' as const, bg: '#DCFCE7', color: '#15803D' };
+      default:
+        return { name: 'notifications' as const, bg: colors.neutral[100], color: colors.neutral[600] };
     }
   };
 
@@ -107,7 +124,7 @@ export default function NotificationsModal() {
           <EmptyState
             icon="notifications-outline"
             title="No Notifications Yet"
-            description="We'll notify you when nearby stations offer ₹100+ dynamic discounts or enter peak solar hours."
+            description="We'll notify you for confirmed bookings, time reminders, completed sessions, and dynamic smart deals."
             actionLabel="Check for Smart Deals"
             onAction={handleSimulateDeal}
           />
@@ -126,7 +143,7 @@ export default function NotificationsModal() {
           }
         >
           {notifications.map((notif) => {
-            const isSavings = notif.type === 'smart_savings_alert';
+            const iconConfig = getNotificationIcon(notif.type);
             return (
               <TouchableOpacity
                 key={notif.id}
@@ -137,13 +154,13 @@ export default function NotificationsModal() {
                 <View
                   style={[
                     styles.iconContainer,
-                    isSavings ? styles.savingsIcon : styles.regularIcon,
+                    { backgroundColor: iconConfig.bg },
                   ]}
                 >
                   <Ionicons
-                    name={isSavings ? 'flash' : 'notifications'}
+                    name={iconConfig.name}
                     size={22}
-                    color={isSavings ? colors.primary[600] : colors.neutral[600]}
+                    color={iconConfig.color}
                   />
                 </View>
                 <View style={styles.notifContent}>
@@ -157,6 +174,20 @@ export default function NotificationsModal() {
                       <View style={styles.savingsTag}>
                         <Text style={styles.savingsTagText}>
                           Save ₹{notif.data.savingsInr}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {notif.data?.avoidedCo2Kg ? (
+                      <View style={[styles.savingsTag, { backgroundColor: '#DCFCE7' }]}>
+                        <Text style={[styles.savingsTagText, { color: '#15803D' }]}>
+                          🌱 {notif.data.avoidedCo2Kg}kg CO₂ avoided
+                        </Text>
+                      </View>
+                    ) : null}
+                    {notif.data?.minutesRemaining !== undefined ? (
+                      <View style={[styles.savingsTag, { backgroundColor: '#FEF3C7' }]}>
+                        <Text style={[styles.savingsTagText, { color: '#B45309' }]}>
+                          ⏰ {notif.data.minutesRemaining}m left
                         </Text>
                       </View>
                     ) : null}

@@ -85,4 +85,19 @@ export class BookingsController {
       next(err);
     }
   }
+
+  public static async triggerReminder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    if (!req.user) {
+      return next(new UnauthorizedError('Authentication required'));
+    }
+
+    try {
+      const rawId = req.params.id;
+      const bookingId = Array.isArray(rawId) ? rawId[0] : rawId;
+      const result = await BookingsService.triggerBookingReminder(req.user.sub, bookingId);
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }

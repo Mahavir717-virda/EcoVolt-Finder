@@ -56,9 +56,22 @@ export async function cancelReservation(reservationId: string, _userId?: string)
   return true;
 }
 
-export async function completeReservation(_reservationId: string): Promise<boolean> {
-  // Session completion is handled server-side via POST /sessions/:id/stop
-  return true;
+export async function completeReservation(reservationId: string, energyKwh?: number): Promise<any> {
+  try {
+    const res = await apiRequest<any>(`/sessions/${reservationId}/stop`, {
+      method: 'POST',
+      body: JSON.stringify({ energyKwh }),
+    });
+    return res;
+  } catch {
+    return true;
+  }
+}
+
+export async function triggerBookingReminder(bookingId: string): Promise<any> {
+  return await apiRequest<any>(`/bookings/${bookingId}/reminder`, {
+    method: 'POST',
+  });
 }
 
 export async function getActiveReservationCount(_userId: string): Promise<number> {

@@ -6,6 +6,7 @@ import {
   BadRequestError,
 } from '../../middleware/error-handler';
 import { PricingService } from '../pricing/pricing.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBookingInput } from './bookings.schema';
 
 export class BookingsService {
@@ -130,7 +131,7 @@ export class BookingsService {
       at: startDate,
     });
 
-    return prisma.$transaction(
+    const booking = await prisma.$transaction(
       async (tx) => {
         // 1. Verify vehicle exists and belongs to user
         const vehicle = await tx.vehicle.findFirst({
@@ -239,6 +240,66 @@ export class BookingsService {
         timeout: 10000,
       }
     );
+
+    // Dynamic Notification Hook: Dispatch real booking confirmation notification to user
+    try {
+      const stationName = booking.station?.name || 'EcoVolt Supercharger';
+      const vehicleModel = booking.vehicle?.model || 'EV Vehicle';
+      const finalPrice = lockedPrice?.finalPrice;
+
+      await NotificationsService.notifyBookingConfirmed(
+        userId,
+        booking.id,
+        stationName,
+        vehicleModel,
+        startDate,
+        endDate,
+        connectorType,
+        finalPrice
+      );
+    } catch (notifErr) {
+      console.warn('Failed to dispatch booking confirmed notification:', notifErr);
+    }
+
+    return booking;
+  }
+
+  /**
+   * Dynamically calculate remaining time and trigger arrival / slot reminder
+   */
+  public static async triggerBookingReminder(userId: string, bookingId: string) {
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, userId },
+      include: {
+        station: { select: { id: true, name: true, address: true } },
+        vehicle: { select: { id: true, model: true } },
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundError(`Booking not found with id: ${bookingId}`);
+    }
+
+    const now = Date.now();
+    const startTime = new Date(booking.windowStart).getTime();
+    const diffMs = startTime - now;
+    const minutesRemaining = Math.max(0, Math.round(diffMs / (1000 * 60)));
+
+    const notif = await NotificationsService.notifyBookingReminder(
+      userId,
+      booking.station.name,
+      booking.windowStart,
+      minutesRemaining,
+      booking.id
+    );
+
+    return {
+      success: true,
+      bookingId: booking.id,
+      stationName: booking.station.name,
+      minutesRemaining,
+      notification: notif,
+    };
   }
 
   /**

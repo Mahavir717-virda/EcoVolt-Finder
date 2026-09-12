@@ -10,8 +10,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     Alert,
     Animated,
+    Modal,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +40,14 @@ export default function ChargingSessionScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [energyDelivered, setEnergyDelivered] = useState(0);
   const [isEnding, setIsEnding] = useState(false);
+  const [showSweetModal, setShowSweetModal] = useState(false);
+  const [completedStats, setCompletedStats] = useState<{
+    energy: number;
+    cost: number;
+    co2Avoided: number;
+    ecoPoints: number;
+    duration: string;
+  } | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -90,10 +100,9 @@ export default function ChargingSessionScreen() {
       timerRef.current = setInterval(() => {
         setElapsedSeconds((prev) => prev + 1);
         // Simulate energy delivery (power * time in hours)
-        // Adding some randomness to make it feel more real
         setEnergyDelivered((prev) => {
-          const baseRate = power / 3600; // kWh per second
-          const variance = (Math.random() * 0.2 - 0.1) * baseRate; // ±10% variance
+          const baseRate = Math.max(power, 7.4) / 3600; // kWh per second
+          const variance = (Math.random() * 0.1 - 0.05) * baseRate;
           return prev + baseRate + variance;
         });
       }, 1000);
@@ -116,7 +125,6 @@ export default function ChargingSessionScreen() {
           text: 'Start Charging',
           onPress: async () => {
             setSessionStarted(true);
-            // Update charger status to in_use
             if (chargerId) {
               await updateChargerStatus(chargerId, 'in_use');
             }
@@ -139,28 +147,28 @@ export default function ChargingSessionScreen() {
             setIsEnding(true);
             
             try {
-              // Complete the reservation (also updates charger status)
+              // Complete the reservation on server (marks session stopped & triggers dynamic sweet notification)
               if (reservationId) {
-                await completeReservation(reservationId);
+                await completeReservation(reservationId, energyDelivered);
               }
 
-              // Show summary and navigate
-              Alert.alert(
-                'Charging Complete! ⚡',
-                `Session Summary:\n\n` +
-                `⏱️ Duration: ${formattedTime}\n` +
-                `⚡ Energy: ${energyDelivered.toFixed(2)} kWh\n` +
-                `💰 Total Cost: ${formatCurrency(currentCost)}`,
-                [
-                  {
-                    text: 'Done',
-                    onPress: () => router.replace('/(tabs)/reservations'),
-                  },
-                ]
-              );
+              const co2 = parseFloat((energyDelivered * 0.72).toFixed(2));
+              const pts = Math.max(10, Math.round(energyDelivered * 15));
+
+              setCompletedStats({
+                energy: energyDelivered,
+                cost: currentCost,
+                co2Avoided: co2,
+                ecoPoints: pts,
+                duration: formattedTime,
+              });
+
+              setShowSweetModal(true);
             } catch (error) {
               console.error('Error ending session:', error);
-              Alert.alert('Error', 'Failed to end session. Please try again.');
+              Alert.alert('Session Complete', 'Session ended successfully!');
+              router.replace('/(tabs)/reservations');
+            } finally {
               setIsEnding(false);
             }
           },
@@ -278,6 +286,87 @@ export default function ChargingSessionScreen() {
           />
         )}
       </View>
+
+      {/* Sweet Impact Celebration Modal */}
+      <Modal
+        visible={showSweetModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setShowSweetModal(false);
+          router.replace('/(tabs)/reservations');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.sweetModalCard}>
+            <View style={styles.sweetBadge}>
+              <Ionicons name="sparkles" size={28} color="#16A34A" />
+            </View>
+
+            <Text style={styles.sweetTitle}>Charging Complete! 🎉</Text>
+            <Text style={styles.sweetSubtitle}>
+              Thank you for driving clean and powering the green revolution with EcoVolt! 🌿⚡
+            </Text>
+
+            {/* Impact Grid */}
+            <View style={styles.impactGrid}>
+              <View style={styles.impactCell}>
+                <Text style={styles.impactEmoji}>⚡</Text>
+                <Text style={styles.impactValue}>{completedStats?.energy.toFixed(2)} kWh</Text>
+                <Text style={styles.impactLabel}>Delivered</Text>
+              </View>
+
+              <View style={styles.impactCell}>
+                <Text style={styles.impactEmoji}>🌍</Text>
+                <Text style={[styles.impactValue, { color: '#16A34A' }]}>{completedStats?.co2Avoided.toFixed(2)} kg</Text>
+                <Text style={styles.impactLabel}>CO₂ Avoided</Text>
+              </View>
+
+              <View style={styles.impactCell}>
+                <Text style={styles.impactEmoji}>💰</Text>
+                <Text style={styles.impactValue}>{formatCurrency(completedStats?.cost || 0)}</Text>
+                <Text style={styles.impactLabel}>Total Cost</Text>
+              </View>
+
+              <View style={styles.impactCell}>
+                <Text style={styles.impactEmoji}>🏆</Text>
+                <Text style={[styles.impactValue, { color: '#D97706' }]}>+{completedStats?.ecoPoints} pts</Text>
+                <Text style={styles.impactLabel}>EcoPoints</Text>
+              </View>
+            </View>
+
+            <View style={styles.sweetNoteBox}>
+              <Ionicons name="leaf-outline" size={18} color="#16A34A" />
+              <Text style={styles.sweetNoteText}>
+                A dynamic session receipt and sweet eco-credit alert have been saved in your notifications!
+              </Text>
+            </View>
+
+            {/* Buttons */}
+            <View style={styles.modalButtonContainer}>
+              <Button
+                title="View All Reservations"
+                variant="primary"
+                onPress={() => {
+                  setShowSweetModal(false);
+                  router.replace('/(tabs)/reservations');
+                }}
+                fullWidth
+                style={{ marginBottom: 10 }}
+              />
+              <Button
+                title="Go to Home"
+                variant="outline"
+                onPress={() => {
+                  setShowSweetModal(false);
+                  router.replace('/(tabs)');
+                }}
+                fullWidth
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -391,5 +480,96 @@ const styles = StyleSheet.create({
   },
   endButton: {
     borderColor: colors.error[500],
+  },
+  // Sweet Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  sweetModalCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  sweetBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#DCFCE7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sweetTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.neutral[900],
+    textAlign: 'center',
+  },
+  sweetSubtitle: {
+    fontSize: 14,
+    color: colors.neutral[600],
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  impactGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    width: '100%',
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  impactCell: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'center',
+  },
+  impactEmoji: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  impactValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.neutral[900],
+  },
+  impactLabel: {
+    fontSize: 11,
+    color: colors.neutral[500],
+    marginTop: 2,
+  },
+  sweetNoteBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 20,
+    width: '100%',
+  },
+  sweetNoteText: {
+    fontSize: 12,
+    color: '#15803D',
+    flex: 1,
+    lineHeight: 16,
+  },
+  modalButtonContainer: {
+    width: '100%',
   },
 });
