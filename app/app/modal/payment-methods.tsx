@@ -1,6 +1,7 @@
 /**
  * Payment Methods Modal Screen
  * EcoVolt Smart Wallet balance, Quick Top-up, UPI ID management, and Saved Cards
+ * Connected to dynamic Theme & Hindi/English Language.
  */
 
 import React, { useState } from 'react';
@@ -18,8 +19,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
 import { spacing } from '@/styles/spacing';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface UPIAccount {
   id: string;
@@ -40,6 +42,8 @@ interface SavedCard {
 export default function PaymentMethodsModal() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
 
   const [walletBalance, setWalletBalance] = useState(850.0);
   const [autoPayEnabled, setAutoPayEnabled] = useState(true);
@@ -69,14 +73,14 @@ export default function PaymentMethodsModal() {
       setAddingTopup(false);
       Alert.alert(
         'Wallet Recharged! ⚡',
-        `Successfully added ₹${amount} to your EcoVolt Smart Wallet. Current balance: ₹${walletBalance + amount}`
+        `₹${amount} successfully added to wallet. Balance: ₹${walletBalance + amount}`
       );
     }, 600);
   };
 
   const handleAddUpi = () => {
     if (!newUpiId.includes('@') || newUpiId.length < 5) {
-      Alert.alert('Invalid UPI ID', 'Please enter a valid UPI Virtual Payment Address (e.g., name@bank)');
+      Alert.alert('Invalid UPI ID', 'Please enter a valid UPI address (e.g., name@bank)');
       return;
     }
     const newAccount: UPIAccount = {
@@ -99,7 +103,7 @@ export default function PaymentMethodsModal() {
 
   const handleDeleteUpi = (id: string) => {
     Alert.alert('Remove UPI', 'Are you sure you want to remove this UPI ID?', [
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('common.cancel', 'Cancel'), style: 'cancel' },
       {
         text: 'Remove',
         style: 'destructive',
@@ -109,13 +113,24 @@ export default function PaymentMethodsModal() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 8,
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="close" size={26} color={colors.neutral[800]} />
+          <Ionicons name="close" size={26} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payment Methods</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          {t('payment.title', 'Payment Methods')}
+        </Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -124,22 +139,22 @@ export default function PaymentMethodsModal() {
         showsVerticalScrollIndicator={false}
       >
         {/* Smart Green Wallet Card */}
-        <View style={styles.walletCard}>
+        <View style={[styles.walletCard, { backgroundColor: isDark ? '#091E15' : '#0B2418' }]}>
           <View style={styles.walletTopRow}>
             <View style={styles.walletBrandRow}>
               <Ionicons name="wallet" size={22} color="#10B981" />
-              <Text style={styles.walletBrand}>EcoVolt Smart Wallet</Text>
+              <Text style={styles.walletBrand}>{t('payment.smart_wallet', 'EcoVolt Smart Wallet')}</Text>
             </View>
             <View style={styles.greenBadge}>
               <Ionicons name="leaf" size={12} color="#059669" />
-              <Text style={styles.greenBadgeText}>AUTO-DISCOUNT</Text>
+              <Text style={styles.greenBadgeText}>{t('payment.auto_discount', 'AUTO-DISCOUNT')}</Text>
             </View>
           </View>
 
-          <Text style={styles.walletBalanceLabel}>Available Balance</Text>
+          <Text style={styles.walletBalanceLabel}>{t('payment.avail_balance', 'Available Balance')}</Text>
           <Text style={styles.walletBalance}>₹{walletBalance.toFixed(2)}</Text>
           <Text style={styles.walletSubtext}>
-            Locked at renewable charging slot rates · 0% transaction fees
+            {t('payment.wallet_sub', 'Locked at renewable charging slot rates · 0% transaction fees')}
           </Text>
 
           {/* Quick Top-up buttons */}
@@ -153,7 +168,7 @@ export default function PaymentMethodsModal() {
                 activeOpacity={0.7}
               >
                 {addingTopup ? (
-                  <ActivityIndicator size="small" color={colors.primary[500]} />
+                  <ActivityIndicator size="small" color="#34D399" />
                 ) : (
                   <Text style={styles.topupBtnText}>+₹{amt}</Text>
                 )}
@@ -164,7 +179,7 @@ export default function PaymentMethodsModal() {
 
         {/* Auto Pay Smart Preference */}
         <TouchableOpacity
-          style={styles.preferenceCard}
+          style={[styles.preferenceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={() => setAutoPayEnabled(!autoPayEnabled)}
           activeOpacity={0.8}
         >
@@ -172,61 +187,69 @@ export default function PaymentMethodsModal() {
             <Ionicons
               name="flash"
               size={22}
-              color={autoPayEnabled ? colors.primary[500] : colors.neutral[400]}
+              color={autoPayEnabled ? colors.primary : colors.textMuted}
             />
             <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.preferenceTitle}>Auto-Pay Green Windows</Text>
-              <Text style={styles.preferenceDesc}>
-                Instantly settle sessions from wallet to unlock max dynamic solar discounts
+              <Text style={[styles.preferenceTitle, { color: colors.textPrimary }]}>
+                {t('payment.auto_pay', 'Auto-Pay Green Windows')}
+              </Text>
+              <Text style={[styles.preferenceDesc, { color: colors.textSecondary }]}>
+                {t('payment.auto_pay_desc', 'Instantly settle sessions from wallet to unlock max dynamic solar discounts')}
               </Text>
             </View>
           </View>
           <Ionicons
             name={autoPayEnabled ? 'toggle' : 'toggle-outline'}
             size={36}
-            color={autoPayEnabled ? colors.primary[500] : colors.neutral[400]}
+            color={autoPayEnabled ? colors.primary : colors.textMuted}
           />
         </TouchableOpacity>
 
         {/* Saved UPI IDs */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>UPI Accounts (VPA)</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            {t('payment.upi_accounts', 'UPI Accounts (VPA)')}
+          </Text>
           <TouchableOpacity onPress={() => setShowAddUpiModal(true)}>
-            <Text style={styles.addSectionText}>+ Add UPI</Text>
+            <Text style={[styles.addSectionText, { color: colors.primary }]}>
+              {t('payment.add_upi', '+ Add UPI')}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.listCard}>
+        <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {upiList.map((item, index) => (
             <View
               key={item.id}
-              style={[styles.listItem, index < upiList.length - 1 && styles.itemBorder]}
+              style={[styles.listItem, index < upiList.length - 1 && [styles.itemBorder, { borderBottomColor: colors.borderLight }]]}
             >
-              <View style={styles.listIconBox}>
-                <Ionicons name="phone-portrait-outline" size={20} color={colors.primary[500]} />
+              <View style={[styles.listIconBox, { backgroundColor: colors.surfaceSunken }]}>
+                <Ionicons name="phone-portrait-outline" size={20} color={colors.primary} />
               </View>
               <View style={styles.listInfo}>
                 <View style={styles.upiTitleRow}>
-                  <Text style={styles.listTitle}>{item.upiId}</Text>
+                  <Text style={[styles.listTitle, { color: colors.textPrimary }]}>{item.upiId}</Text>
                   {item.isDefault && (
                     <View style={styles.defaultPill}>
-                      <Text style={styles.defaultPillText}>DEFAULT</Text>
+                      <Text style={styles.defaultPillText}>{t('payment.default_pill', 'DEFAULT')}</Text>
                     </View>
                   )}
                 </View>
-                <Text style={styles.listSub}>{item.provider}</Text>
+                <Text style={[styles.listSub, { color: colors.textSecondary }]}>{item.provider}</Text>
               </View>
               <View style={styles.itemActions}>
                 {!item.isDefault && (
                   <TouchableOpacity
                     onPress={() => handleSetDefaultUpi(item.id)}
-                    style={styles.setDefaultBtn}
+                    style={[styles.setDefaultBtn, { backgroundColor: colors.surfaceSunken }]}
                   >
-                    <Text style={styles.setDefaultText}>Set Default</Text>
+                    <Text style={[styles.setDefaultText, { color: colors.textPrimary }]}>
+                      {t('payment.set_default', 'Set Default')}
+                    </Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => handleDeleteUpi(item.id)}>
-                  <Ionicons name="trash-outline" size={18} color={colors.neutral[400]} />
+                  <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -235,30 +258,38 @@ export default function PaymentMethodsModal() {
 
         {/* Saved Cards */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Saved Credit & Debit Cards</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            {t('payment.saved_cards', 'Saved Credit & Debit Cards')}
+          </Text>
         </View>
 
-        <View style={styles.listCard}>
+        <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {cardsList.map((card, index) => (
             <View
               key={card.id}
-              style={[styles.listItem, index < cardsList.length - 1 && styles.itemBorder]}
+              style={[styles.listItem, index < cardsList.length - 1 && [styles.itemBorder, { borderBottomColor: colors.borderLight }]]}
             >
-              <View style={styles.listIconBox}>
+              <View style={[styles.listIconBox, { backgroundColor: colors.surfaceSunken }]}>
                 <Ionicons name="card-outline" size={20} color="#3B82F6" />
               </View>
               <View style={styles.listInfo}>
                 <View style={styles.upiTitleRow}>
-                  <Text style={styles.listTitle}>{card.bank}</Text>
+                  <Text style={[styles.listTitle, { color: colors.textPrimary }]}>{card.bank}</Text>
                   {card.isDefault && (
                     <View style={styles.defaultPill}>
-                      <Text style={styles.defaultPillText}>PRIMARY</Text>
+                      <Text style={styles.defaultPillText}>{t('payment.primary_pill', 'PRIMARY')}</Text>
                     </View>
                   )}
                 </View>
-                <Text style={styles.listSub}>•••• •••• •••• {card.lastFour} · Exp {card.expiry}</Text>
+                <Text style={[styles.listSub, { color: colors.textSecondary }]}>
+                  •••• •••• •••• {card.lastFour} · Exp {card.expiry}
+                </Text>
               </View>
-              <Ionicons name="checkmark-circle" size={22} color={card.isDefault ? colors.primary[500] : colors.neutral[300]} />
+              <Ionicons
+                name="checkmark-circle"
+                size={22}
+                color={card.isDefault ? colors.primary : colors.textMuted}
+              />
             </View>
           ))}
         </View>
@@ -267,32 +298,41 @@ export default function PaymentMethodsModal() {
       {/* Add UPI Modal */}
       <Modal visible={showAddUpiModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Link New UPI ID</Text>
-            <Text style={styles.modalSubtitle}>
-              Enter your UPI ID (e.g. mobile@upi or username@bank)
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+              {t('payment.link_upi', 'Link New UPI ID')}
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+              {t('payment.enter_upi', 'Enter your UPI ID (e.g. mobile@upi or username@bank)')}
             </Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { backgroundColor: colors.surfaceSunken, color: colors.textPrimary, borderColor: colors.border }]}
               value={newUpiId}
               onChangeText={setNewUpiId}
               placeholder="example@okaxis"
-              placeholderTextColor={colors.neutral[400]}
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               autoFocus
             />
             <View style={styles.modalButtonRow}>
               <TouchableOpacity
-                style={styles.modalCancelBtn}
+                style={[styles.modalCancelBtn, { backgroundColor: colors.surfaceSunken }]}
                 onPress={() => {
                   setNewUpiId('');
                   setShowAddUpiModal(false);
                 }}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={[styles.modalCancelText, { color: colors.textPrimary }]}>
+                  {t('common.cancel', 'Cancel')}
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleAddUpi}>
-                <Text style={styles.modalSaveText}>Link UPI</Text>
+              <TouchableOpacity
+                style={[styles.modalSaveBtn, { backgroundColor: colors.primary }]}
+                onPress={handleAddUpi}
+              >
+                <Text style={styles.modalSaveText}>
+                  {t('payment.link_upi_btn', 'Link UPI')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -305,7 +345,6 @@ export default function PaymentMethodsModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
   },
   header: {
     flexDirection: 'row',
@@ -313,9 +352,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
   },
   headerButton: {
     padding: 6,
@@ -323,22 +360,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   scrollContent: {
     padding: spacing.screenPadding,
   },
   walletCard: {
-    backgroundColor: '#091E15',
     borderRadius: spacing.radius.xl,
     padding: 20,
     borderWidth: 1,
     borderColor: '#133E2B',
     marginBottom: spacing.md,
-    shadowColor: '#091E15',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
     elevation: 4,
   },
   walletTopRow: {
@@ -355,7 +386,7 @@ const styles = StyleSheet.create({
   walletBrand: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.white,
+    color: '#FFFFFF',
   },
   greenBadge: {
     flexDirection: 'row',
@@ -381,7 +412,7 @@ const styles = StyleSheet.create({
   walletBalance: {
     fontSize: 36,
     fontWeight: '800',
-    color: colors.white,
+    color: '#FFFFFF',
     marginVertical: 4,
   },
   walletSubtext: {
@@ -412,12 +443,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.white,
     borderRadius: spacing.radius.lg,
     padding: spacing.md,
     marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
   },
   preferenceLeft: {
     flexDirection: 'row',
@@ -427,11 +456,9 @@ const styles = StyleSheet.create({
   preferenceTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   preferenceDesc: {
     fontSize: 12,
-    color: colors.neutral[500],
     marginTop: 2,
   },
   sectionHeaderRow: {
@@ -444,21 +471,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.neutral[500],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   addSectionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.primary[600],
   },
   listCard: {
-    backgroundColor: colors.white,
     borderRadius: spacing.radius.lg,
     marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
     overflow: 'hidden',
   },
   listItem: {
@@ -468,13 +491,11 @@ const styles = StyleSheet.create({
   },
   itemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
   },
   listIconBox: {
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: colors.neutral[50],
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -490,7 +511,6 @@ const styles = StyleSheet.create({
   listTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   defaultPill: {
     backgroundColor: '#DCFCE7',
@@ -505,7 +525,6 @@ const styles = StyleSheet.create({
   },
   listSub: {
     fontSize: 12,
-    color: colors.neutral[500],
     marginTop: 2,
   },
   itemActions: {
@@ -517,48 +536,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: colors.neutral[100],
   },
   setDefaultText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.neutral[700],
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     padding: spacing.screenPadding,
   },
   modalContent: {
-    backgroundColor: colors.white,
     borderRadius: spacing.radius.xl,
     padding: spacing.lg,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
     elevation: 5,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   modalSubtitle: {
     fontSize: 13,
-    color: colors.neutral[500],
     marginTop: 4,
     marginBottom: 16,
   },
   modalInput: {
     height: 48,
     borderWidth: 1,
-    borderColor: colors.neutral[300],
     borderRadius: spacing.radius.md,
     paddingHorizontal: 12,
     fontSize: 15,
-    color: colors.neutral[900],
     marginBottom: 20,
   },
   modalButtonRow: {
@@ -569,26 +577,23 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 10,
-    backgroundColor: colors.neutral[100],
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCancelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.neutral[700],
   },
   modalSaveBtn: {
     flex: 1,
     height: 44,
     borderRadius: 10,
-    backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalSaveText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.white,
+    color: '#FFFFFF',
   },
 });

@@ -1,6 +1,7 @@
 /**
  * Edit Profile Modal Screen
  * Allows driver to update their Name, Email, Phone, and EV Preferences with live backend sync.
+ * Connected to dynamic Theme & Hindi/English Language.
  */
 
 import React, { useState } from 'react';
@@ -19,14 +20,17 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
 import { spacing } from '@/styles/spacing';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function EditProfileModal() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile, updateUserProfile } = useAuth();
+  const { colors } = useTheme();
+  const { t } = useLanguage();
 
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [email, setEmail] = useState(profile?.email || '');
@@ -38,7 +42,7 @@ export default function EditProfileModal() {
 
   const handleSave = async () => {
     if (!fullName.trim()) {
-      setErrorMsg('Full name cannot be empty');
+      setErrorMsg(t('edit_profile.enter_full_name', 'Full name cannot be empty'));
       return;
     }
     if (fullName.trim().length < 2) {
@@ -64,9 +68,11 @@ export default function EditProfileModal() {
         setErrorMsg(res.error);
         Alert.alert('Update Failed', res.error);
       } else {
-        Alert.alert('Profile Updated', 'Your profile details have been successfully saved.', [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        Alert.alert(
+          t('edit_profile.success_title', 'Profile Updated'),
+          t('edit_profile.success', 'Your profile details have been successfully saved.'),
+          [{ text: t('common.ok', 'OK'), onPress: () => router.back() }]
+        );
       }
     } catch (err: any) {
       setErrorMsg(err?.message || 'An unexpected error occurred.');
@@ -77,24 +83,37 @@ export default function EditProfileModal() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 8,
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="close" size={26} color={colors.neutral[800]} />
+          <Ionicons name="close" size={26} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          {t('edit_profile.title', 'Edit Profile')}
+        </Text>
         <TouchableOpacity
           onPress={handleSave}
           disabled={saving}
-          style={[styles.saveHeaderButton, saving && { opacity: 0.6 }]}
+          style={[styles.saveHeaderButton, { backgroundColor: colors.primaryLight }, saving && { opacity: 0.6 }]}
         >
           {saving ? (
-            <ActivityIndicator size="small" color={colors.primary[600]} />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={styles.saveHeaderText}>Save</Text>
+            <Text style={[styles.saveHeaderText, { color: colors.primary }]}>
+              {t('edit_profile.save', 'Save')}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -105,17 +124,19 @@ export default function EditProfileModal() {
       >
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatarCircle}>
+          <View style={[styles.avatarCircle, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
             <Text style={styles.avatarText}>{initialLetter}</Text>
-            <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={14} color={colors.white} />
+            <View style={[styles.cameraBadge, { backgroundColor: colors.surfaceSunken, borderColor: colors.surface }]}>
+              <Ionicons name="camera" size={14} color={colors.textPrimary} />
             </View>
           </View>
-          <Text style={styles.avatarHint}>Verified EcoVolt Driver</Text>
-          <View style={styles.planBadge}>
-            <Ionicons name="leaf" size={13} color="#059669" />
-            <Text style={styles.planBadgeText}>
-              {(profile?.plan_type || 'Green Driver').toUpperCase()} TIER
+          <Text style={[styles.avatarHint, { color: colors.textPrimary }]}>
+            {t('profile.verified_driver', 'Verified EcoVolt Driver')}
+          </Text>
+          <View style={[styles.planBadge, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="leaf" size={13} color={colors.primary} />
+            <Text style={[styles.planBadgeText, { color: colors.primary }]}>
+              {(profile?.plan_type || 'Green Driver').toUpperCase()} {t('profile.green_tier', 'TIER')}
             </Text>
           </View>
         </View>
@@ -128,21 +149,23 @@ export default function EditProfileModal() {
         ) : null}
 
         {/* Input Card */}
-        <View style={styles.formCard}>
+        <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Full Name */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Full Name</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="person-outline" size={20} color={colors.neutral[400]} style={styles.inputIcon} />
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t('edit_profile.full_name', 'Full Name')}
+            </Text>
+            <View style={[styles.inputWrapper, { backgroundColor: colors.surfaceSunken, borderColor: colors.border }]}>
+              <Ionicons name="person-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { color: colors.textPrimary }]}
                 value={fullName}
                 onChangeText={(text) => {
                   setFullName(text);
                   if (errorMsg) setErrorMsg(null);
                 }}
-                placeholder="Enter your full name"
-                placeholderTextColor={colors.neutral[400]}
+                placeholder={t('edit_profile.enter_full_name', 'Enter your full name')}
+                placeholderTextColor={colors.textMuted}
                 autoCapitalize="words"
               />
             </View>
@@ -150,18 +173,20 @@ export default function EditProfileModal() {
 
           {/* Email Address */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email Address</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={20} color={colors.neutral[400]} style={styles.inputIcon} />
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t('edit_profile.email_address', 'Email Address')}
+            </Text>
+            <View style={[styles.inputWrapper, { backgroundColor: colors.surfaceSunken, borderColor: colors.border }]}>
+              <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { color: colors.textPrimary }]}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
                   if (errorMsg) setErrorMsg(null);
                 }}
                 placeholder="driver@example.com"
-                placeholderTextColor={colors.neutral[400]}
+                placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -170,18 +195,20 @@ export default function EditProfileModal() {
 
           {/* Phone Number */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Phone Number</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="call-outline" size={20} color={colors.neutral[400]} style={styles.inputIcon} />
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t('edit_profile.phone_number', 'Phone Number')}
+            </Text>
+            <View style={[styles.inputWrapper, { backgroundColor: colors.surfaceSunken, borderColor: colors.border }]}>
+              <Ionicons name="call-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { color: colors.textPrimary }]}
                 value={phone}
                 onChangeText={(text) => {
                   setPhone(text);
                   if (errorMsg) setErrorMsg(null);
                 }}
                 placeholder="+91 98765 43210"
-                placeholderTextColor={colors.neutral[400]}
+                placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
               />
             </View>
@@ -189,29 +216,33 @@ export default function EditProfileModal() {
         </View>
 
         {/* Security & Account Info */}
-        <View style={styles.infoCard}>
+        <View style={[styles.infoCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
           <View style={styles.infoRow}>
-            <Ionicons name="shield-checkmark" size={18} color={colors.primary[500]} />
-            <Text style={styles.infoTitle}>Account Security</Text>
+            <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+            <Text style={[styles.infoTitle, { color: colors.primary }]}>
+              {t('edit_profile.account_security', 'Account Security')}
+            </Text>
           </View>
-          <Text style={styles.infoDesc}>
-            Your email is used for booking confirmations and smart solar charging alerts. Updates take effect immediately.
+          <Text style={[styles.infoDesc, { color: colors.textSecondary }]}>
+            {t('edit_profile.security_desc', 'Your email is used for booking confirmations and smart solar charging alerts.')}
           </Text>
         </View>
 
         {/* Action Button */}
         <TouchableOpacity
-          style={[styles.submitButton, saving && styles.submitButtonDisabled]}
+          style={[styles.submitButton, { backgroundColor: colors.primary, shadowColor: colors.primary }, saving && styles.submitButtonDisabled]}
           onPress={handleSave}
           disabled={saving}
           activeOpacity={0.8}
         >
           {saving ? (
-            <ActivityIndicator color={colors.white} />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <>
-              <Ionicons name="checkmark-circle-outline" size={20} color={colors.white} />
-              <Text style={styles.submitButtonText}>Save Profile Changes</Text>
+              <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.submitButtonText}>
+                {t('edit_profile.save_btn', 'Save Profile Changes')}
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -223,7 +254,6 @@ export default function EditProfileModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
   },
   header: {
     flexDirection: 'row',
@@ -231,9 +261,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
   },
   headerButton: {
     padding: 6,
@@ -241,18 +269,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   saveHeaderButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: colors.primary[50],
   },
   saveHeaderText: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.primary[600],
   },
   scrollContent: {
     padding: spacing.screenPadding,
@@ -265,10 +290,8 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary[500],
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -277,7 +300,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 36,
     fontWeight: '700',
-    color: colors.white,
+    color: '#FFFFFF',
   },
   cameraBadge: {
     position: 'absolute',
@@ -286,23 +309,19 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.neutral[800],
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: colors.white,
   },
   avatarHint: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.neutral[800],
     marginTop: 10,
   },
   planBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#D1FAE5',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
@@ -311,7 +330,6 @@ const styles = StyleSheet.create({
   planBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#065F46',
   },
   errorBanner: {
     flexDirection: 'row',
@@ -331,13 +349,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   formCard: {
-    backgroundColor: colors.white,
     borderRadius: spacing.radius.xl,
     padding: spacing.lg,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    borderWidth: 1,
     elevation: 2,
     gap: spacing.md,
   },
@@ -347,15 +361,12 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.neutral[700],
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.neutral[200],
     borderRadius: spacing.radius.md,
-    backgroundColor: colors.neutral[50],
     paddingHorizontal: 12,
     height: 48,
   },
@@ -365,16 +376,13 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 15,
-    color: colors.neutral[900],
     paddingVertical: 0,
   },
   infoCard: {
-    backgroundColor: '#F0FDF4',
     borderRadius: spacing.radius.lg,
     padding: spacing.md,
     marginVertical: spacing.lg,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
     gap: 4,
   },
   infoRow: {
@@ -385,11 +393,9 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#166534',
   },
   infoDesc: {
     fontSize: 12,
-    color: '#15803D',
     lineHeight: 18,
   },
   submitButton: {
@@ -397,10 +403,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: colors.primary[500],
     height: 52,
     borderRadius: spacing.radius.lg,
-    shadowColor: colors.primary[500],
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -412,6 +416,6 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.white,
+    color: '#FFFFFF',
   },
 });

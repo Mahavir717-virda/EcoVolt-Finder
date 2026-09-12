@@ -8,6 +8,8 @@ import { WebViewMap } from '@/components/map';
 import { StationCard } from '@/components/station';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 import { applyFiltersToStations, useFilters } from '@/hooks/useFilters';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useNearbyStations, useStations } from '@/hooks/useStations';
@@ -40,6 +42,8 @@ import { getGamificationProfile } from '@/services/gamification.service';
 export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useAuth();
+  const { colors: themeColors, isDark } = useTheme();
+  const { t } = useLanguage();
   const { filters, activeFiltersCount } = useFilters();
   const { isFavorited, toggle: toggleFavorite } = useFavorites();
   
@@ -210,18 +214,18 @@ export default function HomeScreen() {
   const coalPct = breakdownTotal > 0 ? Math.round(((bkd.coal + bkd.gas) / breakdownTotal) * 100) : 0;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <View>
-          <Text style={styles.greeting}>
-            Hello, {profile?.full_name?.split(' ')[0] || 'there'}! 👋
+          <Text style={[styles.greeting, { color: themeColors.textPrimary }]}>
+            {t('home.greeting', 'Hello')}, {profile?.full_name?.split(' ')[0] || 'there'}! 👋
           </Text>
-          <Text style={styles.subtitle}>Find your nearest charging station</Text>
+          <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>{t('home.subtitle', 'Find your nearest charging station')}</Text>
         </View>
         <View style={styles.headerRightActions}>
           <TouchableOpacity
-            style={styles.trophyButton}
+            style={[styles.trophyButton, { backgroundColor: isDark ? '#1F2937' : '#FEF3C7', borderColor: isDark ? '#374151' : '#FDE68A' }]}
             onPress={() => router.push('/leaderboard')}
             activeOpacity={0.7}
           >
@@ -233,11 +237,11 @@ export default function HomeScreen() {
             )}
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.notificationButton}
+            style={[styles.notificationButton, { backgroundColor: isDark ? '#1F2937' : colors.neutral[100] }]}
             onPress={() => router.push('/modal/notifications')}
             activeOpacity={0.7}
           >
-            <Ionicons name="notifications-outline" size={24} color={colors.neutral[700]} />
+            <Ionicons name="notifications-outline" size={24} color={themeColors.textPrimary} />
             {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -249,16 +253,16 @@ export default function HomeScreen() {
 
       {/* Search Bar */}
       <TouchableOpacity 
-        style={styles.searchBar} 
+        style={[styles.searchBar, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]} 
         onPress={() => router.push('/explore')}
         activeOpacity={0.8}
       >
-        <Ionicons name="search" size={20} color={colors.neutral[400]} />
-        <Text style={styles.searchPlaceholder}>Search stations, locations...</Text>
-        <TouchableOpacity onPress={handleFilterPress} style={styles.filterButton}>
-          <Ionicons name="options-outline" size={20} color={activeFiltersCount > 0 ? colors.primary[500] : colors.primary[500]} />
+        <Ionicons name="search" size={20} color={themeColors.textSecondary} />
+        <Text style={[styles.searchPlaceholder, { color: themeColors.textSecondary }]}>{t('home.search_placeholder', 'Search stations, locations...')}</Text>
+        <TouchableOpacity onPress={handleFilterPress} style={[styles.filterButton, { backgroundColor: isDark ? '#1F2937' : colors.primary[50] }]}>
+          <Ionicons name="options-outline" size={20} color={themeColors.primary} />
           {activeFiltersCount > 0 && (
-            <View style={styles.filterBadge}>
+            <View style={[styles.filterBadge, { backgroundColor: themeColors.primary }]}>
               <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
             </View>
           )}
@@ -269,22 +273,22 @@ export default function HomeScreen() {
         style={styles.scrollView} 
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary[500]]} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[themeColors.primary]} tintColor={themeColors.primary} />
         }
       >
         {/* Dynamic Green Score & Leaderboard Banner */}
         {gamification && (
           <TouchableOpacity
-            style={styles.gamificationBanner}
+            style={[styles.gamificationBanner, { backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', borderColor: isDark ? 'rgba(5, 150, 105, 0.3)' : '#A7F3D0' }]}
             onPress={() => router.push('/leaderboard')}
             activeOpacity={0.85}
           >
-            <View style={styles.gamificationIconWrap}>
-              <Ionicons name="leaf" size={20} color="#059669" />
+            <View style={[styles.gamificationIconWrap, { backgroundColor: isDark ? 'rgba(5, 150, 105, 0.3)' : '#D1FAE5' }]}>
+              <Ionicons name="leaf" size={20} color={themeColors.primary} />
             </View>
             <View style={styles.gamificationInfo}>
               <View style={styles.gamificationTopRow}>
-                <Text style={styles.gamificationScoreText}>
+                <Text style={[styles.gamificationScoreText, { color: themeColors.textPrimary }]}>
                   🏆 {gamification.score.toLocaleString()} pts • Rank #{gamification.rank}
                 </Text>
                 {gamification.streak > 0 && (
@@ -293,44 +297,44 @@ export default function HomeScreen() {
                   </View>
                 )}
               </View>
-              <Text style={styles.gamificationSubText}>
+              <Text style={[styles.gamificationSubText, { color: themeColors.textSecondary }]}>
                 {gamification.tier} • Tap to view Leaderboard & Badges
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#059669" />
+            <Ionicons name="chevron-forward" size={18} color={themeColors.primary} />
           </TouchableOpacity>
         )}
 
         {/* Proactive Smart Savings Deal Banner */}
         {activeDeal && (
           <TouchableOpacity
-            style={styles.dealBanner}
+            style={[styles.dealBanner, { backgroundColor: isDark ? 'rgba(21, 128, 61, 0.15)' : '#F0FDF4', borderColor: isDark ? 'rgba(21, 128, 61, 0.3)' : '#BBF7D0' }]}
             onPress={() => router.push(`/station/${activeDeal.stationId}`)}
             activeOpacity={0.85}
           >
             <View style={styles.dealIcon}>
-              <Ionicons name="flash" size={20} color="#15803D" />
+              <Ionicons name="flash" size={20} color={themeColors.primary} />
             </View>
             <View style={styles.dealInfo}>
               <View style={styles.dealBadgeRow}>
-                <View style={styles.dealPill}>
+                <View style={[styles.dealPill, { backgroundColor: themeColors.primary }]}>
                   <Text style={styles.dealPillText}>⚡ SAVE ₹{activeDeal.savingsInr}</Text>
                 </View>
-                <Text style={styles.dealSubtext}>• {activeDeal.availableChargers} Open Plugs</Text>
+                <Text style={[styles.dealSubtext, { color: themeColors.textSecondary }]}>• {activeDeal.availableChargers} Open Plugs</Text>
               </View>
-              <Text style={styles.dealTitle} numberOfLines={1}>
+              <Text style={[styles.dealTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>
                 {activeDeal.stationName}
               </Text>
             </View>
-            <Ionicons name="arrow-forward-circle" size={24} color="#15803D" />
+            <Ionicons name="arrow-forward-circle" size={24} color={themeColors.primary} />
           </TouchableOpacity>
         )}
         {/* ── Live Grid Banner ── */}
-        <View style={styles.gridBanner}>
+        <View style={[styles.gridBanner, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
           <View style={styles.gridBannerTop}>
             <View style={styles.gridBannerLeft}>
               <View style={[styles.liveIndicator, { backgroundColor: '#0FB8C9' }]} />
-              <Text style={styles.gridBannerZone}>{liveGrid.zoneName}</Text>
+              <Text style={[styles.gridBannerZone, { color: themeColors.textPrimary }]}>{liveGrid.zoneName}</Text>
             </View>
             <View style={[styles.gridBandBadge, { backgroundColor: gridColor + '20', borderColor: gridColor + '40' }]}>
               <Text style={[styles.gridBandText, { color: gridColor }]}>{gridBandLabel}</Text>
@@ -341,16 +345,16 @@ export default function HomeScreen() {
           <View style={styles.gridMainRow}>
             <View>
               <Text style={[styles.gridPct, { color: gridColor }]}>{liveGrid.renewablePct.toFixed(0)}%</Text>
-              <Text style={styles.gridPctLabel}>Renewable now</Text>
+              <Text style={[styles.gridPctLabel, { color: themeColors.textSecondary }]}>{t('profile.renewable_now', 'Renewable now')}</Text>
             </View>
             <View style={styles.gridStats}>
               <Text style={styles.gridStatLine}>
-                <Text style={styles.gridStatLabel}>Carbon  </Text>
-                <Text style={styles.gridStatValue}>{liveGrid.carbonIntensity} g CO₂/kWh</Text>
+                <Text style={[styles.gridStatLabel, { color: themeColors.textSecondary }]}>Carbon  </Text>
+                <Text style={[styles.gridStatValue, { color: themeColors.textPrimary }]}>{liveGrid.carbonIntensity} g CO₂/kWh</Text>
               </Text>
               <Text style={styles.gridStatLine}>
-                <Text style={styles.gridStatLabel}>Carbon-free  </Text>
-                <Text style={styles.gridStatValue}>{liveGrid.carbonFreePct.toFixed(0)}%</Text>
+                <Text style={[styles.gridStatLabel, { color: themeColors.textSecondary }]}>{t('profile.carbon_free', 'carbon-free')}  </Text>
+                <Text style={[styles.gridStatValue, { color: themeColors.textPrimary }]}>{liveGrid.carbonFreePct.toFixed(0)}%</Text>
               </Text>
             </View>
           </View>
@@ -370,19 +374,19 @@ export default function HomeScreen() {
           <View style={styles.gridLegend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#F59E0B' }]} />
-              <Text style={styles.legendText}>Solar {solarPct}%</Text>
+              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>{t('profile.solar', 'Solar')} {solarPct}%</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#0FB8C9' }]} />
-              <Text style={styles.legendText}>Wind {windPct}%</Text>
+              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>{t('profile.wind', 'Wind')} {windPct}%</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#3B82F6' }]} />
-              <Text style={styles.legendText}>Hydro {hydroPct}%</Text>
+              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>{t('profile.hydro', 'Hydro')} {hydroPct}%</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#6B7280' }]} />
-              <Text style={styles.legendText}>Coal+Gas {coalPct}%</Text>
+              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>{t('profile.coal_gas', 'Coal+Gas')} {coalPct}%</Text>
             </View>
           </View>
         </View>
@@ -390,12 +394,12 @@ export default function HomeScreen() {
         {/* Fallback Location Notice if GPS pending or permission not given */}
         {isFallback && (
           <TouchableOpacity 
-            style={styles.fallbackNotice}
+            style={[styles.fallbackNotice, { backgroundColor: isDark ? '#1F2937' : '#EFF6FF', borderColor: isDark ? '#374151' : '#DBEAFE' }]}
             onPress={refreshLocation}
             activeOpacity={0.8}
           >
-            <Ionicons name="navigate-circle-outline" size={16} color={colors.primary[500]} />
-            <Text style={styles.fallbackNoticeText}>
+            <Ionicons name="navigate-circle-outline" size={16} color={themeColors.primary} />
+            <Text style={[styles.fallbackNoticeText, { color: themeColors.textPrimary }]}>
               Showing Ahmedabad EV Hub • Tap to locate me
             </Text>
           </TouchableOpacity>
@@ -423,20 +427,20 @@ export default function HomeScreen() {
         <SlideIn direction="bottom" delay={200} duration={400}>
           <View style={styles.statsContainer}>
             <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Ionicons name="flash" size={20} color={colors.primary[500]} />
-              <Text style={styles.statValue}>{stats.totalStations}</Text>
-              <Text style={styles.statLabel}>Nearby</Text>
+            <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
+              <Ionicons name="flash" size={20} color={themeColors.primary} />
+              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{stats.totalStations}</Text>
+              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('home.chargers_near_you', 'Nearby')}</Text>
             </View>
-            <View style={styles.statCard}>
+            <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
               <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-              <Text style={styles.statValue}>{stats.availableChargers}</Text>
-              <Text style={styles.statLabel}>Available</Text>
+              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{stats.availableChargers}</Text>
+              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('home.available_now', 'Available')}</Text>
             </View>
-            <View style={styles.statCard}>
-              <Ionicons name="trending-down" size={20} color={colors.accent[500]} />
-              <Text style={styles.statValue}>₹{stats.lowestPrice.toFixed(0)}</Text>
-              <Text style={styles.statLabel}>Lowest/kWh</Text>
+            <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
+              <Ionicons name="trending-down" size={20} color="#F59E0B" />
+              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>₹{stats.lowestPrice.toFixed(0)}</Text>
+              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Lowest/kWh</Text>
             </View>
             </View>
           </View>
@@ -446,22 +450,22 @@ export default function HomeScreen() {
         <FadeIn delay={400} duration={500}>
           <View style={styles.listContainer}>
           <View style={styles.listHeader}>
-            <Text style={styles.listTitle}>Nearby Stations</Text>
+            <Text style={[styles.listTitle, { color: themeColors.textPrimary }]}>{t('home.chargers_near_you', 'Nearby Stations')}</Text>
             <TouchableOpacity onPress={() => router.push('/explore')}>
-              <Text style={styles.viewAllText}>View All</Text>
+              <Text style={[styles.viewAllText, { color: themeColors.primary }]}>{t('home.view_all', 'View All')}</Text>
             </TouchableOpacity>
           </View>
 
           {(loadingNearby || loadingAll) ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary[500]} />
-              <Text style={styles.loadingText}>Loading stations...</Text>
+              <ActivityIndicator size="small" color={themeColors.primary} />
+              <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading stations...</Text>
             </View>
           ) : stations.length === 0 ? (
 
             <View style={styles.emptyContainer}>
-              <Ionicons name="flash-off-outline" size={48} color={colors.neutral[300]} />
-              <Text style={styles.emptyText}>No stations found nearby</Text>
+              <Ionicons name="flash-off-outline" size={48} color={themeColors.textSecondary} />
+              <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No stations found nearby</Text>
             </View>
           ) : (
             stations.slice(0, 5).map((station) => (

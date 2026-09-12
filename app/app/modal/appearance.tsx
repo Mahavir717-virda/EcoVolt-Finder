@@ -1,9 +1,10 @@
 /**
  * Appearance Modal Screen
  * Theme modes (Dark / Light / System), EcoVolt Accent Colors, and Map Styling
+ * Connected to global dynamic ThemeProvider and LanguageProvider.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -15,49 +16,118 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
 import { spacing } from '@/styles/spacing';
+import { useTheme, ThemeMode, MapStylePreference } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function AppearanceModal() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
+  const {
+    themeMode,
+    accentColor,
+    mapStyle,
+    highContrast,
+    colors,
+    setThemeMode,
+    setAccentColor,
+    setMapStyle,
+    setHighContrast,
+  } = useTheme();
 
-  const [selectedTheme, setSelectedTheme] = useState<'system' | 'light' | 'dark'>('system');
-  const [accentColor, setAccentColor] = useState('#10B981');
-  const [mapStyle, setMapStyle] = useState<'eco' | 'minimal' | 'satellite'>('eco');
-  const [highContrast, setHighContrast] = useState(false);
-
-  const themeOptions = [
-    { id: 'system', label: 'System Default', desc: 'Syncs automatically with device settings', icon: 'phone-portrait-outline' as const },
-    { id: 'dark', label: 'Dark Onyx (Eco Battery)', desc: 'High energy efficiency on OLED screens', icon: 'moon-outline' as const },
-    { id: 'light', label: 'Crisp Daylight', desc: 'Optimal contrast in bright outdoor sunlight', icon: 'sunny-outline' as const },
+  const themeOptions: { id: ThemeMode; labelKey: string; defaultLabel: string; descKey: string; defaultDesc: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    {
+      id: 'system',
+      labelKey: 'appearance.system_default',
+      defaultLabel: 'System Default',
+      descKey: 'appearance.system_desc',
+      defaultDesc: 'Syncs automatically with device settings',
+      icon: 'phone-portrait-outline',
+    },
+    {
+      id: 'dark',
+      labelKey: 'appearance.dark_onyx',
+      defaultLabel: 'Dark Onyx (Eco Battery)',
+      descKey: 'appearance.dark_desc',
+      defaultDesc: 'High energy efficiency on OLED screens',
+      icon: 'moon-outline',
+    },
+    {
+      id: 'light',
+      labelKey: 'appearance.crisp_light',
+      defaultLabel: 'Crisp Daylight',
+      descKey: 'appearance.light_desc',
+      defaultDesc: 'Optimal contrast in bright outdoor sunlight',
+      icon: 'sunny-outline',
+    },
   ];
 
   const accents = [
-    { label: 'Volt Emerald', color: '#10B981' },
-    { label: 'Cyber Teal', color: '#0FB8C9' },
-    { label: 'Solar Gold', color: '#F59E0B' },
-    { label: 'Electric Indigo', color: '#6366F1' },
+    { labelKey: 'appearance.volt_emerald', defaultLabel: 'Volt Emerald', color: '#10B981' },
+    { labelKey: 'appearance.cyber_teal', defaultLabel: 'Cyber Teal', color: '#0FB8C9' },
+    { labelKey: 'appearance.solar_gold', defaultLabel: 'Solar Gold', color: '#F59E0B' },
+    { labelKey: 'appearance.electric_indigo', defaultLabel: 'Electric Indigo', color: '#6366F1' },
+  ];
+
+  const mapOptions: { id: MapStylePreference; titleKey: string; defaultTitle: string; descKey: string; defaultDesc: string }[] = [
+    {
+      id: 'eco',
+      titleKey: 'appearance.eco_hybrid',
+      defaultTitle: 'Eco Hybrid Grid',
+      descKey: 'appearance.eco_hybrid_desc',
+      defaultDesc: 'Highlights renewable zones & solar charging clusters',
+    },
+    {
+      id: 'minimal',
+      titleKey: 'appearance.minimal',
+      defaultTitle: 'Minimalist Clean',
+      descKey: 'appearance.minimal_desc',
+      defaultDesc: 'Low distractions, fast rendering',
+    },
+    {
+      id: 'satellite',
+      titleKey: 'appearance.satellite',
+      defaultTitle: '3D Satellite Terrain',
+      descKey: 'appearance.satellite_desc',
+      defaultDesc: 'High-definition satellite overhead view',
+    },
   ];
 
   const handleApply = () => {
     Alert.alert(
-      'Appearance Saved',
-      `Theme set to ${selectedTheme.toUpperCase()} with ${accents.find(a => a.color === accentColor)?.label} accent.`,
-      [{ text: 'Done', onPress: () => router.back() }]
+      t('appearance.title', 'Appearance & Theme'),
+      t('appearance.theme_mode', 'Theme Mode') + ': ' + themeMode.toUpperCase(),
+      [{ text: t('common.ok', 'OK'), onPress: () => router.back() }]
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 8,
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="close" size={26} color={colors.neutral[800]} />
+          <Ionicons name="close" size={26} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Appearance & Theme</Text>
-        <TouchableOpacity onPress={handleApply} style={styles.applyHeaderBtn}>
-          <Text style={styles.applyHeaderText}>Done</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          {t('appearance.title', 'Appearance & Theme')}
+        </Text>
+        <TouchableOpacity
+          onPress={handleApply}
+          style={[styles.applyHeaderBtn, { backgroundColor: colors.primaryLight }]}
+        >
+          <Text style={[styles.applyHeaderText, { color: colors.primary }]}>
+            {t('appearance.done', 'Done')}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -66,28 +136,47 @@ export default function AppearanceModal() {
         showsVerticalScrollIndicator={false}
       >
         {/* Theme Mode Selector */}
-        <Text style={styles.sectionTitle}>Theme Mode</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          {t('appearance.theme_mode', 'Theme Mode')}
+        </Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {themeOptions.map((opt, idx) => {
-            const isSelected = selectedTheme === opt.id;
+            const isSelected = themeMode === opt.id;
             return (
               <TouchableOpacity
                 key={opt.id}
-                style={[styles.themeRow, idx < themeOptions.length - 1 && styles.rowBorder]}
-                onPress={() => setSelectedTheme(opt.id as any)}
+                style={[
+                  styles.themeRow,
+                  idx < themeOptions.length - 1 && [styles.rowBorder, { borderBottomColor: colors.borderLight }],
+                  isSelected && { backgroundColor: colors.primaryLight },
+                ]}
+                onPress={() => setThemeMode(opt.id)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.themeIconBox, isSelected && { backgroundColor: accentColor + '20' }]}>
-                  <Ionicons name={opt.icon} size={22} color={isSelected ? accentColor : colors.neutral[600]} />
+                <View
+                  style={[
+                    styles.themeIconBox,
+                    { backgroundColor: isSelected ? colors.primaryLight : colors.borderLight },
+                  ]}
+                >
+                  <Ionicons
+                    name={opt.icon}
+                    size={22}
+                    color={isSelected ? colors.primary : colors.textSecondary}
+                  />
                 </View>
                 <View style={styles.themeInfo}>
-                  <Text style={styles.themeLabel}>{opt.label}</Text>
-                  <Text style={styles.themeDesc}>{opt.desc}</Text>
+                  <Text style={[styles.themeLabel, { color: colors.textPrimary }]}>
+                    {t(opt.labelKey, opt.defaultLabel)}
+                  </Text>
+                  <Text style={[styles.themeDesc, { color: colors.textSecondary }]}>
+                    {t(opt.descKey, opt.defaultDesc)}
+                  </Text>
                 </View>
                 <Ionicons
                   name={isSelected ? 'radio-button-on' : 'radio-button-off'}
                   size={22}
-                  color={isSelected ? accentColor : colors.neutral[300]}
+                  color={isSelected ? colors.primary : colors.textMuted}
                 />
               </TouchableOpacity>
             );
@@ -95,7 +184,9 @@ export default function AppearanceModal() {
         </View>
 
         {/* Accent Color Picker */}
-        <Text style={styles.sectionTitle}>Eco Accent Palette</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          {t('appearance.eco_accent', 'Eco Accent Palette')}
+        </Text>
         <View style={styles.accentGrid}>
           {accents.map((acc) => {
             const isSelected = accentColor === acc.color;
@@ -104,16 +195,26 @@ export default function AppearanceModal() {
                 key={acc.color}
                 style={[
                   styles.accentBox,
-                  isSelected && { borderColor: acc.color, borderWidth: 2, backgroundColor: acc.color + '15' },
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: isSelected ? acc.color : colors.border,
+                    borderWidth: isSelected ? 2 : 1,
+                  },
                 ]}
                 onPress={() => setAccentColor(acc.color)}
                 activeOpacity={0.8}
               >
                 <View style={[styles.colorCircle, { backgroundColor: acc.color }]}>
-                  {isSelected && <Ionicons name="checkmark" size={16} color={colors.white} />}
+                  {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
                 </View>
-                <Text style={[styles.accentLabel, isSelected && { color: acc.color, fontWeight: '700' }]}>
-                  {acc.label}
+                <Text
+                  style={[
+                    styles.accentLabel,
+                    { color: isSelected ? acc.color : colors.textPrimary },
+                    isSelected && { fontWeight: '700' },
+                  ]}
+                >
+                  {t(acc.labelKey, acc.defaultLabel)}
                 </Text>
               </TouchableOpacity>
             );
@@ -121,29 +222,35 @@ export default function AppearanceModal() {
         </View>
 
         {/* Map Styles */}
-        <Text style={styles.sectionTitle}>Live Charging Map Style</Text>
-        <View style={styles.card}>
-          {[
-            { id: 'eco', title: 'Eco Hybrid Grid', desc: 'Highlights renewable zones & solar charging clusters' },
-            { id: 'minimal', title: 'Minimalist Clean', desc: 'Low distractions, fast rendering' },
-            { id: 'satellite', title: '3D Satellite Terrain', desc: 'High-definition satellite overhead view' },
-          ].map((styleOpt, idx) => {
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          {t('appearance.map_style', 'Live Charging Map Style')}
+        </Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {mapOptions.map((styleOpt, idx) => {
             const isSelected = mapStyle === styleOpt.id;
             return (
               <TouchableOpacity
                 key={styleOpt.id}
-                style={[styles.themeRow, idx < 2 && styles.rowBorder]}
-                onPress={() => setMapStyle(styleOpt.id as any)}
+                style={[
+                  styles.themeRow,
+                  idx < mapOptions.length - 1 && [styles.rowBorder, { borderBottomColor: colors.borderLight }],
+                  isSelected && { backgroundColor: colors.primaryLight },
+                ]}
+                onPress={() => setMapStyle(styleOpt.id)}
                 activeOpacity={0.7}
               >
                 <View style={styles.themeInfo}>
-                  <Text style={styles.themeLabel}>{styleOpt.title}</Text>
-                  <Text style={styles.themeDesc}>{styleOpt.desc}</Text>
+                  <Text style={[styles.themeLabel, { color: colors.textPrimary }]}>
+                    {t(styleOpt.titleKey, styleOpt.defaultTitle)}
+                  </Text>
+                  <Text style={[styles.themeDesc, { color: colors.textSecondary }]}>
+                    {t(styleOpt.descKey, styleOpt.defaultDesc)}
+                  </Text>
                 </View>
                 <Ionicons
                   name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                   size={22}
-                  color={isSelected ? accentColor : colors.neutral[300]}
+                  color={isSelected ? colors.primary : colors.textMuted}
                 />
               </TouchableOpacity>
             );
@@ -152,20 +259,22 @@ export default function AppearanceModal() {
 
         {/* High Contrast Accessibility Toggle */}
         <TouchableOpacity
-          style={styles.contrastCard}
+          style={[styles.contrastCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={() => setHighContrast(!highContrast)}
           activeOpacity={0.8}
         >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.contrastTitle}>High Contrast Live Grid</Text>
-            <Text style={styles.contrastDesc}>
-              Enhances readability of dynamic greenness bands and tariff charts
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={[styles.contrastTitle, { color: colors.textPrimary }]}>
+              {t('appearance.high_contrast', 'High Contrast Live Grid')}
+            </Text>
+            <Text style={[styles.contrastDesc, { color: colors.textSecondary }]}>
+              {t('appearance.contrast_desc', 'Enhances readability of dynamic greenness bands and tariff charts')}
             </Text>
           </View>
           <Ionicons
             name={highContrast ? 'toggle' : 'toggle-outline'}
             size={34}
-            color={highContrast ? accentColor : colors.neutral[400]}
+            color={highContrast ? colors.primary : colors.textMuted}
           />
         </TouchableOpacity>
       </ScrollView>
@@ -176,7 +285,6 @@ export default function AppearanceModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
   },
   header: {
     flexDirection: 'row',
@@ -184,9 +292,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
   },
   headerButton: {
     padding: 6,
@@ -194,18 +300,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   applyHeaderBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: colors.primary[50],
   },
   applyHeaderText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.primary[600],
   },
   scrollContent: {
     padding: spacing.screenPadding,
@@ -213,7 +316,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.neutral[500],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -221,10 +323,8 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   card: {
-    backgroundColor: colors.white,
     borderRadius: spacing.radius.lg,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
     overflow: 'hidden',
     marginBottom: spacing.md,
   },
@@ -235,13 +335,11 @@ const styles = StyleSheet.create({
   },
   rowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
   },
   themeIconBox: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: colors.neutral[100],
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -252,11 +350,9 @@ const styles = StyleSheet.create({
   themeLabel: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   themeDesc: {
     fontSize: 12,
-    color: colors.neutral[500],
     marginTop: 2,
   },
   accentGrid: {
@@ -267,12 +363,9 @@ const styles = StyleSheet.create({
   },
   accentBox: {
     width: '48%',
-    backgroundColor: colors.white,
     borderRadius: spacing.radius.lg,
     padding: 12,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
     gap: 8,
   },
   colorCircle: {
@@ -285,26 +378,22 @@ const styles = StyleSheet.create({
   accentLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.neutral[700],
   },
   contrastCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
     borderRadius: spacing.radius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
     marginTop: 4,
   },
   contrastTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   contrastDesc: {
     fontSize: 12,
-    color: colors.neutral[500],
     marginTop: 2,
+    lineHeight: 16,
   },
 });

@@ -1,29 +1,28 @@
-/**
- * Saved Screen
- * Shows user's saved/bookmarked stations
- */
-
 import { EmptyState } from '@/components/common';
 import { StationCard } from '@/components/station';
 import { colors } from '@/constants/colors';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useUserLocation } from '@/hooks/useUserLocation';
+import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
 import { spacing } from '@/styles/spacing';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SavedScreen() {
   const router = useRouter();
+  const { colors: themeColors, isDark } = useTheme();
+  const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const { coords: userLocation, refreshLocation } = useUserLocation();
   
@@ -43,12 +42,12 @@ export default function SavedScreen() {
 
   const handleRemoveSaved = useCallback(async (stationId: string, stationName: string) => {
     Alert.alert(
-      'Remove Saved Station',
-      `Remove "${stationName}" from your saved stations?`,
+      t('saved.remove_title', 'Remove Saved Station'),
+      `${t('saved.remove_confirm', 'Remove this station from your saved list?')}\n\n"${stationName}"`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('support.cancel', 'Cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('account.delete', 'Remove'),
           style: 'destructive',
           onPress: async () => {
             setRemovingId(stationId);
@@ -63,7 +62,7 @@ export default function SavedScreen() {
         },
       ]
     );
-  }, [remove]);
+  }, [remove, t]);
 
   // Calculate distance from user in km
   const getDistanceKm = useCallback((stationLat: number, stationLng: number): number | undefined => {
@@ -83,25 +82,25 @@ export default function SavedScreen() {
   }, [userLocation]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Saved</Text>
-        <Text style={styles.subtitle}>
-          {favorites.length} saved station{favorites.length !== 1 ? 's' : ''}
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+        <Text style={[styles.title, { color: themeColors.textPrimary }]}>{t('saved.title', 'Saved')}</Text>
+        <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
+          {favorites.length} {t('saved.subtitle', 'saved station(s)')}
         </Text>
       </View>
 
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
-          <Text style={styles.loadingText}>Loading saved stations...</Text>
+          <ActivityIndicator size="large" color={themeColors.primary} />
+          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading saved stations...</Text>
         </View>
       ) : favorites.length === 0 ? (
         <EmptyState
           icon="bookmark-outline"
-          title="No Saved Stations"
-          description="Bookmark your frequently used charging stations for quick access."
-          actionLabel="Find Stations"
+          title={t('saved.no_saved', 'No Saved Stations')}
+          description={t('saved.no_saved_desc', 'Bookmark your frequently used charging stations for quick access.')}
+          actionLabel={t('saved.find_stations', 'Find Stations')}
           onAction={() => router.push('/(tabs)')}
         />
       ) : (
@@ -113,7 +112,7 @@ export default function SavedScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={colors.primary[500]}
+              tintColor={themeColors.primary}
             />
           }
         >
