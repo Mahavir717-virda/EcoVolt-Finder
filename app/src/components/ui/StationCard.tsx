@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,6 +15,7 @@ import { RatingRow } from '../primitives/RatingRow';
 import { ConnectorChip } from '../primitives/ConnectorChip';
 import { Button } from '../primitives/Button';
 import { ScalePressable } from '../primitives/Pressable';
+import { Skeleton } from '../feedback/Skeleton';
 
 import { getStationImageSource } from '../../constants/stationImages';
 
@@ -66,6 +67,7 @@ export const StationCard: React.FC<StationCardProps> = ({
   onBookmark,
   style,
 }) => {
+  const [isThumbLoading, setIsThumbLoading] = useState(true);
   const resolvedThumb = thumbnailSource ?? getStationImageSource(id || name);
 
   return (
@@ -75,14 +77,25 @@ export const StationCard: React.FC<StationCardProps> = ({
     >
       {/* Top row: thumb + info */}
       <View style={styles.topRow}>
-        {/* Thumbnail with bookmark overlay */}
+        {/* Thumbnail with bookmark overlay & Skeleton */}
         <View style={styles.thumbWrapper}>
+          {isThumbLoading && (
+            <Skeleton
+              width={72}
+              height={72}
+              borderRadius={radii.thumbnail}
+              style={StyleSheet.absoluteFillObject}
+            />
+          )}
           <Image
             source={resolvedThumb}
             style={styles.thumb}
             contentFit="cover"
             transition={100}
             cachePolicy="memory-disk"
+            onLoadStart={() => setIsThumbLoading(true)}
+            onLoad={() => setIsThumbLoading(false)}
+            onError={() => setIsThumbLoading(false)}
           />
           {/* Bookmark icon */}
           {onBookmark != null && (
@@ -168,12 +181,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   thumbWrapper: {
-    position: 'relative',
-  },
-  thumb: {
     width: 72,
     height: 72,
     borderRadius: radii.thumbnail,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: colors.surfaceSunken,
+  },
+  thumb: {
+    width: '100%',
+    height: '100%',
   },
   thumbPlaceholder: {
     backgroundColor: colors.brandTint,

@@ -1,4 +1,4 @@
-import { Badge, Button, Card } from '@/components/ui';
+import { Badge, Button, Card, Skeleton } from '@/components/ui';
 import { CHARGER_STATUS_CONFIG, CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
 import { canAccessReservations } from '@/constants/plans';
@@ -75,6 +75,7 @@ export default function StationDetailScreen() {
   const { profile } = useAuth();
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [isPhotoLoading, setIsPhotoLoading] = useState(true);
   
   // Fetch station data
   const { station, loading: stationLoading, error: stationError } = useStation(stationId || '');
@@ -257,14 +258,17 @@ export default function StationDetailScreen() {
         style={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Photo Gallery */}
+        {/* Photo Gallery with Skeleton Shimmer */}
         <View style={styles.imageContainer}>
-          {photosLoading ? (
-            <View style={styles.imageLoading}>
-              <ActivityIndicator size="large" color={colors.primary[500]} />
-              <Text style={styles.imageLoadingText}>Loading photos...</Text>
-            </View>
-          ) : photos.length > 0 ? (
+          {(photosLoading || isPhotoLoading) && (
+            <Skeleton
+              width="100%"
+              height={250}
+              borderRadius={0}
+              style={StyleSheet.absoluteFillObject}
+            />
+          )}
+          {photos.length > 0 ? (
             <>
               {/* Main Photo */}
               <TouchableOpacity 
@@ -282,6 +286,9 @@ export default function StationDetailScreen() {
                   transition={150}
                   cachePolicy="memory-disk"
                   priority="high"
+                  onLoadStart={() => setIsPhotoLoading(true)}
+                  onLoad={() => setIsPhotoLoading(false)}
+                  onError={() => setIsPhotoLoading(false)}
                 />
               </TouchableOpacity>
               

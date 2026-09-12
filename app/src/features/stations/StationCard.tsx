@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,7 +16,7 @@ import {
   shadows,
   spacing,
 } from '../../theme/tokens';
-import { Text, Chip, Button } from '../../components';
+import { Text, Chip, Button, Skeleton } from '../../components';
 import { getStationImageSource } from '../../constants/stationImages';
 
 interface StationCardProps {
@@ -36,6 +36,7 @@ export const StationCard: React.FC<StationCardProps> = ({
   onCompareRoute,
   style,
 }) => {
+  const [isThumbLoading, setIsThumbLoading] = useState(true);
   const isReachable = station.reachable;
   const renewablePct = station.greenness.renewablePct;
   const renewableColor = greennessColor(renewablePct);
@@ -64,13 +65,26 @@ export const StationCard: React.FC<StationCardProps> = ({
     >
       {/* Top Meta Header */}
       <View style={styles.topRow}>
-        <Image
-          source={getStationImageSource(station.id || station.name)}
-          style={styles.stationThumb}
-          contentFit="cover"
-          transition={100}
-          cachePolicy="memory-disk"
-        />
+        <View style={styles.thumbWrapper}>
+          {isThumbLoading && (
+            <Skeleton
+              width={46}
+              height={46}
+              borderRadius={radii.sm}
+              style={StyleSheet.absoluteFillObject}
+            />
+          )}
+          <Image
+            source={getStationImageSource(station.id || station.name)}
+            style={styles.stationThumb}
+            contentFit="cover"
+            transition={100}
+            cachePolicy="memory-disk"
+            onLoadStart={() => setIsThumbLoading(true)}
+            onLoad={() => setIsThumbLoading(false)}
+            onError={() => setIsThumbLoading(false)}
+          />
+        </View>
         <View style={styles.headerLeft}>
           <Text
             variant="title"
@@ -226,11 +240,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  stationThumb: {
+  thumbWrapper: {
     width: 46,
     height: 46,
     borderRadius: radii.sm,
+    overflow: 'hidden',
+    position: 'relative',
     backgroundColor: colors.surfaceSunken,
+  },
+  stationThumb: {
+    width: '100%',
+    height: '100%',
   },
   headerLeft: {
     flex: 1,

@@ -23,6 +23,7 @@ import {
   Text,
   Button,
   Chip,
+  Skeleton,
   SkeletonCard,
   GreennessGauge,
   ForecastStrip,
@@ -50,6 +51,7 @@ export const StationDetailScreen: React.FC = () => {
   const route = useRoute<StationDetailRouteProp>();
   const navigation = useNavigation<NativeStackNavigationProp<DriverStackParamList>>();
   const stationId = route.params?.stationId || 'station-001';
+  const [isHeroLoading, setIsHeroLoading] = useState(true);
 
   // 1. Fetch Station Details
   const stationQuery = useQuery<FullStationDetail>({
@@ -169,8 +171,16 @@ export const StationDetailScreen: React.FC = () => {
           </View>
         ) : (
           <>
-            {/* Hero Station Image */}
+            {/* Hero Station Image with Skeleton Loader */}
             <View style={styles.heroImageContainer}>
+              {isHeroLoading && (
+                <Skeleton
+                  width="100%"
+                  height={190}
+                  borderRadius={radii.xl}
+                  style={StyleSheet.absoluteFillObject}
+                />
+              )}
               <Image
                 source={getStationImageSource(station.id || station.name)}
                 style={styles.heroImage}
@@ -178,6 +188,9 @@ export const StationDetailScreen: React.FC = () => {
                 transition={150}
                 cachePolicy="memory-disk"
                 priority="high"
+                onLoadStart={() => setIsHeroLoading(true)}
+                onLoad={() => setIsHeroLoading(false)}
+                onError={() => setIsHeroLoading(false)}
               />
               <View style={styles.heroBadge}>
                 <Chip

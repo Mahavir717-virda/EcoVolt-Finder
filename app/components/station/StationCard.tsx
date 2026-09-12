@@ -1,9 +1,9 @@
-import { Card } from '@/components/ui';
+import { Card, Skeleton } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import type { Station } from '@/types/database.types';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 
@@ -26,6 +26,8 @@ export function StationCard({
   isFavorite = false,
   variant = 'default',
 }: StationCardProps) {
+  const [isImageLoading, setIsImageLoading] = useState(true);
+
   const handlePress = () => {
     if (onPress) {
       onPress();
@@ -84,32 +86,45 @@ export function StationCard({
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
       <Card style={styles.card}>
-        {/* Station Image */}
-        <Image
-          source={imageSource}
-          style={styles.image}
-          contentFit="cover"
-          transition={150}
-          cachePolicy="memory-disk"
-          priority="high"
-        />
-
-        {/* Favorite Button */}
-        {onFavorite && (
-          <TouchableOpacity
-            style={styles.favoriteButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              onFavorite();
-            }}
-          >
-            <Ionicons
-              name={isFavorite ? 'heart' : 'heart-outline'}
-              size={22}
-              color={isFavorite ? colors.status.error : colors.white}
+        {/* Station Image with Skeleton Loader */}
+        <View style={styles.imageContainer}>
+          {isImageLoading && (
+            <Skeleton
+              width="100%"
+              height={140}
+              borderRadius={0}
+              style={StyleSheet.absoluteFillObject}
             />
-          </TouchableOpacity>
-        )}
+          )}
+          <Image
+            source={imageSource}
+            style={styles.image}
+            contentFit="cover"
+            transition={150}
+            cachePolicy="memory-disk"
+            priority="high"
+            onLoadStart={() => setIsImageLoading(true)}
+            onLoad={() => setIsImageLoading(false)}
+            onError={() => setIsImageLoading(false)}
+          />
+
+          {/* Favorite Button */}
+          {onFavorite && (
+            <TouchableOpacity
+              style={styles.favoriteButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                onFavorite();
+              }}
+            >
+              <Ionicons
+                name={isFavorite ? 'heart' : 'heart-outline'}
+                size={22}
+                color={isFavorite ? colors.status.error : colors.white}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Content */}
         <View style={styles.content}>
@@ -187,6 +202,13 @@ export function StationCard({
 const styles = StyleSheet.create({
   card: {
     padding: 0,
+    overflow: 'hidden',
+  },
+  imageContainer: {
+    width: '100%',
+    height: 140,
+    backgroundColor: colors.neutral[200],
+    position: 'relative',
     overflow: 'hidden',
   },
   image: {
