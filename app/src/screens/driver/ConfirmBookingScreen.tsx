@@ -32,6 +32,7 @@ interface PortDetail {
   bookingId?: string;
   windowStart?: string;
   windowEnd?: string;
+  isMine?: boolean;
 }
 
 function formatSlotTime(isoStr?: string) {
@@ -151,7 +152,7 @@ export const ConfirmBookingScreen: React.FC = () => {
       });
     },
     enabled: !!stationId && !!selectedConnector,
-    staleTime: 4000,
+    staleTime: 0,
     refetchInterval: 8000,
   });
 
@@ -239,9 +240,11 @@ export const ConfirmBookingScreen: React.FC = () => {
     } catch (err: any) {
       setIsSubmitting(false);
       await queryClient.invalidateQueries({ queryKey: ['slots'] });
+      // http.ts throws ApiError(status, data) — payload is on err.data, not err.response.data
       const errorMsg =
-        err?.response?.data?.error?.message ||
-        err?.error?.message ||
+        (err as any)?.data?.error?.message ||
+        (err as any)?.data?.message ||
+        (err as any)?.error?.message ||
         err?.message ||
         'Could not lock the slot. Availability has been refreshed. Please pick another available time.';
       Alert.alert('Reservation Notice', errorMsg);
@@ -543,37 +546,47 @@ export const ConfirmBookingScreen: React.FC = () => {
             {/* Visual Ports Grid */}
             <View style={styles.portsGrid}>
               {currentSlot?.ports && currentSlot.ports.length > 0 ? (
-                currentSlot.ports.map((port) => (
-                  <View
-                    key={port.portNumber}
-                    style={[
-                      styles.portBox,
-                      port.status === 'available'
-                        ? styles.portBoxAvailable
-                        : styles.portBoxBooked,
-                    ]}
-                  >
-                    <Text style={styles.portIcon}>
-                      {port.status === 'available' ? '⚡' : '🔒'}
-                    </Text>
-                    <Text variant="micro" style={styles.portName}>
-                      Port #{port.portNumber}
-                    </Text>
-                    <Text
-                      variant="micro"
+                currentSlot.ports.map((port) => {
+                  const isAvail = port.status === 'available';
+                  const isMine = port.status === 'booked' && port.isMine;
+                  const bookedWindow =
+                    port.status === 'booked' && port.windowStart && port.windowEnd
+                      ? ` (${formatSlotTime(port.windowStart)} – ${formatSlotTime(port.windowEnd)})`
+                      : '';
+                  return (
+                    <View
+                      key={port.portNumber}
                       style={[
-                        styles.portStatusText,
-                        { color: port.status === 'available' ? colors.brand : '#EF4444' },
+                        styles.portBox,
+                        isAvail
+                          ? styles.portBoxAvailable
+                          : isMine
+                          ? styles.portBoxMine
+                          : styles.portBoxBooked,
                       ]}
                     >
-                      {port.status === 'available'
-                        ? 'Free for Window'
-                        : port.windowStart && port.windowEnd
-                        ? `Booked (${formatSlotTime(port.windowStart)} – ${formatSlotTime(port.windowEnd)})`
-                        : 'Booked for Window'}
-                    </Text>
-                  </View>
-                ))
+                      <Text style={styles.portIcon}>
+                        {isAvail ? '⚡' : isMine ? '👤' : '🔒'}
+                      </Text>
+                      <Text variant="micro" style={styles.portName}>
+                        Port #{port.portNumber}
+                      </Text>
+                      <Text
+                        variant="micro"
+                        style={[
+                          styles.portStatusText,
+                          { color: isAvail ? colors.brand : isMine ? '#1D4ED8' : '#EF4444' },
+                        ]}
+                      >
+                        {isAvail
+                          ? 'Free for Window'
+                          : isMine
+                          ? `Your Booking${bookedWindow}`
+                          : `Booked${bookedWindow}`}
+                      </Text>
+                    </View>
+                  );
+                })
               ) : (
                 Array.from({ length: totalSlots || 2 }).map((_, idx) => {
                   const isAvailable = idx < (freeSlots ?? 1);
@@ -909,6 +922,10 @@ const styles = StyleSheet.create({
   portBoxAvailable: {
     backgroundColor: '#FFFFFF',
     borderColor: colors.brand,
+  },
+  portBoxMine: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#93C5FD',
   },
   portBoxBooked: {
     backgroundColor: '#FEF2F2',

@@ -28,6 +28,7 @@ interface PortDetail {
   bookingId?: string;
   windowStart?: string;
   windowEnd?: string;
+  isMine?: boolean;
 }
 
 interface ConnectorSlot {
@@ -129,8 +130,9 @@ export const SlotAvailabilityScreen: React.FC = () => {
       if (filterType) params.connectorType = filterType;
       return http.get<SlotMatrix>(`/bookings/station/${stationId}/slots`, { params });
     },
-    staleTime: 5000,
-    refetchInterval: 15000,
+    // staleTime: 0 means any invalidation (e.g. after booking confirm) triggers immediate refetch
+    staleTime: 0,
+    refetchInterval: 10000,
   });
 
   useFocusEffect(
@@ -284,24 +286,29 @@ export const SlotAvailabilityScreen: React.FC = () => {
                   />
                 </View>
 
-                {/* Dot-based visual slots + Port badges */}
+                {/* Dot-based visual slots — driven by real per-port status from API */}
                 <View style={styles.dotRow}>
-                  {Array.from({ length: slot.totalCount }, (_, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        styles.dot,
-                        {
-                          backgroundColor:
-                            i < slot.bookedCount
-                              ? '#EF4444'
-                              : slot.status === 'maintenance' || slot.status === 'offline'
-                              ? '#D1D5DB'
-                              : colors.brand,
-                        },
-                      ]}
-                    />
-                  ))}
+                  {Array.from({ length: slot.totalCount }, (_, i) => {
+                    const portInfo = slot.ports?.[i];
+                    const dotStatus = portInfo ? portInfo.status : (i < slot.bookedCount ? 'booked' : 'available');
+                    const isMine = portInfo?.isMine ?? false;
+                    const dotColor =
+                      dotStatus === 'maintenance' || dotStatus === 'offline'
+                        ? '#D1D5DB'
+                        : dotStatus === 'booked'
+                        ? isMine ? '#3B82F6' : '#EF4444'
+                        : colors.brand;
+                    return (
+                      <View
+                        key={i}
+                        style={[
+                          styles.dot,
+                          { backgroundColor: dotColor },
+                          isMine && styles.dotMine,
+                        ]}
+                      />
+                    );
+                  })}
                   <Text variant="micro" color={colors.ink3} style={styles.dotLabel}>
                     {slot.availableCount}/{slot.totalCount} free
                   </Text>
@@ -312,23 +319,40 @@ export const SlotAvailabilityScreen: React.FC = () => {
                   {slot.ports && slot.ports.length > 0 ? (
                     slot.ports.map((p) => {
                       const isAvail = p.status === 'available';
+                      const isMine = p.status === 'booked' && p.isMine;
                       const bookedWindow =
                         p.status === 'booked' && p.windowStart && p.windowEnd
                           ? ` (${formatSlotTime(p.windowStart)} – ${formatSlotTime(p.windowEnd)})`
                           : '';
+                      const label = isAvail
+                        ? 'Free'
+                        : isMine
+                        ? `Your Booking${bookedWindow}`
+                        : `Booked${bookedWindow}`;
+
                       return (
                         <View
                           key={p.portNumber}
                           style={[
                             styles.portPill,
-                            isAvail ? styles.portPillAvailable : styles.portPillBooked,
+                            isAvail
+                              ? styles.portPillAvailable
+                              : isMine
+                              ? styles.portPillMine
+                              : styles.portPillBooked,
                           ]}
                         >
                           <Text style={styles.portPillIcon}>
-                            {isAvail ? '⚡' : '🔒'}
+                            {isAvail ? '⚡' : isMine ? '👤' : '🔒'}
                           </Text>
-                          <Text variant="micro" style={styles.portPillText}>
-                            Port {p.portNumber}: {isAvail ? 'Free' : `Booked${bookedWindow}`}
+                          <Text
+                            variant="micro"
+                            style={[
+                              styles.portPillText,
+                              isMine && { color: '#1D4ED8' },
+                            ]}
+                          >
+                            Port {p.portNumber}: {label}
                           </Text>
                         </View>
                       );
@@ -528,6 +552,10 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
   },
+  dotMine: {
+    borderWidth: 2,
+    borderColor: '#1D4ED8',
+  },
   dotLabel: {
     marginLeft: 4,
     fontFamily: 'Manrope_600SemiBold',
@@ -578,6 +606,10 @@ const styles = StyleSheet.create({
   portPillAvailable: {
     backgroundColor: '#FFFFFF',
     borderColor: colors.brand + '60',
+  },
+  portPillMine: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#93C5FD',
   },
   portPillBooked: {
     backgroundColor: '#FEF2F2',
