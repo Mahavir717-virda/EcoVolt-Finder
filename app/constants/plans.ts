@@ -26,7 +26,7 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     type: 'free',
     monthlyPrice: 0,
     yearlyPrice: 0,
-    maxActiveReservations: 0,
+    maxActiveReservations: 5,
     features: [
       { name: 'View charging stations', included: true },
       { name: 'Real-time availability', included: true },
@@ -84,9 +84,8 @@ export const PREMIUM_FEATURES = [
   },
 ];
 
-// Check if user can access reservations
 export function canAccessReservations(isPremium: boolean): boolean {
-  return isPremium;
+  return true;
 }
 
 // Get max reservations for plan

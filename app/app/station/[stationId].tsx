@@ -2,7 +2,6 @@ import { Badge, Button, Card, Skeleton } from '@/components/ui';
 import { ConnectorIcon } from '@/components/ui/ConnectorIcon';
 import { CHARGER_STATUS_CONFIG, CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
-import { canAccessReservations } from '@/constants/plans';
 import { useAuth } from '@/hooks/useAuth';
 import { useChargers } from '@/hooks/useChargers';
 import { useFavoriteStatus } from '@/hooks/useFavorites';
@@ -141,14 +140,6 @@ export default function StationDetailScreen() {
   };
 
   const handleReserve = (charger: Charger) => {
-    const isPremium = profile?.plan_type === 'premium';
-    
-    if (!canAccessReservations(isPremium)) {
-      // Show upgrade modal
-      router.push('/modal/upgrade');
-      return;
-    }
-    
     // Navigate to reservation screen
     router.push({
       pathname: '/station/reserve',
