@@ -77,6 +77,7 @@ export interface Database {
           is_active: boolean;
           greenness_score?: number;
           co2_saved_kg?: number;
+          price_from?: number;
           created_at: string;
           updated_at: string;
         };
@@ -93,6 +94,7 @@ export interface Database {
           amenities?: string[] | null;
           image_url?: string | null;
           is_active?: boolean;
+          price_from?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -109,6 +111,7 @@ export interface Database {
           amenities?: string[] | null;
           image_url?: string | null;
           is_active?: boolean;
+          price_from?: number;
           created_at?: string;
           updated_at?: string;
         };

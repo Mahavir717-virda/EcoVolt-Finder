@@ -612,6 +612,152 @@ async function main() {
     include: { connectors: true },
   });
 
+  // 7c. Seed 3 EV Charging Stations in Delhi (North Zone)
+  console.log('⚡ Seeding Delhi Stations & Connectors...');
+  const delhiStation1 = await prisma.station.create({
+    data: {
+      name: 'BSES Rajdhani Hub — Connaught Place',
+      operatorId: operatorTata.id,
+      zoneId: zoneNorth.id,
+      provider: PowerProvider.bses,
+      lat: 28.6304,
+      lng: 77.2177,
+      address: 'Inner Circle, Connaught Place, New Delhi, Delhi 110001',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 60.0,
+            totalCount: 4,
+            availableCount: 2,
+            status: 'available',
+          },
+          {
+            type: ConnectorType.type2_ac,
+            powerKw: 22.0,
+            totalCount: 4,
+            availableCount: 4,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 3.5,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 3.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  const delhiStation2 = await prisma.station.create({
+    data: {
+      name: 'Statiq Fast Charger — Cyber Hub Gurugram',
+      operatorId: operatorStatiq.id,
+      zoneId: zoneNorth.id,
+      provider: PowerProvider.bses,
+      lat: 28.4950,
+      lng: 77.0895,
+      address: 'DLF Cyber City, DLF Phase 2, Gurugram, Haryana 122002',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 120.0,
+            totalCount: 6,
+            availableCount: 3,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 4.0,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 4.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  // 7d. Seed 3 EV Charging Stations in Bengaluru (South Zone)
+  console.log('⚡ Seeding Bengaluru Stations & Connectors...');
+  const bangaloreStation1 = await prisma.station.create({
+    data: {
+      name: 'Ather Space — Indiranagar',
+      operatorId: operatorTata.id,
+      zoneId: zoneSouth.id,
+      provider: PowerProvider.other,
+      lat: 12.9716,
+      lng: 77.6411,
+      address: '100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 50.0,
+            totalCount: 2,
+            availableCount: 2,
+            status: 'available',
+          },
+          {
+            type: ConnectorType.type2_ac,
+            powerKw: 22.0,
+            totalCount: 6,
+            availableCount: 5,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 3.0,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 3.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  const bangaloreStation2 = await prisma.station.create({
+    data: {
+      name: 'Statiq Supercharger — Electronic City',
+      operatorId: operatorStatiq.id,
+      zoneId: zoneSouth.id,
+      provider: PowerProvider.other,
+      lat: 12.8399,
+      lng: 77.6770,
+      address: 'Phase 1, Electronic City, Bengaluru, Karnataka 560100',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 150.0,
+            totalCount: 8,
+            availableCount: 4,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 2.5,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 2.5,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
   // 8. Seed Bookings & Sessions with Rich Historical Data
   console.log('📅 Seeding Bookings & Sessions for Live Leaderboard & Gamification...');
 

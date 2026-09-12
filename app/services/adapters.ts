@@ -48,6 +48,7 @@ export function adaptEcoVoltStation(raw: any): Station {
     is_active: raw.is_active ?? true,
     greenness_score: greenPct,
     co2_saved_kg: raw.co2_saved_kg ?? raw.co2AvoidedKg ?? 15.2,
+    price_from: raw.priceFrom ?? 12.5,
     created_at: raw.createdAt || raw.created_at || new Date().toISOString(),
     updated_at: raw.updatedAt || raw.updated_at || new Date().toISOString(),
   };
@@ -80,7 +81,7 @@ export function adaptEcoVoltChargers(rawStation: any): Charger[] {
     const connectorType = c.type === 'ccs2' ? 'ccs' : c.type === 'type2_ac' ? 'type2' : 'chademo';
     const chargerType = (c.powerKw || 50) >= 50 ? 'dc_fast' : 'level_2';
     return {
-      id: `${stationId}-c${index + 1}`,
+      id: c.id || `${stationId}-c${index + 1}`,
       station_id: stationId,
       charger_type: chargerType as any,
       connector_type: connectorType as any,

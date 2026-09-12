@@ -12,6 +12,8 @@ const router = Router();
 // Public routes for station search and details
 router.get('/', StationsController.searchStations);
 router.get('/operators', StationsController.listOperators);
+router.get('/connectors/:id', StationsController.getConnector);
+router.patch('/connectors/:id/status', StationsController.updateConnectorStatus);
 router.get('/:id', StationsController.getStation);
 
 // Manager-protected station routes (RBAC + Ownership guards)

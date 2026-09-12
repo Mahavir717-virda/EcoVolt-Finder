@@ -96,4 +96,29 @@ export class StationsController {
       next(err);
     }
   }
+
+  public static async getConnector(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const connectorId = req.params.id;
+      const connector = await StationsService.getConnectorDetail(connectorId);
+      res.status(200).json(connector);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async updateConnectorStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const status = req.body.status;
+    if (!status || typeof status !== 'string') {
+      return next(new ValidationError('Invalid status', { status: { _errors: ['Required string'] } }));
+    }
+
+    try {
+      const connectorId = req.params.id;
+      const updated = await StationsService.updateConnectorStatus(connectorId, status);
+      res.status(200).json(updated);
+    } catch (err) {
+      next(err);
+    }
+  }
 }

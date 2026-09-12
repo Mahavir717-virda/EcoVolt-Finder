@@ -99,6 +99,9 @@ export function StationCard({
               <Text style={styles.availableText}>
                 {station.available_chargers}/{station.total_chargers}
               </Text>
+              {station.price_from !== undefined && (
+                <Text style={styles.compactPriceText}>₹{station.price_from}/kWh</Text>
+              )}
               {distance !== undefined && (
                 <Text style={styles.distanceText}>
                   {distance < 1 ? `${(distance * 1000).toFixed(0)}m` : `${distance.toFixed(1)}km`}
@@ -235,6 +238,22 @@ export function StationCard({
               {isAvailable ? 'Available' : 'Unavailable'}
             </Text>
           </View>
+        </View>
+
+        {/* ── Live Data Row: Price and Greenness ── */}
+        <View style={styles.liveDataRow}>
+          {station.price_from !== undefined && (
+            <View style={styles.priceBadge}>
+              <Ionicons name="flash" size={13} color="#D97706" />
+              <Text style={styles.priceText}>From ₹{station.price_from}/kWh</Text>
+            </View>
+          )}
+          {station.greenness_score !== undefined && (
+            <View style={styles.greenBadge}>
+              <Ionicons name="leaf" size={13} color={colors.primary[700]} />
+              <Text style={styles.greenText}>{station.greenness_score.toFixed(0)}% Renewable</Text>
+            </View>
+          )}
         </View>
 
         {/* ── Divider ── */}
@@ -393,6 +412,42 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
+  // ── Live Data Row ──
+  liveDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  priceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  priceText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B45309',
+  },
+  greenBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  greenText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary[700],
+  },
+
   // ── Bottom Row ──
   bottomRow: {
     flexDirection: 'row',
@@ -477,6 +532,12 @@ const styles = StyleSheet.create({
   distanceText: {
     fontSize: 12,
     color: colors.primary[500],
+    marginTop: 2,
+  },
+  compactPriceText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B45309',
     marginTop: 2,
   },
 });
