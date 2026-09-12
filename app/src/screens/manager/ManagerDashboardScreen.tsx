@@ -81,7 +81,7 @@ export const ManagerDashboardScreen: React.FC = () => {
     queryKey: ['manager', 'stations'],
     queryFn: async () => {
       try {
-        const res = await http.get<ManagedStation[]>('/manager/stations');
+        const res = await http.get<ManagedStation[]>('/stations/manager/all');
         return res;
       } catch {
         return [];
@@ -95,7 +95,7 @@ export const ManagerDashboardScreen: React.FC = () => {
     queryKey: ['manager', 'sessions'],
     queryFn: async () => {
       try {
-        const res = await http.get<LiveSessionItem[]>('/manager/sessions');
+        const res = await http.get<LiveSessionItem[]>('/sessions/manager/active');
         return res;
       } catch {
         return [];
@@ -120,7 +120,7 @@ export const ManagerDashboardScreen: React.FC = () => {
       connectorType: ConnectorType;
       newStatus: 'online' | 'offline';
     }) => {
-      return await http.patch(`/stations/${stationId}/connectors/${connectorType}/status`, {
+      return await http.patch(`/stations/${stationId}/connectors/type/${connectorType}/status`, {
         status: newStatus,
       });
     },
@@ -152,6 +152,70 @@ export const ManagerDashboardScreen: React.FC = () => {
               connectorType,
               newStatus: nextStatus,
             }),
+        },
+      ]
+    );
+  };
+
+  const forceStopMutation = useMutation({
+    mutationFn: async ({ sessionId, reason }: { sessionId: string; reason: string }) => {
+      return await http.post(`/sessions/${sessionId}/force-stop`, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['manager', 'sessions'] });
+      Alert.alert('Session Stopped', 'The charging session has been force-stopped.');
+    },
+    onError: (err: any) => Alert.alert('Error', err?.message || 'Failed to stop session.'),
+  });
+
+  const disputeMutation = useMutation({
+    mutationFn: async ({ sessionId, reason }: { sessionId: string; reason: string }) => {
+      return await http.post(`/sessions/${sessionId}/dispute`, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['manager', 'sessions'] });
+      Alert.alert('Dispute Logged', 'The session has been flagged for dispute.');
+    },
+    onError: (err: any) => Alert.alert('Error', err?.message || 'Failed to dispute session.'),
+  });
+
+  const handleForceStop = (sessionId: string) => {
+    Alert.prompt(
+      'Force Stop Session',
+      'Please enter a reason for stopping this session:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Stop Session',
+          style: 'destructive',
+          onPress: (reason) => {
+            if (!reason) {
+              Alert.alert('Required', 'A reason is required to force stop.');
+              return;
+            }
+            forceStopMutation.mutate({ sessionId, reason });
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDispute = (sessionId: string) => {
+    Alert.prompt(
+      'Flag for Dispute',
+      'Please enter a reason for disputing this session (e.g. damaged plug, bypassed meter):',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Submit Dispute',
+          style: 'destructive',
+          onPress: (reason) => {
+            if (!reason) {
+              Alert.alert('Required', 'A reason is required to dispute.');
+              return;
+            }
+            disputeMutation.mutate({ sessionId, reason });
+          },
         },
       ]
     );
@@ -207,11 +271,35 @@ export const ManagerDashboardScreen: React.FC = () => {
             </Text>
           </View>
 
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button
+              label="Bookings"
+              variant="secondary"
+              onPress={() => navigation.navigate('BookingOversight')}
+              style={styles.addStationBtn}
+            />
+            <Button
+              label="+ Add Station"
+              variant="primary"
+              onPress={() => navigation.navigate('StationForm', {})}
+              style={styles.addStationBtn}
+            />
+          </View>
+        </View>
+
+        {/* Quick Actions Row */}
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.base }}>
           <Button
-            label="+ Add Station"
-            variant="primary"
-            onPress={() => navigation.navigate('StationForm', {})}
-            style={styles.addStationBtn}
+            label="Analytics"
+            variant="ghost"
+            onPress={() => navigation.navigate('ManagerAnalytics')}
+            style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}
+          />
+          <Button
+            label="Disputes"
+            variant="ghost"
+            onPress={() => navigation.navigate('Disputes')}
+            style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}
           />
         </View>
 
@@ -474,6 +562,21 @@ export const ManagerDashboardScreen: React.FC = () => {
                     Total: ₹{(session.cost ?? (session.energyKwh * (session.lockedPrice ?? 6.2))).toFixed(2)}
                   </Text>
                 </View>
+                
+                <View style={styles.sessionActionRow}>
+                  <Button 
+                    label="Force Stop" 
+                    variant="ghost" 
+                    onPress={() => handleForceStop(session.id)}
+                    style={styles.sessionBtn}
+                  />
+                  <Button 
+                    label="Dispute" 
+                    variant="secondary" 
+                    onPress={() => handleDispute(session.id)}
+                    style={styles.sessionBtn}
+                  />
+                </View>
               </Card>
             ))
           )}
@@ -700,5 +803,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: colors.line,
+  },
+  sessionActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  sessionBtn: {
+    height: 32,
+    paddingHorizontal: spacing.sm,
   },
 });

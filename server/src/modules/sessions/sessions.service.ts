@@ -4,6 +4,7 @@ import {
   NotFoundError,
   ConflictError,
   BadRequestError,
+  ForbiddenError,
 } from '../../middleware/error-handler';
 import { StopSessionInput } from './sessions.schema';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -127,6 +128,37 @@ export class SessionsService {
       where: { id: booking.id },
       data: { status: SessionStatus.active },
     });
+
+    // Edge Case #16: Demand-charge risk alert
+    try {
+      const station = await prisma.station.findUnique({
+        where: { id: session.stationId },
+        include: {
+          operator: true,
+          connectors: true,
+          sessions: { where: { status: SessionStatus.active } },
+        }
+      });
+      if (station && station.maxTransformerKw) {
+        let currentLoadKw = 0;
+        for (const s of station.sessions) {
+          const conn = station.connectors.find(c => c.id === s.connectorId);
+          currentLoadKw += (conn?.powerKw || 30);
+        }
+        
+        if (currentLoadKw >= station.maxTransformerKw * 0.8) {
+          await NotificationsService.notifyManagerDemandRisk(
+            station.operator.userId,
+            station.id,
+            station.name,
+            currentLoadKw,
+            station.maxTransformerKw
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to calculate demand charge risk:', e);
+    }
 
     return session;
   }
@@ -361,5 +393,175 @@ export class SessionsService {
     }
 
     return completedSession;
+  }
+
+  /**
+   * Manager: Get active sessions across owned stations
+   */
+  public static async getManagerActiveSessions(userId: string) {
+    const operator = await prisma.operator.findFirst({ where: { userId } });
+    if (!operator) return [];
+
+    return prisma.session.findMany({
+      where: {
+        station: { operatorId: operator.id },
+        status: SessionStatus.active,
+      },
+      include: {
+        station: { select: { name: true } },
+        connector: { select: { type: true, powerKw: true } },
+        vehicle: { select: { model: true } },
+        user: { select: { name: true, email: true } },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+  }
+
+  /**
+   * Manager: Force stop a session
+   */
+  public static async forceStopSession(userId: string, sessionId: string, reason: string) {
+    if (!reason) throw new BadRequestError('Reason is required for force stop');
+
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { station: { include: { operator: true } } },
+    });
+
+    if (!session) throw new NotFoundError('Session not found');
+    
+    // Ownership check (Admin bypass could be added here if needed, but keeping it manager-focused)
+    if (session.station.operator.userId !== userId) {
+      throw new ForbiddenError('You do not own the station for this session');
+    }
+
+    // Call the regular stopSession, but bypass driver userId check by overriding the driver's userId
+    // Wait, stopSession expects the driver's userId. Let's just do it directly or adapt stopSession.
+    // Adapting stopSession is better, but since it's a force stop, we can just do the stop logic directly 
+    // or just pass the driver's userId to stopSession! Yes!
+    const stoppedSession = await SessionsService.stopSession(session.userId, sessionId, {});
+    
+    // Append the reason to disputeReason or a new field
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { disputeReason: `Force stopped: ${reason}` }
+    });
+
+    return stoppedSession;
+  }
+
+  /**
+   * Manager: Dispute a session
+   */
+  public static async disputeSession(userId: string, sessionId: string, reason: string) {
+    if (!reason) throw new BadRequestError('Dispute reason is required');
+
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { station: { include: { operator: true } } },
+    });
+
+    if (!session) throw new NotFoundError('Session not found');
+    
+    if (session.station.operator.userId !== userId) {
+      throw new ForbiddenError('You do not own the station for this session');
+    }
+
+    return prisma.session.update({
+      where: { id: sessionId },
+      data: { disputeReason: reason },
+    });
+  }
+
+  /**
+   * Manager: Get disputed sessions
+   */
+  public static async getManagerDisputes(userId: string) {
+    const operator = await prisma.operator.findFirst({ where: { userId } });
+    if (!operator) return [];
+
+    return prisma.session.findMany({
+      where: {
+        station: { operatorId: operator.id },
+        disputeReason: { not: null },
+      },
+      include: {
+        station: { select: { name: true } },
+        user: { select: { name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Manager: Refund session (Mock Razorpay integration)
+   */
+  public static async refundSession(userId: string, sessionId: string, amount: number) {
+    if (!amount || amount <= 0) throw new BadRequestError('Invalid refund amount');
+
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { station: { include: { operator: true } }, user: true },
+    });
+
+    if (!session) throw new NotFoundError('Session not found');
+    if (session.station.operator.userId !== userId) {
+      throw new ForbiddenError('You do not own the station for this session');
+    }
+
+    if (session.refundStatus !== 'none') {
+      throw new ConflictError('A refund is already processing or completed for this session');
+    }
+
+    // Step 1: Optimistic UI prevention - set to processing
+    const updatedSession = await prisma.session.update({
+      where: { id: sessionId },
+      data: { refundStatus: 'processing' },
+    });
+
+    // Notify processing
+    await NotificationsService.notifyRefundProcessing(session.userId, session.id, amount);
+    await NotificationsService.notifyRefundProcessing(userId, session.id, amount);
+
+    // Step 2: Mock Webhook Delay (e.g. 5 seconds for Razorpay to confirm)
+    setTimeout(async () => {
+      try {
+        await prisma.session.update({
+          where: { id: sessionId },
+          data: { refundStatus: 'refunded' },
+        });
+
+        // Notify completion
+        await NotificationsService.notifyRefundCompleted(session.userId, session.id, amount);
+        await NotificationsService.notifyRefundCompleted(userId, session.id, amount);
+        console.log(`[Mock Webhook] Refund confirmed for session ${sessionId}`);
+      } catch (e) {
+        console.error('Failed to process mock webhook for refund:', e);
+      }
+    }, 5000);
+
+    return updatedSession;
+  }
+
+  /**
+   * Manager: Resolve Dispute
+   */
+  public static async resolveDispute(userId: string, sessionId: string, resolutionNotes: string) {
+    if (!resolutionNotes) throw new BadRequestError('Resolution notes are required');
+
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { station: { include: { operator: true } } },
+    });
+
+    if (!session) throw new NotFoundError('Session not found');
+    if (session.station.operator.userId !== userId) {
+      throw new ForbiddenError('You do not own the station for this session');
+    }
+
+    return prisma.session.update({
+      where: { id: sessionId },
+      data: { resolutionNotes },
+    });
   }
 }

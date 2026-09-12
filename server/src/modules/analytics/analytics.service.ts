@@ -212,4 +212,206 @@ export class AnalyticsService {
       sessionsShiftedToGreen,
     };
   }
+
+  /**
+   * Manager Dashboard aggregates
+   * GET /analytics/manager/dashboard
+   */
+  public static async getManagerDashboard(userId: string) {
+    const operator = await prisma.operator.findFirst({
+      where: { userId },
+      include: {
+        stations: {
+          include: {
+            connectors: true,
+            sessions: {
+              where: {
+                // Today's sessions approximately
+                createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!operator) {
+      // Return zeroes if no operator setup yet
+      return {
+        liveOccupancyPct: 0,
+        todayRevenue: 0,
+        currentRenewableShare: 0,
+        demandChargeRisk: 'low',
+        quickAlerts: []
+      };
+    }
+
+    let todayRevenue = 0;
+    let activeSessionsCount = 0;
+    let totalInstalledKw = 0;
+    let currentLoadKw = 0;
+    let totalConnectors = 0;
+    let availableConnectors = 0;
+    let weightedRenewableSum = 0;
+    let totalKwh = 0;
+    const quickAlerts: any[] = [];
+
+    for (const station of operator.stations) {
+      for (const connector of station.connectors) {
+        totalConnectors += connector.totalCount;
+        availableConnectors += connector.availableCount;
+        totalInstalledKw += connector.powerKw * connector.totalCount;
+        if (connector.status === 'offline' || connector.status === 'maintenance') {
+          quickAlerts.push({ type: 'offline_connector', stationName: station.name, connectorId: connector.id });
+        }
+      }
+
+      for (const session of station.sessions) {
+        if (session.status === 'completed') {
+          todayRevenue += (session.cost || 0);
+          const kwh = session.energyKwh || 0;
+          totalKwh += kwh;
+          weightedRenewableSum += (session.avgRenewablePct || 0) * kwh;
+        } else if (session.status === 'active') {
+          activeSessionsCount++;
+          const conn = station.connectors.find(c => c.id === session.connectorId);
+          currentLoadKw += conn ? conn.powerKw : 30;
+        }
+        
+        if (session.disputeReason) {
+          quickAlerts.push({ type: 'disputed_session', stationName: station.name, sessionId: session.id, reason: session.disputeReason });
+        }
+      }
+    }
+
+    const avgRenewablePct = totalKwh > 0 ? Number((weightedRenewableSum / totalKwh).toFixed(1)) : 0;
+    const occupancyPct = totalConnectors > 0 ? Number((((totalConnectors - availableConnectors) / totalConnectors) * 100).toFixed(1)) : 0;
+    const peakThresholdKw = Number((totalInstalledKw * 0.8).toFixed(1));
+    
+    let demandChargeRisk: 'low' | 'medium' | 'high' = 'low';
+    if (currentLoadKw >= peakThresholdKw && peakThresholdKw > 0) {
+      demandChargeRisk = 'high';
+    } else if (currentLoadKw >= peakThresholdKw * 0.6 && peakThresholdKw > 0) {
+      demandChargeRisk = 'medium';
+    }
+
+    return {
+      liveOccupancyPct: occupancyPct,
+      todayRevenue: Number(todayRevenue.toFixed(2)),
+      currentRenewableShare: avgRenewablePct,
+      demandChargeRisk,
+      quickAlerts
+    };
+  }
+
+  /**
+   * Manager Analytics Trends
+   * GET /analytics/manager/trends
+   */
+  public static async getManagerAnalyticsTrends(userId: string) {
+    const operator = await prisma.operator.findFirst({
+      where: { userId },
+      include: {
+        stations: {
+          include: {
+            sessions: {
+              where: {
+                status: 'completed',
+                // Last 30 days
+                createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!operator) {
+      return { trends: [] };
+    }
+
+    // Group by day
+    const trendsByDay: Record<string, any> = {};
+
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      const dateStr = d.toISOString().split('T')[0];
+      trendsByDay[dateStr] = {
+        date: dateStr,
+        utilization: 0,
+        revenue: 0,
+        renewableShare: 0,
+        avgPrice: 0,
+        demandPeakKw: 0,
+        _totalKwh: 0,
+        _sessionCount: 0
+      };
+    }
+
+    operator.stations.forEach(station => {
+      station.sessions.forEach(session => {
+        const dateStr = session.createdAt.toISOString().split('T')[0];
+        if (trendsByDay[dateStr]) {
+          trendsByDay[dateStr].revenue += (session.cost || 0);
+          trendsByDay[dateStr].utilization += 1; // 1 session = 1 unit of utilization for this simple chart
+          trendsByDay[dateStr]._totalKwh += (session.energyKwh || 0);
+          trendsByDay[dateStr].renewableShare += ((session.avgRenewablePct || 0) * (session.energyKwh || 0));
+          trendsByDay[dateStr]._sessionCount += 1;
+        }
+      });
+    });
+
+    const trends = Object.values(trendsByDay).map(day => {
+      if (day._totalKwh > 0) {
+        day.renewableShare = Number((day.renewableShare / day._totalKwh).toFixed(1));
+        day.avgPrice = Number((day.revenue / day._totalKwh).toFixed(2));
+      } else {
+        day.renewableShare = 0;
+        day.avgPrice = 0;
+      }
+      
+      // Mock demand peak kw between 80 and 150 for demo purposes
+      day.demandPeakKw = Math.round(80 + Math.random() * 70);
+
+      delete day._totalKwh;
+      delete day._sessionCount;
+      return day;
+    });
+
+    return { trends };
+  }
+
+  /**
+   * Manager Analytics CSV Export
+   * GET /analytics/manager/export
+   */
+  public static async exportManagerAnalyticsCsv(userId: string) {
+    const operator = await prisma.operator.findFirst({
+      where: { userId },
+      include: {
+        stations: {
+          include: {
+            sessions: {
+              where: { status: 'completed' },
+              include: { connector: true, vehicle: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!operator) {
+      return 'Session ID,Station,Date,Energy (kWh),Revenue (INR),Renewable Share (%)\n';
+    }
+
+    let csv = 'Session ID,Station,Date,Energy (kWh),Revenue (INR),Renewable Share (%)\n';
+    operator.stations.forEach(station => {
+      station.sessions.forEach(session => {
+        const dateStr = session.createdAt.toISOString().split('T')[0];
+        csv += `${session.id},${station.name},${dateStr},${session.energyKwh},${session.cost},${session.avgRenewablePct}\n`;
+      });
+    });
+
+    return csv;
+  }
 }

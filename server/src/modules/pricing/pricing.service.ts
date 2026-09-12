@@ -59,7 +59,10 @@ export class PricingService {
     const baseTariff = tariff ? tariff.baseRate : 13.0;
 
     // 3. Resolve manager markup (Edge Case #24)
-    const pricingRule = station.pricingRules[0];
+    const specificRule = station.pricingRules.find(pr => pr.connectorId === connector.id);
+    const stationRule = station.pricingRules.find(pr => pr.connectorId === null);
+    const pricingRule = specificRule || stationRule;
+    
     const providerMarkup = pricingRule ? pricingRule.providerMarkup : 2.5;
     const enableDynamicDiscount = pricingRule ? pricingRule.enableDynamicDiscount : true;
     const discountMaxKwh = pricingRule ? pricingRule.discountMaxKwh : 3.0;
@@ -121,7 +124,10 @@ export class PricingService {
    */
   public static async updatePricingRule(stationId: string, input: UpdatePricingRuleInput) {
     const existing = await prisma.pricingRule.findFirst({
-      where: { stationId },
+      where: { 
+        stationId,
+        connectorId: input.connectorId || null
+      },
     });
 
     if (existing) {
@@ -140,6 +146,7 @@ export class PricingService {
     return prisma.pricingRule.create({
       data: {
         stationId,
+        connectorId: input.connectorId || null,
         providerMarkup: input.providerMarkup ?? 2.5,
         enableDynamicDiscount: input.enableDynamicDiscount ?? true,
         discountMaxKwh: input.discountMaxKwh ?? 3.0,
