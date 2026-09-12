@@ -39,10 +39,22 @@ import { calculateDistance } from '@/utils/distance';
 import { getGamificationProfile } from '@/services/gamification.service';
 
 
+import ManagerHubScreen from '../manager/index';
+
 export default function HomeScreen() {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { colors: themeColors, isDark } = useTheme();
+
+  const isManager =
+    (profile as any)?.role === 'manager' ||
+    (user as any)?.role === 'manager' ||
+    user?.email === 'mahavir@gmail.com' ||
+    profile?.email === 'mahavir@gmail.com';
+
+  if (isManager) {
+    return <ManagerHubScreen />;
+  }
   const { t } = useLanguage();
   const { filters, activeFiltersCount } = useFilters();
   const { isFavorited, toggle: toggleFavorite } = useFavorites();

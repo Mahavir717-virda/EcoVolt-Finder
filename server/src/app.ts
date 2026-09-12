@@ -28,6 +28,9 @@ import { managerRouter } from './modules/manager/manager.router';
 export const createApp = (): Express => {
   const app = express();
 
+  // Disable ETag caching to ensure fresh JSON payloads on all API requests
+  app.disable('etag');
+
   // Response Compression (Gzip / Brotli for ultra-low latency over mobile networks)
   app.use(compression());
 

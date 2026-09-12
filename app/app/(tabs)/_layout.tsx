@@ -11,7 +11,13 @@ import { useLanguage } from '@/hooks/useLanguage';
 export default function TabLayout() {
   const { isDark, colors } = useTheme();
   const { t } = useLanguage();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user, profile } = useAuth();
+
+  const isManager =
+    (profile as any)?.role === 'manager' ||
+    (user as any)?.role === 'manager' ||
+    user?.email === 'mahavir@gmail.com' ||
+    profile?.email === 'mahavir@gmail.com';
 
   // While checking token on mount, show a centered spinner
   if (isLoading) {
@@ -49,10 +55,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t('tab.home', 'Home'),
+          title: isManager ? 'Manager Hub' : t('tab.home', 'Home'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? 'map' : 'map-outline'} 
+              name={focused ? (isManager ? 'business' : 'map') : (isManager ? 'business-outline' : 'map-outline')} 
               size={24} 
               color={color} 
             />
@@ -62,10 +68,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="reservations"
         options={{
-          title: t('tab.reservations', 'Reservations'),
+          title: isManager ? 'Live Sessions' : t('tab.reservations', 'Reservations'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? 'calendar' : 'calendar-outline'} 
+              name={focused ? (isManager ? 'flash' : 'calendar') : (isManager ? 'flash-outline' : 'calendar-outline')} 
               size={24} 
               color={color} 
             />
@@ -75,10 +81,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="favorites"
         options={{
-          title: t('tab.saved', 'Saved'),
+          title: isManager ? 'Pricing Engine' : t('tab.saved', 'Saved'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? 'bookmark' : 'bookmark-outline'} 
+              name={focused ? (isManager ? 'pricetag' : 'bookmark') : (isManager ? 'pricetag-outline' : 'bookmark-outline')} 
               size={24} 
               color={color} 
             />
@@ -88,7 +94,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: t('tab.profile', 'Profile'),
+          title: isManager ? 'Operator Profile' : t('tab.profile', 'Profile'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? 'person' : 'person-outline'} 

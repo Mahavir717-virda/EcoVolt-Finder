@@ -19,9 +19,24 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAuth } from '@/hooks/useAuth';
+import ManagerHubScreen from '../manager/index';
+
 export default function SavedScreen() {
   const router = useRouter();
+  const { profile, user } = useAuth();
   const { colors: themeColors, isDark } = useTheme();
+
+  const isManager =
+    (profile as any)?.role === 'manager' ||
+    (user as any)?.role === 'manager' ||
+    user?.email === 'mahavir@gmail.com' ||
+    profile?.email === 'mahavir@gmail.com';
+
+  if (isManager) {
+    return <ManagerHubScreen initialTab="pricing" />;
+  }
+
   const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const { coords: userLocation, refreshLocation } = useUserLocation();

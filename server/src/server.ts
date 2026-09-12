@@ -2,6 +2,7 @@ import { createApp } from './app';
 import { env } from './config/env';
 import { startBackgroundWorkers } from './workers';
 
+// EcoVolt Finder Backend Server - Schema Sync Updated
 const app = createApp();
 
 const server = app.listen(env.PORT, '0.0.0.0', () => {
