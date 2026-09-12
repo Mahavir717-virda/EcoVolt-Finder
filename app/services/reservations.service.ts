@@ -101,7 +101,7 @@ export async function createReservation(params: CreateReservationParams): Promis
   }
 }
 
-export async function cancelReservation(reservationId: string): Promise<boolean> {
+export async function cancelReservation(reservationId: string, userId?: string): Promise<boolean> {
   try {
     await apiRequest<any>(
       `/bookings/${reservationId}/cancel`,

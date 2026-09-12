@@ -156,7 +156,10 @@ export interface Database {
           start_time: string;
           end_time: string;
           status: ReservationStatus;
+          total_price?: number;
+          total_cost?: number;
           created_at: string;
+          updated_at?: string;
         };
         Insert: {
           id?: string;
@@ -165,7 +168,10 @@ export interface Database {
           start_time: string;
           end_time: string;
           status?: ReservationStatus;
+          total_price?: number;
+          total_cost?: number;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -174,7 +180,10 @@ export interface Database {
           start_time?: string;
           end_time?: string;
           status?: ReservationStatus;
+          total_price?: number;
+          total_cost?: number;
           created_at?: string;
+          updated_at?: string;
         };
       };
       plans: {

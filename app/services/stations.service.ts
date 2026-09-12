@@ -88,18 +88,42 @@ export async function getStationById(id: string): Promise<StationWithChargers | 
   }
 }
 
+export interface NearbyStationsOptions {
+  latitude: number;
+  longitude: number;
+  radiusKm?: number;
+  limit?: number;
+  filters?: StationFilters;
+}
+
 export async function getNearbyStations(
-  latitude: number,
-  longitude: number,
-  radiusKm: number = 25
+  optionsOrLat: number | NearbyStationsOptions,
+  maybeLng?: number,
+  maybeRadius?: number
 ): Promise<StationWithDistance[]> {
-  const allStations = await getStations();
+  let lat: number;
+  let lng: number;
+  let radius = 25;
+  let filters: StationFilters | undefined;
+  let limit: number | undefined;
+
+  if (typeof optionsOrLat === 'object') {
+    lat = optionsOrLat.latitude;
+    lng = optionsOrLat.longitude;
+    radius = optionsOrLat.radiusKm ?? 25;
+    filters = optionsOrLat.filters;
+    limit = optionsOrLat.limit;
+  } else {
+    lat = optionsOrLat;
+    lng = maybeLng!;
+    radius = maybeRadius ?? 25;
+  }
+
+  const allStations = await getStations(filters);
   const withDistance: StationWithDistance[] = allStations.map((station) => {
     const dist = calculateDistance(
-      latitude,
-      longitude,
-      station.latitude,
-      station.longitude
+      { latitude: lat, longitude: lng },
+      { latitude: station.latitude, longitude: station.longitude }
     );
     return {
       ...station,
@@ -107,9 +131,15 @@ export async function getNearbyStations(
     };
   });
 
-  return withDistance
-    .filter((s) => s.distance <= radiusKm)
+  let results = withDistance
+    .filter((s) => s.distance <= radius)
     .sort((a, b) => a.distance - b.distance);
+
+  if (limit) {
+    results = results.slice(0, limit);
+  }
+
+  return results;
 }
 
 export async function searchStations(query: string): Promise<Station[]> {

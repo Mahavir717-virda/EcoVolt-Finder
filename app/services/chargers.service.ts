@@ -11,6 +11,8 @@ export async function getChargersByStationId(stationId: string): Promise<Charger
   return station?.chargers || [];
 }
 
+export const getChargersByStation = getChargersByStationId;
+
 export async function getChargerById(chargerId: string): Promise<Charger | null> {
   const defaultCharger: Charger = {
     id: chargerId,
@@ -24,6 +26,31 @@ export async function getChargerById(chargerId: string): Promise<Charger | null>
     updated_at: new Date().toISOString(),
   };
   return defaultCharger;
+}
+
+export async function isChargerAvailable(chargerId: string): Promise<boolean> {
+  return true;
+}
+
+export async function getChargerStats(stationId: string): Promise<{
+  total: number;
+  available: number;
+  inUse: number;
+  reserved: number;
+  offline: number;
+  lowestPrice: number | null;
+  highestPrice: number | null;
+}> {
+  const chargers = await getChargersByStationId(stationId);
+  const total = chargers.length;
+  const available = chargers.filter((c) => c.status === 'available').length;
+  const inUse = chargers.filter((c) => c.status === 'in_use').length;
+  const reserved = chargers.filter((c) => c.status === 'reserved').length;
+  const offline = chargers.filter((c) => c.status === 'offline').length;
+  const prices = chargers.map((c) => c.price_per_kwh).filter((p) => typeof p === 'number');
+  const lowestPrice = prices.length > 0 ? Math.min(...prices) : 6.0;
+  const highestPrice = prices.length > 0 ? Math.max(...prices) : 8.5;
+  return { total, available, inUse, reserved, offline, lowestPrice, highestPrice };
 }
 
 export async function updateChargerStatus(

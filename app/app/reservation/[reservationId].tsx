@@ -1,0 +1,865 @@
+import { Button, Card } from '@/components/ui';
+import { CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
+import { colors } from '@/constants/colors';
+import { usePlacePhotos } from '@/hooks/usePlacePhotos';
+import { useCancelReservation, useReservation } from '@/hooks/useReservations';
+import { ChargerType, ConnectorType } from '@/types/database.types';
+import { formatDate, formatDuration, formatTime } from '@/utils/date';
+import { formatCurrency } from '@/utils/pricing';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    FlatList,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const PHOTO_HEIGHT = 200;
+
+export default function ReservationDetailScreen() {
+  const { reservationId } = useLocalSearchParams<{ reservationId: string }>();
+  const insets = useSafeAreaInsets();
+  const { reservation, loading, error, refresh } = useReservation(reservationId || '');
+  const { cancel, loading: cancelling } = useCancelReservation();
+  
+  // Photo gallery state
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+
+  // Extract nested data
+  const charger = (reservation as any)?.charger;
+  const station = charger?.station;
+
+  // Fetch Google Places photos
+  const { photos, loading: photosLoading } = usePlacePhotos(
+    station?.latitude,
+    station?.longitude,
+    station?.name,
+    station?.image_url
+  );
+
+  const chargerTypeKey = charger?.charger_type as ChargerType | undefined;
+  const connectorTypeKey = charger?.connector_type as ConnectorType | undefined;
+  const chargerType = chargerTypeKey ? CHARGER_TYPES[chargerTypeKey] : null;
+  const connectorType = connectorTypeKey ? CONNECTOR_TYPES[connectorTypeKey] : null;
+
+  // Get duration from reservation (with type assertion)
+  const reservationData = reservation as any;
+  const durationMinutes = reservationData?.duration_minutes || 0;
+  
+  // Calculate estimated cost: power_kw * hours * price_per_kwh
+  // If not stored in DB, calculate from charger data
+  const storedEstimatedCost = reservationData?.estimated_cost;
+  const calculatedCost = charger?.power_kw && charger?.price_per_kwh && durationMinutes
+    ? (charger.power_kw * (durationMinutes / 60) * charger.price_per_kwh)
+    : 0;
+  const estimatedCost = storedEstimatedCost || calculatedCost;
+
+  // Check if reservation is upcoming or active
+  const reservationStatus = useMemo(() => {
+    if (!reservation) return 'unknown';
+    
+    const now = new Date();
+    const startTime = new Date(reservation.start_time);
+    const endTime = new Date(reservation.end_time);
+    
+    if (reservation.status === 'cancelled') return 'cancelled';
+    if (reservation.status === 'completed') return 'completed';
+    if (reservation.status === 'expired') return 'expired';
+    
+    if (now < startTime) return 'upcoming';
+    if (now >= startTime && now <= endTime) return 'in-progress';
+    if (now > endTime) return 'expired';
+    
+    return 'active';
+  }, [reservation]);
+
+  // Time until reservation starts/ends
+  const timeInfo = useMemo(() => {
+    if (!reservation) return null;
+    
+    const now = new Date();
+    const startTime = new Date(reservation.start_time);
+    const endTime = new Date(reservation.end_time);
+    
+    if (reservationStatus === 'upcoming') {
+      const diffMs = startTime.getTime() - now.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 60) return `Starts in ${diffMins} minutes`;
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `Starts in ${diffHours} hours`;
+      const diffDays = Math.floor(diffHours / 24);
+      return `Starts in ${diffDays} days`;
+    }
+    
+    if (reservationStatus === 'in-progress') {
+      const diffMs = endTime.getTime() - now.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      return `${diffMins} minutes remaining`;
+    }
+    
+    return null;
+  }, [reservation, reservationStatus]);
+
+  const handleCancel = useCallback(() => {
+    Alert.alert(
+      'Cancel Reservation',
+      'Are you sure you want to cancel this reservation? This action cannot be undone.',
+      [
+        { text: 'Keep Reservation', style: 'cancel' },
+        {
+          text: 'Cancel Reservation',
+          style: 'destructive',
+          onPress: async () => {
+            if (reservationId) {
+              const success = await cancel(reservationId);
+              if (success) {
+                Alert.alert('Cancelled', 'Your reservation has been cancelled.');
+                router.back();
+              }
+            }
+          },
+        },
+      ]
+    );
+  }, [cancel, reservationId]);
+
+  const handleStartCharging = useCallback(() => {
+    // Navigate to charging session screen
+    router.push({
+      pathname: '/reservation/charging',
+      params: {
+        reservationId,
+        chargerId: charger?.id,
+        stationName: station?.name,
+        powerKw: charger?.power_kw,
+        pricePerKwh: charger?.price_per_kwh,
+      },
+    });
+  }, [reservationId, charger, station]);
+
+  const statusConfig = useMemo(() => {
+    switch (reservationStatus) {
+      case 'upcoming':
+        return { label: 'Upcoming', color: colors.primary[500], bgColor: colors.primary[50] };
+      case 'in-progress':
+        return { label: 'In Progress', color: colors.success, bgColor: '#E8F5E9' };
+      case 'completed':
+        return { label: 'Completed', color: colors.neutral[500], bgColor: colors.neutral[100] };
+      case 'cancelled':
+        return { label: 'Cancelled', color: colors.error[500], bgColor: colors.error[50] };
+      case 'expired':
+        return { label: 'Expired', color: colors.warning, bgColor: '#FFF3E0' };
+      default:
+        return { label: 'Unknown', color: colors.neutral[500], bgColor: colors.neutral[100] };
+    }
+  }, [reservationStatus]);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.neutral[800]} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Reservation Details</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary[500]} />
+          <Text style={styles.loadingText}>Loading reservation...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error || !reservation) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.neutral[800]} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Reservation Details</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <Ionicons name="alert-circle" size={48} color={colors.error[500]} />
+          <Text style={styles.errorText}>Reservation not found</Text>
+          <Button title="Go Back" onPress={() => router.back()} style={{ marginTop: 16 }} />
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.neutral[800]} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Reservation Details</Text>
+        <TouchableOpacity onPress={refresh} style={styles.refreshButton}>
+          <Ionicons name="refresh" size={24} color={colors.neutral[600]} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Status Banner */}
+        <View style={[styles.statusBanner, { backgroundColor: statusConfig.bgColor }]}>
+          <View style={styles.statusContent}>
+            <Text style={[styles.statusLabel, { color: statusConfig.color }]}>
+              {statusConfig.label}
+            </Text>
+            {timeInfo && (
+              <Text style={[styles.timeInfo, { color: statusConfig.color }]}>{timeInfo}</Text>
+            )}
+          </View>
+          {reservationStatus === 'in-progress' && (
+            <View style={styles.pulseIndicator}>
+              <View style={[styles.pulseDot, { backgroundColor: statusConfig.color }]} />
+            </View>
+          )}
+        </View>
+
+        {/* Photo Gallery - Embedded Google Places Photos */}
+        {station?.latitude && station?.longitude && (
+          <Card style={styles.photoCard}>
+            {/* Main Photo Display */}
+            <TouchableOpacity 
+              style={styles.photoContainer}
+              onPress={() => photos.length > 0 && setShowPhotoModal(true)}
+              activeOpacity={0.9}
+            >
+              {photosLoading ? (
+                <View style={styles.photoLoading}>
+                  <ActivityIndicator size="large" color={colors.primary[500]} />
+                  <Text style={styles.photoLoadingText}>Loading photos...</Text>
+                </View>
+              ) : photos.length > 0 ? (
+                <>
+                  <Image
+                    source={{ uri: photos[currentPhotoIndex] }}
+                    style={styles.mainPhoto}
+                    resizeMode="cover"
+                  />
+                  {/* Photo counter badge */}
+                  {photos.length > 1 && (
+                    <View style={styles.photoCounter}>
+                      <Ionicons name="images" size={12} color="#fff" />
+                      <Text style={styles.photoCounterText}>{currentPhotoIndex + 1}/{photos.length}</Text>
+                    </View>
+                  )}
+                  {/* Tap to enlarge hint */}
+                  <View style={styles.tapToEnlarge}>
+                    <Ionicons name="expand-outline" size={12} color="#fff" />
+                    <Text style={styles.tapToEnlargeText}>Tap to enlarge</Text>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.noPhotos}>
+                  <Ionicons name="image-outline" size={48} color={colors.neutral[300]} />
+                  <Text style={styles.noPhotosText}>No photos available</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            {/* Photo Thumbnails */}
+            {photos.length > 1 && (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.thumbnailsContainer}
+                contentContainerStyle={styles.thumbnailsContent}
+              >
+                {photos.map((photo, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => setCurrentPhotoIndex(index)}
+                    style={[
+                      styles.thumbnail,
+                      currentPhotoIndex === index && styles.thumbnailActive
+                    ]}
+                  >
+                    <Image
+                      source={{ uri: photo }}
+                      style={styles.thumbnailImage}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+            
+            {/* Get Directions Button */}
+            <TouchableOpacity
+              style={styles.directionsButton}
+              onPress={() => {
+                router.push({
+                  pathname: '/modal/navigation',
+                  params: {
+                    latitude: station.latitude.toString(),
+                    longitude: station.longitude.toString(),
+                    name: station.name || 'Charging Station',
+                    address: station.address || '',
+                  },
+                });
+              }}
+            >
+              <Ionicons name="navigate" size={18} color="#fff" />
+              <Text style={styles.directionsButtonText}>Get Directions</Text>
+            </TouchableOpacity>
+          </Card>
+        )}
+
+        {/* Full-Screen Photo Modal */}
+        <Modal
+          visible={showPhotoModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowPhotoModal(false)}
+        >
+          <View style={styles.photoModalContainer}>
+            <TouchableOpacity
+              style={styles.photoModalClose}
+              onPress={() => setShowPhotoModal(false)}
+            >
+              <Ionicons name="close" size={32} color="#fff" />
+            </TouchableOpacity>
+            
+            <FlatList
+              data={photos}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              initialScrollIndex={currentPhotoIndex}
+              getItemLayout={(_, index) => ({
+                length: SCREEN_WIDTH,
+                offset: SCREEN_WIDTH * index,
+                index,
+              })}
+              onMomentumScrollEnd={(e) => {
+                const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                setCurrentPhotoIndex(index);
+              }}
+              renderItem={({ item }) => (
+                <Image
+                  source={{ uri: item }}
+                  style={styles.photoModalImage}
+                  resizeMode="contain"
+                />
+              )}
+              keyExtractor={(_, index) => index.toString()}
+            />
+            
+            {photos.length > 1 && (
+              <View style={styles.photoModalCounter}>
+                <Text style={styles.photoModalCounterText}>
+                  {currentPhotoIndex + 1} / {photos.length}
+                </Text>
+              </View>
+            )}
+          </View>
+        </Modal>
+
+        {/* Station Info */}
+        <Card style={styles.stationCard}>
+          <View style={styles.stationHeader}>
+            <View style={[styles.stationIcon, { backgroundColor: colors.primary[50] }]}>
+              <Ionicons name="flash" size={24} color={colors.primary[500]} />
+            </View>
+            <View style={styles.stationInfo}>
+              <Text style={styles.stationName}>{station?.name || 'Unknown Station'}</Text>
+              <Text style={styles.stationAddress}>{station?.address || 'Address unavailable'}</Text>
+            </View>
+          </View>
+        </Card>
+
+        {/* Charger Details */}
+        <Card style={styles.detailsCard}>
+          <Text style={styles.sectionTitle}>Charger Details</Text>
+          
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <Ionicons name="flash-outline" size={20} color={colors.neutral[500]} />
+              <View style={styles.detailText}>
+                <Text style={styles.detailLabel}>Type</Text>
+                <Text style={styles.detailValue}>{chargerType?.name || 'Unknown'}</Text>
+              </View>
+            </View>
+            <View style={styles.detailItem}>
+              <Ionicons name="hardware-chip-outline" size={20} color={colors.neutral[500]} />
+              <View style={styles.detailText}>
+                <Text style={styles.detailLabel}>Connector</Text>
+                <Text style={styles.detailValue}>{connectorType?.name || 'Unknown'}</Text>
+              </View>
+            </View>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <Ionicons name="speedometer-outline" size={20} color={colors.neutral[500]} />
+              <View style={styles.detailText}>
+                <Text style={styles.detailLabel}>Power</Text>
+                <Text style={styles.detailValue}>{charger?.power_kw || 0} kW</Text>
+              </View>
+            </View>
+            <View style={styles.detailItem}>
+              <Ionicons name="pricetag-outline" size={20} color={colors.neutral[500]} />
+              <View style={styles.detailText}>
+                <Text style={styles.detailLabel}>Rate</Text>
+                <Text style={styles.detailValue}>{formatCurrency(charger?.price_per_kwh || 0)}/kWh</Text>
+              </View>
+            </View>
+          </View>
+        </Card>
+
+        {/* Reservation Timing */}
+        <Card style={styles.detailsCard}>
+          <Text style={styles.sectionTitle}>Reservation Time</Text>
+          
+          <View style={styles.timingContainer}>
+            <View style={styles.timeBlock}>
+              <Ionicons name="calendar-outline" size={24} color={colors.primary[500]} />
+              <Text style={styles.timeLabel}>Date</Text>
+              <Text style={styles.timeValue}>{formatDate(new Date(reservation.start_time))}</Text>
+            </View>
+            
+            <View style={styles.timeDivider} />
+            
+            <View style={styles.timeBlock}>
+              <Ionicons name="time-outline" size={24} color={colors.primary[500]} />
+              <Text style={styles.timeLabel}>Time</Text>
+              <Text style={styles.timeValue}>
+                {formatTime(new Date(reservation.start_time))} - {formatTime(new Date(reservation.end_time))}
+              </Text>
+            </View>
+            
+            <View style={styles.timeDivider} />
+            
+            <View style={styles.timeBlock}>
+              <Ionicons name="hourglass-outline" size={24} color={colors.primary[500]} />
+              <Text style={styles.timeLabel}>Duration</Text>
+              <Text style={styles.timeValue}>{formatDuration(durationMinutes)}</Text>
+            </View>
+          </View>
+        </Card>
+
+        {/* Estimated Cost */}
+        <Card style={styles.costCard}>
+          <View style={styles.costHeader}>
+            <Text style={styles.sectionTitle}>Estimated Cost</Text>
+            <Text style={styles.costNote}>*Based on full duration</Text>
+          </View>
+          <View style={styles.costContent}>
+            <Text style={styles.costAmount}>{formatCurrency(estimatedCost)}</Text>
+            <Text style={styles.costBreakdown}>
+              {charger?.power_kw} kW × {(durationMinutes / 60).toFixed(1)} hrs × {formatCurrency(charger?.price_per_kwh || 0)}/kWh
+            </Text>
+          </View>
+        </Card>
+
+        {/* Action Buttons */}
+        <View style={[styles.actionButtons, { paddingBottom: insets.bottom + 16 }]}>
+          {reservationStatus === 'upcoming' && (
+            <>
+              <Button
+                title="Cancel Reservation"
+                variant="outline"
+                onPress={handleCancel}
+                loading={cancelling}
+                fullWidth
+                style={styles.cancelButton}
+              />
+            </>
+          )}
+          
+          {reservationStatus === 'in-progress' && (
+            <Button
+              title="⚡ Start Charging Session"
+              variant="primary"
+              onPress={handleStartCharging}
+              fullWidth
+            />
+          )}
+          
+          {(reservationStatus === 'completed' || reservationStatus === 'expired') && (
+            <Button
+              title="Book Again"
+              variant="primary"
+              onPress={() => {
+                if (station?.id) {
+                  router.push(`/station/${station.id}`);
+                }
+              }}
+              fullWidth
+            />
+          )}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.neutral[50],
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[200],
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.neutral[800],
+  },
+  placeholder: {
+    width: 40,
+  },
+  refreshButton: {
+    padding: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: colors.neutral[500],
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.neutral[800],
+  },
+  content: {
+    flex: 1,
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  statusContent: {
+    flex: 1,
+  },
+  statusLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  timeInfo: {
+    fontSize: 14,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  pulseIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(76, 175, 80, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  // Photo Gallery Styles
+  photoCard: {
+    margin: 16,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  photoContainer: {
+    height: PHOTO_HEIGHT,
+    backgroundColor: colors.neutral[100],
+    position: 'relative',
+  },
+  photoLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.neutral[100],
+  },
+  photoLoadingText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: colors.neutral[500],
+  },
+  mainPhoto: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.neutral[200],
+  },
+  photoCounter: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  photoCounterText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  tapToEnlarge: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  tapToEnlargeText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  noPhotos: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noPhotosText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: colors.neutral[400],
+  },
+  thumbnailsContainer: {
+    maxHeight: 60,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[200],
+  },
+  thumbnailsContent: {
+    padding: 8,
+    gap: 8,
+  },
+  thumbnail: {
+    width: 60,
+    height: 44,
+    borderRadius: 6,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    marginRight: 8,
+  },
+  thumbnailActive: {
+    borderColor: colors.primary[500],
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  directionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    backgroundColor: colors.primary[500],
+    margin: 12,
+    marginTop: 8,
+    borderRadius: 8,
+    gap: 8,
+  },
+  directionsButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  // Photo Modal Styles
+  photoModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoModalClose: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 8,
+  },
+  photoModalImage: {
+    width: SCREEN_WIDTH,
+    height: '100%',
+  },
+  photoModalCounter: {
+    position: 'absolute',
+    bottom: 50,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  photoModalCounterText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  stationCard: {
+    margin: 16,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  stationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stationIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stationInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  stationName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.neutral[800],
+  },
+  stationAddress: {
+    fontSize: 14,
+    color: colors.neutral[500],
+    marginTop: 2,
+  },
+  detailsCard: {
+    margin: 16,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.neutral[800],
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  detailItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  detailText: {
+    marginLeft: 8,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: colors.neutral[500],
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.neutral[800],
+    marginTop: 2,
+  },
+  timingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeBlock: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timeDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: colors.neutral[200],
+  },
+  timeLabel: {
+    fontSize: 12,
+    color: colors.neutral[500],
+    marginTop: 8,
+  },
+  timeValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.neutral[800],
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  costCard: {
+    margin: 16,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  costHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  costNote: {
+    fontSize: 12,
+    color: colors.neutral[400],
+  },
+  costContent: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    backgroundColor: colors.primary[50],
+    borderRadius: 12,
+  },
+  costAmount: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.primary[600],
+  },
+  costBreakdown: {
+    fontSize: 12,
+    color: colors.neutral[500],
+    marginTop: 8,
+  },
+  actionButtons: {
+    padding: 16,
+    gap: 12,
+  },
+  cancelButton: {
+    borderColor: colors.error[500],
+  },
+});
