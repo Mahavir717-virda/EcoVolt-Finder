@@ -1,9 +1,11 @@
 import { Button, Card } from '@/components/ui';
+import { ConnectorIcon, CHARGER_COLORS } from '@/components/ui/ConnectorIcon';
 import { CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { useCharger } from '@/hooks/useChargers';
 import { useCreateReservation } from '@/hooks/useReservations';
+import { getDynamicPriceQuote, greennessColor } from '@/lib/gridData';
 import {
     addMinutes,
     formatDate,
@@ -11,7 +13,7 @@ import {
     formatTime,
     generateTimeSlots
 } from '@/utils/date';
-import { calculateChargingCost, formatCurrency } from '@/utils/pricing';
+import { formatCurrency } from '@/utils/pricing';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -72,14 +74,19 @@ export default function ReserveScreen() {
     return generateTimeSlots(selectedDate, 15); // 15-minute intervals
   }, [selectedDate]);
 
-  // Calculate estimated cost
+  // Live dynamic price quote — synced with grid green-energy ToU
+  const priceQuote = useMemo(() => {
+    if (!charger) return null;
+    return getDynamicPriceQuote(charger.id, charger.price_per_kwh);
+  }, [charger]);
+
+  // Estimated cost using dynamic (green-energy adjusted) price
   const estimatedCost = useMemo(() => {
-    if (!charger) return 0;
+    if (!charger || !priceQuote) return 0;
     const durationHours = selectedDuration / 60;
-    // Assuming average energy consumption based on charger power
-    const estimatedKwh = charger.power_kw * durationHours * 0.8; // 80% efficiency
-    return calculateChargingCost(estimatedKwh, charger.price_per_kwh);
-  }, [selectedDuration, charger]);
+    const estimatedKwh = charger.power_kw * durationHours * 0.85; // 85% efficiency
+    return priceQuote.finalPrice * estimatedKwh;
+  }, [selectedDuration, charger, priceQuote]);
 
   // Generate next 7 days for date selection
   const dateOptions = useMemo(() => {
@@ -210,19 +217,39 @@ export default function ReserveScreen() {
         {/* Charger Info Card */}
         <Card style={styles.chargerCard}>
           <View style={styles.chargerInfo}>
-            <View style={[styles.chargerIcon, { backgroundColor: chargerTypeInfo.color + '20' }]}>
-              <Ionicons name="flash" size={24} color={chargerTypeInfo.color} />
+            {/* Custom SVG connector icon */}
+            <View style={[styles.chargerIconWrap, { backgroundColor: (CHARGER_COLORS[charger.charger_type] ?? colors.primary[500]) + '18' }]}>
+              <ConnectorIcon
+                chargerType={charger.charger_type}
+                connectorType={charger.connector_type}
+                size={48}
+              />
             </View>
             <View style={styles.chargerDetails}>
-              <Text style={styles.chargerType}>{chargerTypeInfo.name}</Text>
-              <Text style={styles.connectorType}>{connectorTypeInfo.name}</Text>
+              <Text style={styles.chargerType}>
+                {chargerTypeInfo.name} · {connectorTypeInfo.name}
+              </Text>
               <View style={styles.chargerStats}>
-                <Text style={styles.statText}>{charger.power_kw} kW</Text>
+                <Text style={styles.statText}>⚡ {charger.power_kw} kW</Text>
                 <Text style={styles.statDivider}>•</Text>
-                <Text style={styles.statText}>{formatCurrency(charger.price_per_kwh)}/kWh</Text>
+                <Text style={styles.statText}>₹{charger.price_per_kwh.toFixed(2)}/kWh base</Text>
               </View>
             </View>
           </View>
+          {/* Green pricing strip */}
+          {priceQuote && (
+            <View style={styles.greenStrip}>
+              <View style={[styles.greenDot, { backgroundColor: greennessColor(priceQuote.finalPrice < charger.price_per_kwh ? 70 : 40) }]} />
+              <Text style={styles.greenStripText}>
+                {priceQuote.touAdjustment < 0
+                  ? `🌿 Green discount active — save ₹${Math.abs(priceQuote.touAdjustment).toFixed(2)}/kWh`
+                  : priceQuote.touAdjustment > 0
+                  ? `⚡ Peak hour — +₹${priceQuote.touAdjustment.toFixed(2)}/kWh surcharge`
+                  : '✓ Standard rate — no ToU adjustment'}
+              </Text>
+              <Text style={styles.greenFinalRate}>₹{priceQuote.finalPrice.toFixed(2)}/kWh</Text>
+            </View>
+          )}
         </Card>
 
         {/* Date Selection */}
@@ -323,6 +350,31 @@ export default function ReserveScreen() {
             <Text style={styles.summaryLabel}>Duration</Text>
             <Text style={styles.summaryValue}>{formatDuration(selectedDuration)}</Text>
           </View>
+
+          {/* Pricing breakdown */}
+          {priceQuote && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Base rate</Text>
+                <Text style={styles.summaryValue}>₹{priceQuote.baseTariff.toFixed(2)}/kWh</Text>
+              </View>
+              {priceQuote.touAdjustment !== 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: priceQuote.touAdjustment < 0 ? '#16A34A' : '#EA580C' }]}>
+                    {priceQuote.touAdjustment < 0 ? '🌿 Green discount' : '⚡ Peak surcharge'}
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: priceQuote.touAdjustment < 0 ? '#16A34A' : '#EA580C' }]}>
+                    {priceQuote.touAdjustment < 0 ? '−' : '+'}₹{Math.abs(priceQuote.touAdjustment).toFixed(2)}/kWh
+                  </Text>
+                </View>
+              )}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Effective rate</Text>
+                <Text style={[styles.summaryValue, { fontWeight: '700' }]}>₹{priceQuote.finalPrice.toFixed(2)}/kWh</Text>
+              </View>
+            </>
+          )}
           
           <View style={styles.divider} />
           
@@ -332,7 +384,7 @@ export default function ReserveScreen() {
           </View>
           
           <Text style={styles.costNote}>
-            * Actual cost depends on energy consumed
+            * Based on {charger.power_kw} kW × {selectedDuration} min at 85% efficiency
           </Text>
         </Card>
 
@@ -393,12 +445,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
-  chargerIcon: {
-    width: 56,
-    height: 56,
+  chargerIconWrap: {
+    width: 64,
+    height: 64,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  greenStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[100],
+    gap: 8,
+  },
+  greenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  greenStripText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.neutral[600],
+    fontWeight: '500',
+  },
+  greenFinalRate: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral[800],
   },
   chargerDetails: {
     flex: 1,

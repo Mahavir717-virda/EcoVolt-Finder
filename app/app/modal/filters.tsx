@@ -6,9 +6,10 @@
 import { Button } from '@/components/ui';
 import { CHARGER_TYPES, CONNECTOR_TYPES } from '@/constants/chargerTypes';
 import { colors } from '@/constants/colors';
+import { DEFAULT_FILTERS, FilterState, useFilters } from '@/hooks/useFilters';
 import { spacing } from '@/styles/spacing';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
     ScrollView,
@@ -47,37 +48,17 @@ const PRICE_RANGES = [
   { min: 20, max: Infinity, label: 'Over ₹20' },
 ];
 
-export interface FilterState {
-  chargerTypes: string[];
-  connectorTypes: string[];
-  amenities: string[];
-  maxDistance: number;
-  priceRange: { min: number; max: number } | null;
-  availableOnly: boolean;
-}
-
-const DEFAULT_FILTERS: FilterState = {
-  chargerTypes: [],
-  connectorTypes: [],
-  amenities: [],
-  maxDistance: 15,
-  priceRange: null,
-  availableOnly: false,
-};
 
 export default function FiltersModal() {
-  const params = useLocalSearchParams();
-  
-  // Initialize filters from params or defaults
-  const [filters, setFilters] = useState<FilterState>(() => {
-    try {
-      const filtersParam = params.filters as string;
-      if (filtersParam) {
-        return JSON.parse(filtersParam);
-      }
-    } catch {}
-    return DEFAULT_FILTERS;
-  });
+  const { filters: globalFilters, setFilters: setGlobalFilters } = useFilters();
+
+  // Initialize local state from global context
+  const [filters, setFilters] = useState<FilterState>(globalFilters);
+
+  // Sync when global filters change (e.g. from clear button on explore screen)
+  React.useEffect(() => {
+    setFilters(globalFilters);
+  }, [globalFilters]);
 
   const handleChargerTypeToggle = useCallback((type: string) => {
     setFilters(prev => ({
@@ -126,12 +107,10 @@ export default function FiltersModal() {
   }, []);
 
   const handleApply = useCallback(() => {
-    // Navigate back with filters
+    // Save filters to global context so consuming screens re-render immediately
+    setGlobalFilters(filters);
     router.back();
-    // You would typically store these in a global state or context
-    // For now, we'll just log them
-    console.log('Applied filters:', filters);
-  }, [filters]);
+  }, [filters, setGlobalFilters]);
 
   const activeFiltersCount = 
     filters.chargerTypes.length +

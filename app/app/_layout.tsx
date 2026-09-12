@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 import { colors } from '@/constants/colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
+import { FilterProvider } from '@/hooks/useFilters';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -78,9 +79,10 @@ export default function RootLayout() {
   };
 
   return (
-    <AuthProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? VoltSpotDarkTheme : VoltSpotLightTheme}>
-        <AuthGuard>
+    <FilterProvider>
+      <AuthProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? VoltSpotDarkTheme : VoltSpotLightTheme}>
+          <AuthGuard>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
@@ -106,9 +108,10 @@ export default function RootLayout() {
               }}
             />
           </Stack>
-        </AuthGuard>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </AuthProvider>
+          </AuthGuard>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </AuthProvider>
+    </FilterProvider>
   );
 }

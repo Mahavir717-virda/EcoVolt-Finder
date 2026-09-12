@@ -8,6 +8,7 @@ import { WebViewMap } from '@/components/map';
 import { StationCard } from '@/components/station';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
+import { applyFiltersToStations, useFilters } from '@/hooks/useFilters';
 import { useNearbyStations, useStations } from '@/hooks/useStations';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { getLiveGridSnapshot, greennessColor, greennessBandLabel } from '@/lib/gridData';
@@ -30,6 +31,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useAuth();
+  const { filters, activeFiltersCount } = useFilters();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -61,13 +63,14 @@ export default function HomeScreen() {
     enabled: true,
   });
 
-  // Use nearby stations if available, otherwise all stations
+  // Use nearby stations if available, otherwise all stations, then apply global filters
   const stations = useMemo(() => {
+    let sourceStations = allStations;
     if (nearbyStations && nearbyStations.length > 0) {
-      return nearbyStations;
+      sourceStations = nearbyStations;
     }
-    return allStations;
-  }, [nearbyStations, allStations]);
+    return applyFiltersToStations(sourceStations as any[], filters) as typeof allStations;
+  }, [nearbyStations, allStations, filters]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -133,11 +136,20 @@ export default function HomeScreen() {
       </View>
 
       {/* Search Bar */}
-      <TouchableOpacity style={styles.searchBar}>
+      <TouchableOpacity 
+        style={styles.searchBar} 
+        onPress={() => router.push('/explore')}
+        activeOpacity={0.8}
+      >
         <Ionicons name="search" size={20} color={colors.neutral[400]} />
         <Text style={styles.searchPlaceholder}>Search stations, locations...</Text>
         <TouchableOpacity onPress={handleFilterPress} style={styles.filterButton}>
-          <Ionicons name="options-outline" size={20} color={colors.primary[500]} />
+          <Ionicons name="options-outline" size={20} color={activeFiltersCount > 0 ? colors.primary[500] : colors.primary[500]} />
+          {activeFiltersCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </TouchableOpacity>
 
@@ -354,6 +366,22 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     padding: spacing.xs,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.primary[500],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.white,
   },
   scrollView: {
     flex: 1,
