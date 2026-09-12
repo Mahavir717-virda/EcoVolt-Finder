@@ -1,4 +1,5 @@
 export type NotificationType =
+  | 'smart_savings_alert'
   | 'green_window_start'
   | 'booking_reminder'
   | 'connector_offline'

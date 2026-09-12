@@ -13,7 +13,7 @@ import { spacing } from '@/styles/spacing';
 import { formatDistance } from '@/utils/distance';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -24,6 +24,11 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  evaluateNearbySavings,
+  getNotificationHistory,
+  AppNotification,
+} from '@/services/notifications.service';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -31,6 +36,14 @@ export default function HomeScreen() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [activeDeal, setActiveDeal] = useState<{
+    stationId: string;
+    stationName: string;
+    savingsInr: number;
+    availableChargers: number;
+    distanceKm: number;
+  } | null>(null);
 
   // Reliable location hook with instant cache and fallback
   const {
@@ -77,11 +90,32 @@ export default function HomeScreen() {
     return { totalStations, availableChargers, lowestPrice };
   }, [stations]);
 
-  const stationsLoading = (loadingAll || loadingNearby) && stations.length === 0;
+  const checkNotificationsAndDeals = async () => {
+    try {
+      const history = await getNotificationHistory();
+      const unread = history.filter((n) => !n.isRead).length;
+      setUnreadCount(unread);
+
+      const dealNotif = history.find((n) => n.type === 'smart_savings_alert' && n.data?.stationId);
+      if (dealNotif?.data) {
+        setActiveDeal({
+          stationId: dealNotif.data.stationId,
+          stationName: dealNotif.data.stationName || 'Nearby Charging Hub',
+          savingsInr: dealNotif.data.savingsInr || 100,
+          availableChargers: dealNotif.data.availableChargers || 3,
+          distanceKm: dealNotif.data.distanceKm || 1.5,
+        });
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    checkNotificationsAndDeals();
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refreshAll(), refreshNearby(), refreshLocation()]);
+    await Promise.all([refreshAll(), refreshNearby(), refreshLocation(), checkNotificationsAndDeals()]);
     setRefreshing(false);
   };
 
@@ -112,8 +146,17 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.subtitle}>Find your nearest charging station</Text>
         </View>
-        <TouchableOpacity style={styles.notificationButton}>
+        <TouchableOpacity
+          style={styles.notificationButton}
+          onPress={() => router.push('/modal/notifications')}
+          activeOpacity={0.7}
+        >
           <Ionicons name="notifications-outline" size={24} color={colors.neutral[700]} />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -133,6 +176,30 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary[500]]} />
         }
       >
+        {/* Proactive Smart Savings Deal Banner */}
+        {activeDeal && (
+          <TouchableOpacity
+            style={styles.dealBanner}
+            onPress={() => router.push(`/station/${activeDeal.stationId}`)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.dealIcon}>
+              <Ionicons name="flash" size={20} color="#15803D" />
+            </View>
+            <View style={styles.dealInfo}>
+              <View style={styles.dealBadgeRow}>
+                <View style={styles.dealPill}>
+                  <Text style={styles.dealPillText}>⚡ SAVE ₹{activeDeal.savingsInr}</Text>
+                </View>
+                <Text style={styles.dealSubtext}>• {activeDeal.availableChargers} Open Plugs</Text>
+              </View>
+              <Text style={styles.dealTitle} numberOfLines={1}>
+                {activeDeal.stationName}
+              </Text>
+            </View>
+            <Ionicons name="arrow-forward-circle" size={24} color="#15803D" />
+          </TouchableOpacity>
+        )}
         {/* Fallback Location Notice if GPS pending or permission not given */}
         {isFallback && (
           <TouchableOpacity 
@@ -290,6 +357,80 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral[100],
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: colors.primary[500],
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  dealBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    borderRadius: spacing.radius.lg,
+    marginHorizontal: spacing.screenPadding,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    shadowColor: '#15803D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  dealIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  dealInfo: {
+    flex: 1,
+  },
+  dealBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  dealPill: {
+    backgroundColor: '#15803D',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  dealPillText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  dealSubtext: {
+    fontSize: 11,
+    color: '#166534',
+    fontWeight: '600',
+  },
+  dealTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#14532D',
   },
   searchBar: {
     flexDirection: 'row',

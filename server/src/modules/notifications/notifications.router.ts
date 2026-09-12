@@ -9,6 +9,9 @@ notificationsRouter.use(requireAuth);
 // POST /notifications/token
 notificationsRouter.post('/token', NotificationsController.registerToken);
 
+// POST /notifications/evaluate-savings
+notificationsRouter.post('/evaluate-savings', NotificationsController.evaluateSavings);
+
 // GET /notifications
 notificationsRouter.get('/', NotificationsController.getHistory);
 

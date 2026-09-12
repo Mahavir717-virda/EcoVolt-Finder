@@ -271,6 +271,235 @@ async function main() {
           providerMarkup: 2.0,
           enableDynamicDiscount: true,
           discountMaxKwh: 2.0,
+          lowOccupancyDiscountInr: 2.0,
+          occupancyThresholdPct: 50.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  // 7b. Seed 6 EV Charging Stations in Mumbai (Maharashtra / Western Zone)
+  console.log('⚡ Seeding Mumbai Stations & Connectors...');
+  const mumbaiStation1 = await prisma.station.create({
+    data: {
+      name: 'Tata Power EV Hub — BKC Bandra',
+      operatorId: operatorTata.id,
+      zoneId: zoneWest.id,
+      provider: PowerProvider.tata_power,
+      lat: 19.0657,
+      lng: 72.8683,
+      address: 'G Block BKC, Bandra East, Mumbai, Maharashtra 400051',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 60.0,
+            totalCount: 4,
+            availableCount: 4, // 100% available (low occupancy deal)
+            status: 'available',
+          },
+          {
+            type: ConnectorType.type2_ac,
+            powerKw: 22.0,
+            totalCount: 2,
+            availableCount: 2,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 3.5,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 3.5,
+          lowOccupancyDiscountInr: 3.5,
+          occupancyThresholdPct: 50.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  const mumbaiStation2 = await prisma.station.create({
+    data: {
+      name: 'Adani Electricity Supercharge — Andheri West',
+      operatorId: operatorTata.id,
+      zoneId: zoneWest.id,
+      provider: PowerProvider.adani_energy,
+      lat: 19.1363,
+      lng: 72.8277,
+      address: 'Link Road, Andheri West, Mumbai, Maharashtra 400053',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 120.0,
+            totalCount: 4,
+            availableCount: 3,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 4.0,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 4.0,
+          lowOccupancyDiscountInr: 3.8,
+          occupancyThresholdPct: 50.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  const mumbaiStation3 = await prisma.station.create({
+    data: {
+      name: 'Jio-bp Pulse Hub — Worli Sea Face',
+      operatorId: operatorStatiq.id,
+      zoneId: zoneWest.id,
+      provider: PowerProvider.tata_power,
+      lat: 19.0178,
+      lng: 72.8172,
+      address: 'Worli Sea Face, Mumbai, Maharashtra 400018',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 60.0,
+            totalCount: 4,
+            availableCount: 3,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 3.0,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 3.0,
+          lowOccupancyDiscountInr: 3.0,
+          occupancyThresholdPct: 50.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  const mumbaiStation4 = await prisma.station.create({
+    data: {
+      name: 'Fortum Charge & Drive — Lower Parel',
+      operatorId: operatorStatiq.id,
+      zoneId: zoneWest.id,
+      provider: PowerProvider.adani_energy,
+      lat: 18.9953,
+      lng: 72.8242,
+      address: 'High Street Phoenix, Lower Parel, Mumbai, Maharashtra 400013',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 50.0,
+            totalCount: 2,
+            availableCount: 1,
+            status: 'available',
+          },
+          {
+            type: ConnectorType.type2_ac,
+            powerKw: 22.0,
+            totalCount: 4,
+            availableCount: 3,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 3.2,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 3.0,
+          lowOccupancyDiscountInr: 3.0,
+          occupancyThresholdPct: 50.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  const mumbaiStation5 = await prisma.station.create({
+    data: {
+      name: 'MSEDCL Green Grid Station — Dadar TT Circle',
+      operatorId: operatorTata.id,
+      zoneId: zoneWest.id,
+      provider: PowerProvider.adani_energy,
+      lat: 19.0178,
+      lng: 72.8478,
+      address: 'Dadar East, Mumbai, Maharashtra 400014',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 50.0,
+            totalCount: 2,
+            availableCount: 2,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 2.5,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 2.5,
+          lowOccupancyDiscountInr: 2.5,
+          occupancyThresholdPct: 50.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  const mumbaiStation6 = await prisma.station.create({
+    data: {
+      name: 'Ather & Fast EV Hub — Powai Hiranandani',
+      operatorId: operatorTata.id,
+      zoneId: zoneWest.id,
+      provider: PowerProvider.tata_power,
+      lat: 19.1197,
+      lng: 72.9051,
+      address: 'Central Ave, Hiranandani Gardens, Powai, Mumbai, Maharashtra 400076',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 50.0,
+            totalCount: 4,
+            availableCount: 4,
+            status: 'available',
+          },
+          {
+            type: ConnectorType.type2_ac,
+            powerKw: 7.4,
+            totalCount: 4,
+            availableCount: 4,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 3.0,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 3.0,
+          lowOccupancyDiscountInr: 3.0,
+          occupancyThresholdPct: 50.0,
         },
       },
     },

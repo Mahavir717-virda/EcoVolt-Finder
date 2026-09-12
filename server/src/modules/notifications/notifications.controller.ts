@@ -65,4 +65,36 @@ export class NotificationsController {
       next(err);
     }
   }
+
+  /**
+   * POST /notifications/evaluate-savings
+   * Evaluates proximity stations and vehicle SoC to fire proactive ₹100+ savings alerts
+   */
+  public static async evaluateSavings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+
+      const { lat, lng, force } = req.body || {};
+      const userLat = typeof lat === 'number' ? lat : 19.0657;
+      const userLng = typeof lng === 'number' ? lng : 72.8683;
+
+      if (force) {
+        const { prisma } = await import('../../db/client');
+        await prisma.notificationLog.deleteMany({ where: { userId: req.user.sub } });
+      }
+
+      const { SavingsEvaluatorService } = await import('./savings-evaluator.service');
+      const result = await SavingsEvaluatorService.evaluateUserForSavingsAlert(
+        req.user.sub,
+        userLat,
+        userLng
+      );
+
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }

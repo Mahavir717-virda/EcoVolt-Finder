@@ -84,6 +84,7 @@ model User {
   sessions     Session[]
   reviews      Review[]
   favorites    Favorite[]
+  notifications NotificationLog[]
 
   @@map("users")
 }
@@ -158,6 +159,7 @@ model Station {
   sessions     Session[]
   reviews      Review[]
   favorites    Favorite[]
+  notifications NotificationLog[]
 
   @@index([lat, lng])
   @@index([operatorId])
@@ -208,6 +210,8 @@ model PricingRule {
   providerMarkup        Float       @default(0.0) // ₹/kWh (manager margin >= 0)
   enableDynamicDiscount Boolean     @default(true)
   discountMaxKwh        Float       @default(3.0) // Max green discount ₹/kWh
+  lowOccupancyDiscountInr Float     @default(3.5) // Operator discount ₹/kWh during low occupancy
+  occupancyThresholdPct   Float     @default(50.0) // Trigger when available plugs >= 50%
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
@@ -315,4 +319,21 @@ model Favorite {
   @@unique([userId, stationId])
   @@index([userId])
   @@map("favorites")
+}
+
+model NotificationLog {
+  id         String   @id @default(uuid())
+  userId     String
+  stationId  String
+  savingsInr Float
+  title      String
+  body       String
+  sentAt     DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  station    Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sentAt])
+  @@index([stationId])
+  @@map("notification_logs")
 }
