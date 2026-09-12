@@ -13,4 +13,5 @@ export {
     useActiveReservationCount, useCancelReservation, useCreateReservation, useReservation, useReservations
 } from './useReservations';
 export { useNearbyStations, useStation, useStations } from './useStations';
-
+export { applyFiltersToStations, DEFAULT_FILTERS, FilterProvider, useFilters } from './useFilters';
+export type { FilterState } from './useFilters';
