@@ -25,6 +25,7 @@ import {
   BatteryPill,
   StatColumn,
   Spinner,
+  ChargingSuccessAnimation,
 } from '../../components';
 import { colors, radii, shadows, spacing, greennessColor, greennessBandLabel } from '../../theme/tokens';
 import { formatConnectorName } from '../../features/stations/utils';
@@ -160,9 +161,12 @@ export const ActiveSessionScreen: React.FC = () => {
         >
           {/* Success Check Badge */}
           <View style={styles.completionHeader}>
-            <View style={styles.completedBadgeCircle}>
-              <Text style={styles.completedBadgeIcon}>✓</Text>
-            </View>
+            <ChargingSuccessAnimation
+              size={76}
+              visible={sessionCompleted}
+              reduceMotion={reduceMotion}
+              style={styles.completedBadgeAnimation}
+            />
             <Text variant="screenTitle" align="center" style={styles.completedTitle}>
               Charging Completed
             </Text>
@@ -783,20 +787,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
-  completedBadgeCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
+  completedBadgeAnimation: {
     marginBottom: spacing.base,
-    ...shadows.e1,
-  },
-  completedBadgeIcon: {
-    fontSize: 32,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
   },
   completedTitle: {
     color: colors.ink,

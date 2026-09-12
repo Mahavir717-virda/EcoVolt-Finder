@@ -1,4 +1,5 @@
 import { Button, Card } from '@/components/ui';
+import { ChargingSuccessAnimation } from '@/components/animations';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -546,9 +547,11 @@ export default function ChargingSessionScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.sweetModalCard, { backgroundColor: themeColors.surface }]}>
-            <View style={[styles.sweetBadge, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#DCFCE7' }]}>
-              <Ionicons name="sparkles" size={28} color="#10B981" />
-            </View>
+            <ChargingSuccessAnimation
+              size={64}
+              visible={showSweetModal}
+              style={{ marginBottom: 12 }}
+            />
 
             <Text style={[styles.sweetTitle, { color: themeColors.textPrimary }]}>
               {t('charging.complete_title', 'Charging Complete! 🎉')}

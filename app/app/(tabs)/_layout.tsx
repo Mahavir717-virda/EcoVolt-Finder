@@ -1,15 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
-import { HapticTab } from '@/components/haptic-tab';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useLanguage } from '@/hooks/useLanguage';
+import { CapsuleTabBar } from '@/src/components/navigation/CapsuleTabBar';
 
 export default function TabLayout() {
-  const { isDark, colors } = useTheme();
+  const { colors } = useTheme();
   const { t } = useLanguage();
   const { isAuthenticated, isLoading, user, profile } = useAuth();
 
@@ -41,84 +40,59 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      initialRouteName="index"
+      tabBar={(props) => <CapsuleTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: isDark ? colors.textMuted : colors.textSecondary,
-        tabBarStyle: (isAdmin || isManager) ? { display: 'none' } : {
-          backgroundColor: colors.tabBarBg,
-          borderTopColor: colors.tabBarBorder,
-          paddingTop: 8,
-          height: 88,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '700',
-          marginTop: 4,
-        },
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: isAdmin ? 'Network Admin' : isManager ? 'Manager Hub' : t('tab.home', 'Home'),
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? (isAdmin ? 'shield-checkmark' : isManager ? 'business' : 'map') : (isAdmin ? 'shield-checkmark-outline' : isManager ? 'business-outline' : 'map-outline')} 
-              size={24} 
-              color={color} 
-            />
-          ),
-        }}
-      />
+      }}
+    >
+      {/* 1. Reservations (Tab 0) */}
       <Tabs.Screen
         name="reservations"
         options={{
-          title: isAdmin ? 'Registry' : isManager ? 'Live Sessions' : t('tab.reservations', 'Reservations'),
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? (isAdmin ? 'business' : isManager ? 'flash' : 'calendar') : (isAdmin ? 'business-outline' : isManager ? 'flash-outline' : 'calendar-outline')} 
-              size={24} 
-              color={color} 
-            />
-          ),
+          title: t('tab.reservations', 'Bookings'),
         }}
       />
+
+      {/* 2. Vehicle / EV Garage (Tab 1) */}
+      <Tabs.Screen
+        name="vehicles"
+        options={{
+          title: t('tab.vehicles', 'Vehicle'),
+        }}
+      />
+
+      {/* 3. HOME (Tab 2 - Visual Center) */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: t('tab.home', 'Home'),
+        }}
+      />
+
+      {/* 4. Saved (Tab 3) */}
       <Tabs.Screen
         name="favorites"
         options={{
-          title: isAdmin ? 'Users & Roles' : isManager ? 'Pricing Engine' : t('tab.saved', 'Saved'),
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? (isAdmin ? 'people' : isManager ? 'pricetag' : 'bookmark') : (isAdmin ? 'people-outline' : isManager ? 'pricetag-outline' : 'bookmark-outline')} 
-              size={24} 
-              color={color} 
-            />
-          ),
+          title: t('tab.saved', 'Saved'),
         }}
       />
+
+      {/* 5. Profile (Tab 4) */}
       <Tabs.Screen
         name="profile"
         options={{
-          title: isAdmin ? 'Audit & Ops' : isManager ? 'Operator Profile' : t('tab.profile', 'Profile'),
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? (isAdmin ? 'document-text' : 'person') : (isAdmin ? 'document-text-outline' : 'person-outline')} 
-              size={24} 
-              color={color} 
-            />
-          ),
+          title: t('tab.profile', 'Profile'),
         }}
       />
-      {/* Hide explore from tabs */}
+
+      {/* Hidden Routes */}
       <Tabs.Screen
         name="explore"
         options={{
-          href: null, // Hide from tab bar
+          href: null,
         }}
       />
     </Tabs>
   );
 }
-
-

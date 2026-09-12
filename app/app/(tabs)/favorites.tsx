@@ -1,5 +1,6 @@
 import { EmptyState } from '@/components/common';
 import { StationCard } from '@/components/station';
+import { StationListSkeleton } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useUserLocation } from '@/hooks/useUserLocation';
@@ -110,15 +111,16 @@ export default function SavedScreen() {
       <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <Text style={[styles.title, { color: themeColors.textPrimary }]}>{t('saved.title', 'Saved')}</Text>
         <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
-          {favorites.length} {t('saved.subtitle', 'saved station(s)')}
+          {loading && !refreshing && favorites.length === 0
+            ? 'Loading saved stations...'
+            : `${favorites.length} ${t('saved.subtitle', 'saved station(s)')}`}
         </Text>
       </View>
 
-      {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeColors.primary} />
-          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading saved stations...</Text>
-        </View>
+      {loading && !refreshing && favorites.length === 0 ? (
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <StationListSkeleton count={3} />
+        </ScrollView>
       ) : favorites.length === 0 ? (
         <EmptyState
           icon="bookmark-outline"

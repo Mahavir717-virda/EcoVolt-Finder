@@ -23,7 +23,7 @@ import { useUserReservationsRealtime } from './useRealtime';
 export function useReservations() {
   const { user } = useAuth();
   const [reservations, setReservations] = useState<ReservationWithDetails[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchReservations = useCallback(async () => {
@@ -118,9 +118,10 @@ export function useCreateReservation() {
       });
       return reservation;
     } catch (err: any) {
-      setError(err.message || 'Failed to create reservation');
-      console.error(err);
-      return null;
+      const errMsg = err?.message || 'Failed to create reservation';
+      setError(errMsg);
+      console.error('Create reservation error:', err);
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -210,7 +211,7 @@ export function useActiveReservationCount() {
  */
 export function useReservation(reservationId: string | null) {
   const [reservation, setReservation] = useState<ReservationWithDetails | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(reservationId));
   const [error, setError] = useState<string | null>(null);
 
   const fetchReservation = useCallback(async () => {
@@ -248,31 +249,40 @@ export function useStationAvailability(stationId: string | null, date: Date | nu
   const [availability, setAvailability] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchAvailability = useCallback(async () => {
-    if (!stationId || !date) return;
+  const dateKey = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : null;
+
+  const fetchAvailability = useCallback(async (isSilent = false) => {
+    if (!stationId || !dateKey) return;
     
-    setLoading(true);
+    if (!isSilent) setLoading(true);
     try {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      const data = await getStationAvailability(stationId, dateStr);
+      const data = await getStationAvailability(stationId, dateKey);
       setAvailability(data);
     } catch (err) {
-      console.error(err);
+      console.error('Error fetching station availability:', err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
-  }, [stationId, date]);
+  }, [stationId, dateKey]);
 
   useEffect(() => {
-    fetchAvailability();
+    fetchAvailability(false);
+
+    // Background polling every 15 seconds for real-time slot sync
+    const interval = setInterval(() => {
+      fetchAvailability(true);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [fetchAvailability]);
+
+  const refresh = useCallback(() => {
+    return fetchAvailability(false);
   }, [fetchAvailability]);
 
   return {
     availability,
     loading,
-    refresh: fetchAvailability
+    refresh
   };
 }

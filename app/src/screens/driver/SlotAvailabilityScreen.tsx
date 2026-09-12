@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { DriverStackParamList } from '../../navigation/types';
@@ -100,10 +100,10 @@ export const SlotAvailabilityScreen: React.FC = () => {
 
   const { stationId, connectorType: filterType } = route.params;
 
-  const windows = buildTimeWindows();
+  const [windows, setWindows] = useState(buildTimeWindows);
   const [selectedWindowIdx, setSelectedWindowIdx] = useState(0);
 
-  const selectedWindow = windows[selectedWindowIdx];
+  const selectedWindow = windows[selectedWindowIdx] || windows[0];
 
   const slotQuery = useQuery<SlotMatrix>({
     queryKey: ['slots', stationId, selectedWindow.start, selectedWindow.end, filterType],
@@ -115,13 +115,21 @@ export const SlotAvailabilityScreen: React.FC = () => {
       if (filterType) params.connectorType = filterType;
       return http.get<SlotMatrix>(`/bookings/station/${stationId}/slots`, { params });
     },
-    staleTime: 15000,   // 15s — slots change frequently
-    refetchInterval: 30000, // poll every 30s for live feel
+    staleTime: 5000,
+    refetchInterval: 15000,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      setWindows(buildTimeWindows());
+      slotQuery.refetch();
+    }, [])
+  );
 
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setWindows(buildTimeWindows());
     await slotQuery.refetch();
     setRefreshing(false);
   }, [slotQuery]);

@@ -5,7 +5,8 @@
 
 import { FadeIn, ScaleIn, SlideIn } from '@/components/animations';
 import { WebViewMap } from '@/components/map';
-import { StationCard } from '@/components/station';
+import { StationCard, HomeLiveGridCard } from '@/components/station';
+import { LiveGridSkeleton, QuickStatsSkeleton, StationListSkeleton } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -15,7 +16,6 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useNearbyStations, useStations } from '@/hooks/useStations';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useLiveGrid } from '@/hooks/useLiveGrid';
-import { getLiveGridSnapshot, greennessColor, greennessBandLabel } from '@/lib/gridData';
 import { spacing } from '@/styles/spacing';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -202,9 +202,7 @@ export default function HomeScreen() {
   }, [allStations, userCoords]);
 
   // Live grid snapshot (dynamic from ML service & backend)
-  const { liveGrid, isLive, refresh: refreshLiveGrid } = useLiveGrid('IN-WE');
-  const gridColor = greennessColor(liveGrid.renewablePct);
-  const gridBandLabel = greennessBandLabel(liveGrid.band);
+  const { liveGrid, forecast, isLive, loading: loadingGrid, refresh: refreshLiveGrid } = useLiveGrid('IN-WE');
 
   // Dynamic live sync: on screen focus and every 10s so badge updates across all phones
   useFocusEffect(
@@ -241,14 +239,6 @@ export default function HomeScreen() {
     latitude: userCoords.latitude,
     longitude: userCoords.longitude,
   }), [userCoords.latitude, userCoords.longitude]);
-
-  // Breakdown pct for display
-  const breakdownTotal = Object.values(liveGrid.breakdown).reduce((a, b) => a + b, 0);
-  const bkd = liveGrid.breakdown;
-  const solarPct = breakdownTotal > 0 ? Math.round((bkd.solar / breakdownTotal) * 100) : 0;
-  const windPct = breakdownTotal > 0 ? Math.round((bkd.wind / breakdownTotal) * 100) : 0;
-  const hydroPct = breakdownTotal > 0 ? Math.round((bkd.hydro / breakdownTotal) * 100) : 0;
-  const coalPct = breakdownTotal > 0 ? Math.round(((bkd.coal + bkd.gas) / breakdownTotal) * 100) : 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -313,120 +303,18 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[themeColors.primary]} tintColor={themeColors.primary} />
         }
       >
-        {/* Dynamic Green Score & Leaderboard Banner */}
-        {gamification && (
-          <TouchableOpacity
-            style={[styles.gamificationBanner, { backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', borderColor: isDark ? 'rgba(5, 150, 105, 0.3)' : '#A7F3D0' }]}
-            onPress={() => router.push('/leaderboard')}
-            activeOpacity={0.85}
-          >
-            <View style={[styles.gamificationIconWrap, { backgroundColor: isDark ? 'rgba(5, 150, 105, 0.3)' : '#D1FAE5' }]}>
-              <Ionicons name="leaf" size={20} color={themeColors.primary} />
-            </View>
-            <View style={styles.gamificationInfo}>
-              <View style={styles.gamificationTopRow}>
-                <Text style={[styles.gamificationScoreText, { color: themeColors.textPrimary }]}>
-                  🏆 {gamification.score.toLocaleString()} pts • Rank #{gamification.rank}
-                </Text>
-                {gamification.streak > 0 && (
-                  <View style={styles.gamificationStreakTag}>
-                    <Text style={styles.gamificationStreakText}>🔥 {gamification.streak} Streak</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={[styles.gamificationSubText, { color: themeColors.textSecondary }]}>
-                {gamification.tier} • Tap to view Leaderboard & Badges
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={themeColors.primary} />
-          </TouchableOpacity>
-        )}
 
-        {/* Proactive Smart Savings Deal Banner */}
-        {activeDeal && (
-          <TouchableOpacity
-            style={[styles.dealBanner, { backgroundColor: isDark ? 'rgba(21, 128, 61, 0.15)' : '#F0FDF4', borderColor: isDark ? 'rgba(21, 128, 61, 0.3)' : '#BBF7D0' }]}
-            onPress={() => router.push(`/station/${activeDeal.stationId}`)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.dealIcon}>
-              <Ionicons name="flash" size={20} color={themeColors.primary} />
-            </View>
-            <View style={styles.dealInfo}>
-              <View style={styles.dealBadgeRow}>
-                <View style={[styles.dealPill, { backgroundColor: themeColors.primary }]}>
-                  <Text style={styles.dealPillText}>⚡ SAVE ₹{activeDeal.savingsInr}</Text>
-                </View>
-                <Text style={[styles.dealSubtext, { color: themeColors.textSecondary }]}>• {activeDeal.availableChargers} Open Plugs</Text>
-              </View>
-              <Text style={[styles.dealTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>
-                {activeDeal.stationName}
-              </Text>
-            </View>
-            <Ionicons name="arrow-forward-circle" size={24} color={themeColors.primary} />
-          </TouchableOpacity>
-        )}
         {/* ── Live Grid Banner ── */}
-        <View style={[styles.gridBanner, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
-          <View style={styles.gridBannerTop}>
-            <View style={styles.gridBannerLeft}>
-              <View style={[styles.liveIndicator, { backgroundColor: '#0FB8C9' }]} />
-              <Text style={[styles.gridBannerZone, { color: themeColors.textPrimary }]}>{liveGrid.zoneName}</Text>
-            </View>
-            <View style={[styles.gridBandBadge, { backgroundColor: gridColor + '20', borderColor: gridColor + '40' }]}>
-              <Text style={[styles.gridBandText, { color: gridColor }]}>{gridBandLabel}</Text>
-            </View>
-          </View>
-
-          {/* Big renewable number + bar */}
-          <View style={styles.gridMainRow}>
-            <View>
-              <Text style={[styles.gridPct, { color: gridColor }]}>{liveGrid.renewablePct.toFixed(0)}%</Text>
-              <Text style={[styles.gridPctLabel, { color: themeColors.textSecondary }]}>{t('profile.renewable_now', 'Renewable now')}</Text>
-            </View>
-            <View style={styles.gridStats}>
-              <Text style={styles.gridStatLine}>
-                <Text style={[styles.gridStatLabel, { color: themeColors.textSecondary }]}>Carbon  </Text>
-                <Text style={[styles.gridStatValue, { color: themeColors.textPrimary }]}>{liveGrid.carbonIntensity} g CO₂/kWh</Text>
-              </Text>
-              <Text style={styles.gridStatLine}>
-                <Text style={[styles.gridStatLabel, { color: themeColors.textSecondary }]}>{t('profile.carbon_free', 'carbon-free')}  </Text>
-                <Text style={[styles.gridStatValue, { color: themeColors.textPrimary }]}>{liveGrid.carbonFreePct.toFixed(0)}%</Text>
-              </Text>
-            </View>
-          </View>
-
-          {/* Stacked bar */}
-          <View style={styles.gridBar}>
-            {solarPct > 0 && <View style={[styles.gridBarSegment, { flex: solarPct, backgroundColor: '#F59E0B' }]} />}
-            {windPct > 0 && <View style={[styles.gridBarSegment, { flex: windPct, backgroundColor: '#0FB8C9' }]} />}
-            {hydroPct > 0 && <View style={[styles.gridBarSegment, { flex: hydroPct, backgroundColor: '#3B82F6' }]} />}
-            {coalPct > 0 && <View style={[styles.gridBarSegment, { flex: coalPct, backgroundColor: '#6B7280' }]} />}
-            {(100 - solarPct - windPct - hydroPct - coalPct) > 0 && (
-              <View style={[styles.gridBarSegment, { flex: 100 - solarPct - windPct - hydroPct - coalPct, backgroundColor: '#A3B18A' }]} />
-            )}
-          </View>
-
-          {/* Legend */}
-          <View style={styles.gridLegend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#F59E0B' }]} />
-              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>{t('profile.solar', 'Solar')} {solarPct}%</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#0FB8C9' }]} />
-              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>{t('profile.wind', 'Wind')} {windPct}%</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#3B82F6' }]} />
-              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>{t('profile.hydro', 'Hydro')} {hydroPct}%</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#6B7280' }]} />
-              <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>{t('profile.coal_gas', 'Coal+Gas')} {coalPct}%</Text>
-            </View>
-          </View>
-        </View>
+        {loadingGrid && !isLive ? (
+          <LiveGridSkeleton />
+        ) : (
+          <HomeLiveGridCard
+            liveGrid={liveGrid}
+            forecast={forecast}
+            isLive={isLive}
+            t={t}
+          />
+        )}
 
         {/* Fallback Location Notice if GPS pending or permission not given */}
         {isFallback && (
@@ -462,62 +350,62 @@ export default function HomeScreen() {
 
         {/* Quick Stats with Slide Animation */}
         <SlideIn direction="bottom" delay={200} duration={400}>
-          <View style={styles.statsContainer}>
-            <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
-              <Ionicons name="flash" size={20} color={themeColors.primary} />
-              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{stats.totalStations}</Text>
-              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('home.chargers_near_you', 'Nearby')}</Text>
+          {(loadingNearby || loadingAll) && stations.length === 0 ? (
+            <QuickStatsSkeleton />
+          ) : (
+            <View style={styles.statsContainer}>
+              <View style={styles.statsRow}>
+                <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
+                  <Ionicons name="flash" size={20} color={themeColors.primary} />
+                  <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{stats.totalStations}</Text>
+                  <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('home.chargers_near_you', 'Nearby')}</Text>
+                </View>
+                <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
+                  <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                  <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{stats.availableChargers}</Text>
+                  <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('home.available_now', 'Available')}</Text>
+                </View>
+                <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
+                  <Ionicons name="trending-down" size={20} color="#F59E0B" />
+                  <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>
+                    {stats.lowestPrice > 0 ? `₹${stats.lowestPrice.toFixed(1)}` : '--'}
+                  </Text>
+                  <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Lowest/kWh</Text>
+                </View>
+              </View>
             </View>
-            <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{stats.availableChargers}</Text>
-              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{t('home.available_now', 'Available')}</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
-              <Ionicons name="trending-down" size={20} color="#F59E0B" />
-              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>
-                {stats.lowestPrice > 0 ? `₹${stats.lowestPrice.toFixed(1)}` : '--'}
-              </Text>
-              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Lowest/kWh</Text>
-            </View>
-            </View>
-          </View>
+          )}
         </SlideIn>
 
         {/* Nearby Stations List with Fade Animation */}
         <FadeIn delay={400} duration={500}>
           <View style={styles.listContainer}>
-          <View style={styles.listHeader}>
-            <Text style={[styles.listTitle, { color: themeColors.textPrimary }]}>{t('home.chargers_near_you', 'Nearby Stations')}</Text>
-            <TouchableOpacity onPress={() => router.push('/explore')}>
-              <Text style={[styles.viewAllText, { color: themeColors.primary }]}>{t('home.view_all', 'View All')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {(loadingNearby || loadingAll) ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={themeColors.primary} />
-              <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading stations...</Text>
+            <View style={styles.listHeader}>
+              <Text style={[styles.listTitle, { color: themeColors.textPrimary }]}>{t('home.chargers_near_you', 'Nearby Stations')}</Text>
+              <TouchableOpacity onPress={() => router.push('/explore')}>
+                <Text style={[styles.viewAllText, { color: themeColors.primary }]}>{t('home.view_all', 'View All')}</Text>
+              </TouchableOpacity>
             </View>
-          ) : stations.length === 0 ? (
 
-            <View style={styles.emptyContainer}>
-              <Ionicons name="flash-off-outline" size={48} color={themeColors.textSecondary} />
-              <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No stations found nearby</Text>
-            </View>
-          ) : (
-            stations.slice(0, 5).map((station) => (
-              <StationCard
-                key={station.id}
-                station={station}
-                distance={(station as any).distance ?? undefined}
-                isSaved={isFavorited(station.id)}
-                onSave={() => toggleFavorite(station.id)}
-                onPress={() => handleStationPress(station.id)}
-              />
-            ))
-          )}
+            {(loadingNearby || loadingAll) && stations.length === 0 ? (
+              <StationListSkeleton count={3} />
+            ) : stations.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="flash-off-outline" size={48} color={themeColors.textSecondary} />
+                <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No stations found nearby</Text>
+              </View>
+            ) : (
+              stations.slice(0, 5).map((station) => (
+                <StationCard
+                  key={station.id}
+                  station={station}
+                  distance={(station as any).distance ?? undefined}
+                  isSaved={isFavorited(station.id)}
+                  onSave={() => toggleFavorite(station.id)}
+                  onPress={() => handleStationPress(station.id)}
+                />
+              ))
+            )}
           </View>
         </FadeIn>
       </ScrollView>
@@ -950,113 +838,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#047857',
     marginTop: 2,
-    fontWeight: '500',
-  },
-
-  // ── Grid Live Banner ───────────────────────────────────────────────────
-  gridBanner: {
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    backgroundColor: '#08150F',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#0E2018',
-  },
-  gridBannerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  gridBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  liveIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  gridBannerZone: {
-    fontSize: 12,
-    color: '#8A998F',
-    fontWeight: '500',
-  },
-  gridBandBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  gridBandText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  gridMainRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  gridPct: {
-    fontSize: 42,
-    fontWeight: '700',
-    lineHeight: 46,
-  },
-  gridPctLabel: {
-    fontSize: 11,
-    color: '#8A998F',
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  gridStats: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  gridStatLine: {
-    flexDirection: 'row',
-  },
-  gridStatLabel: {
-    fontSize: 12,
-    color: '#4C5C54',
-  },
-  gridStatValue: {
-    fontSize: 12,
-    color: '#8A998F',
-    fontWeight: '500',
-  },
-  gridBar: {
-    flexDirection: 'row',
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 10,
-    backgroundColor: '#0E2018',
-  },
-  gridBarSegment: {
-    height: '100%',
-  },
-  gridLegend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  legendDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  legendText: {
-    fontSize: 11,
-    color: '#8A998F',
     fontWeight: '500',
   },
 });

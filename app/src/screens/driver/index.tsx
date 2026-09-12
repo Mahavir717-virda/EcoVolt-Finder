@@ -14,6 +14,7 @@ export { SlotAvailabilityScreen } from './SlotAvailabilityScreen';
 export { ActiveSessionScreen } from './ActiveSessionScreen';
 export { BookingsScreen, BookingsScreen as BookingsListScreen } from './BookingsScreen';
 export { ImpactScreen } from './ImpactScreen';
+export { SavedScreen } from './SavedScreen';
 
 export const SessionSummaryScreen: React.FC = () => (
   <PlaceholderScreen
