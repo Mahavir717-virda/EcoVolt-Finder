@@ -277,7 +277,9 @@ export default function StationDetailScreen() {
               >
                 <Image 
                   source={
-                    photos[currentPhotoIndex] && photos[currentPhotoIndex].startsWith('http')
+                    photos[currentPhotoIndex] &&
+                    photos[currentPhotoIndex].startsWith('http') &&
+                    !photos[currentPhotoIndex].includes('unsplash')
                       ? { uri: photos[currentPhotoIndex] }
                       : getStationImageSource(station?.id || station?.name)
                   } 

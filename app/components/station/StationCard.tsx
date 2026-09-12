@@ -79,9 +79,10 @@ export function StationCard({
     );
   }
 
-  const imageSource = station.image_url && station.image_url.startsWith('http')
-    ? { uri: station.image_url }
-    : getStationImageSource(station.id || station.name);
+  const imageSource =
+    station.image_url && station.image_url.startsWith('http') && !station.image_url.includes('unsplash')
+      ? { uri: station.image_url }
+      : getStationImageSource(station.id || station.name);
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
