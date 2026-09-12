@@ -200,17 +200,14 @@ export default function ReserveScreen() {
     }
 
     try {
-      // Parse selected time (robust for "14:30" or "02:30 PM")
       const [timePart, ampm] = selectedTime.split(' ');
       let [hours, minutes] = timePart.split(':').map(Number);
       if (ampm === 'PM' && hours < 12) hours += 12;
       if (ampm === 'AM' && hours === 12) hours = 0;
       const startTime = new Date(selectedDate);
       startTime.setHours(hours, minutes, 0, 0);
-      
       const endTime = addMinutes(startTime, selectedDuration);
 
-      // Create the reservation — passes real stationId, connectorType, vehicleId
       const reservation = await createReservation(
         stationId,
         charger.connector_type,
@@ -219,15 +216,26 @@ export default function ReserveScreen() {
         endTime
       );
 
-      if (reservation && reservation.id) {
-        // Dynamic Redirection: Navigate to Home page and notify user
-        router.replace('/(tabs)');
-      } else {
-        Alert.alert('Reservation Failed', t('reserve.failed_alert', 'The time slot may already be taken or the charger is unavailable. Please try a different time.'));
+      if (reservation) {
+        Alert.alert(
+          t('reserve.success_title', 'Reservation Confirmed!'),
+          t('reserve.success_message', 'Your charging slot has been reserved successfully.'),
+          [
+            {
+              text: t('common.ok', 'OK'),
+              onPress: () => {
+                router.replace({
+                  pathname: '/(tabs)/reservations',
+                  params: { tab: 'active', refresh: Date.now().toString() },
+                });
+              },
+            },
+          ]
+        );
       }
     } catch (error: any) {
-      console.error('Reservation error:', error);
-      Alert.alert('Error', error.message || 'Failed to create reservation. Please try again.');
+      console.error('[ReserveScreen] Reservation creation error:', error);
+      Alert.alert('Reservation Failed', error?.message || 'Could not reserve slot. Please try again.');
     }
   };
 

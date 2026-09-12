@@ -23,6 +23,7 @@ import { forecastRouter, gridRouter } from './modules/forecast/forecast.router';
 import { impactRouter, analyticsRouter } from './modules/analytics/analytics.router';
 import { gamificationRouter } from './modules/gamification/gamification.router';
 import { notificationsRouter } from './modules/notifications/notifications.router';
+import { paymentsRouter } from './modules/payments/payments.router';
 
 export const createApp = (): Express => {
   const app = express();
@@ -90,6 +91,7 @@ export const createApp = (): Express => {
     { path: '/gamification', router: gamificationRouter },
     { path: '/analytics', router: analyticsRouter },
     { path: '/notifications', router: notificationsRouter },
+    { path: '/payments', router: paymentsRouter },
   ];
 
   for (const { path: routePath, router } of routeDefinitions) {

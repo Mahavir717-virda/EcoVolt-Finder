@@ -23,3 +23,4 @@ const handleShutdown = (signal: string) => {
 
 process.on('SIGINT', () => handleShutdown('SIGINT'));
 process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+// Server reloaded with direct PostgreSQL Prisma Client
