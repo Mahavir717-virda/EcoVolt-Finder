@@ -16,8 +16,8 @@ import { useLiveGrid } from '@/hooks/useLiveGrid';
 import { getLiveGridSnapshot, greennessColor, greennessBandLabel } from '@/lib/gridData';
 import { spacing } from '@/styles/spacing';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -129,7 +129,7 @@ export default function HomeScreen() {
     return { totalStations, availableChargers, lowestPrice };
   }, [stations]);
 
-  const checkNotificationsAndDeals = async () => {
+  const checkNotificationsAndDeals = useCallback(async () => {
     try {
       const history = await getNotificationHistory();
       const unread = history.filter((n) => !n.isRead).length;
@@ -155,7 +155,6 @@ export default function HomeScreen() {
         });
       }
 
-
       const gamProfile = await getGamificationProfile();
       if (gamProfile) {
         setGamification({
@@ -166,11 +165,18 @@ export default function HomeScreen() {
         });
       }
     } catch {}
-  };
+  }, [allStations, userCoords]);
 
-  useEffect(() => {
-    checkNotificationsAndDeals();
-  }, []);
+  // Dynamic live sync: on screen focus and every 10s so badge updates across all phones
+  useFocusEffect(
+    useCallback(() => {
+      checkNotificationsAndDeals();
+      const interval = setInterval(() => {
+        checkNotificationsAndDeals();
+      }, 10000);
+      return () => clearInterval(interval);
+    }, [checkNotificationsAndDeals])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);

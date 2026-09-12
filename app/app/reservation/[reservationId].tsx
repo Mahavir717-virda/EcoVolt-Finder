@@ -33,7 +33,6 @@ export default function ReservationDetailScreen() {
   const insets = useSafeAreaInsets();
   const { reservation, loading, error, refresh } = useReservation(reservationId || '');
   const { cancel, loading: cancelling } = useCancelReservation();
-  const [sendingReminder, setSendingReminder] = useState(false);
   
   // Photo gallery state
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -119,27 +118,6 @@ export default function ReservationDetailScreen() {
     
     return null;
   }, [reservation, reservationStatus]);
-
-  const handleSendReminder = useCallback(async () => {
-    if (!reservationId) return;
-    try {
-      setSendingReminder(true);
-      const res = await triggerBookingReminder(reservationId);
-      if (res && res.success) {
-        Alert.alert(
-          '🔔 Dynamic Notification Dispatched',
-          `${res.message}\n\nStation: ${res.booking?.stationName || station?.name || 'EV Station'}\nRemaining Time: ${res.minutesRemaining} minutes remaining.`,
-          [{ text: 'Great!' }]
-        );
-      } else {
-        Alert.alert('Reminder', res?.message || 'Reminder notification generated.');
-      }
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to send reminder notification.');
-    } finally {
-      setSendingReminder(false);
-    }
-  }, [reservationId, station]);
 
   const handleCancel = useCallback(() => {
     Alert.alert(
@@ -505,23 +483,15 @@ export default function ReservationDetailScreen() {
           {reservationStatus === 'upcoming' && (
             <>
               <Button
-                title="🔔 Send Time Remaining Reminder"
+                title="⚡ Check In / Start Charging Session"
                 variant="primary"
-                onPress={handleSendReminder}
-                loading={sendingReminder}
-                fullWidth
-                style={{ backgroundColor: colors.primary[600], marginBottom: 8 }}
-              />
-              <Button
-                title="⚡ Check In / Start Charging Now"
-                variant="outline"
                 onPress={handleStartCharging}
                 fullWidth
                 style={{ marginBottom: 8 }}
               />
               <Button
                 title="Cancel Reservation"
-                variant="ghost"
+                variant="outline"
                 onPress={handleCancel}
                 loading={cancelling}
                 fullWidth
@@ -531,22 +501,12 @@ export default function ReservationDetailScreen() {
           )}
           
           {reservationStatus === 'in-progress' && (
-            <>
-              <Button
-                title="⚡ Start Charging Session"
-                variant="primary"
-                onPress={handleStartCharging}
-                fullWidth
-                style={{ marginBottom: 8 }}
-              />
-              <Button
-                title="🔔 Send Status Reminder"
-                variant="outline"
-                onPress={handleSendReminder}
-                loading={sendingReminder}
-                fullWidth
-              />
-            </>
+            <Button
+              title="⚡ Start Charging Session"
+              variant="primary"
+              onPress={handleStartCharging}
+              fullWidth
+            />
           )}
           
           {(reservationStatus === 'completed' || reservationStatus === 'expired') && (
