@@ -3,8 +3,8 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
+import { ENV } from '../src/api/config';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 const TOKEN_KEY = 'ecovolt_access_token';
 const USER_KEY = 'ecovolt_user_data';
 
@@ -55,6 +55,11 @@ export async function apiRequest<T = any>(
   options: RequestInit = {},
   fallbackData?: any
 ): Promise<T> {
+  // If USE_MOCKS is active and mock fallback data is provided, return it instantly
+  if (ENV.USE_MOCKS && fallbackData !== undefined) {
+    return fallbackData;
+  }
+
   const token = await getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -66,7 +71,7 @@ export async function apiRequest<T = any>(
   }
 
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const url = `${API_BASE_URL}${cleanPath}`;
+  const url = `${ENV.API_BASE_URL}${cleanPath}`;
 
   try {
     const controller = new AbortController();

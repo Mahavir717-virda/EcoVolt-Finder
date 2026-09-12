@@ -68,20 +68,27 @@ export const createApp = (): Express => {
     }
   }
 
-  // Routes
-  app.use('/health', healthRouter);
-  app.use('/auth', authRouter);
-  app.use('/me', meRouter);
-  app.use('/vehicles', vehiclesRouter);
-  app.use('/stations', stationsRouter);
-  app.use('/pricing', pricingRouter);
-  app.use('/bookings', bookingsRouter);
-  app.use('/sessions', sessionsRouter);
-  app.use('/recommendations', recommendationsRouter);
-  app.use('/forecast', forecastRouter);
-  app.use('/impact', impactRouter);
-  app.use('/analytics', analyticsRouter);
-  app.use('/notifications', notificationsRouter);
+  // Routes (Registered at root and /api/v1 for universal client compatibility)
+  const routeDefinitions = [
+    { path: '/health', router: healthRouter },
+    { path: '/auth', router: authRouter },
+    { path: '/me', router: meRouter },
+    { path: '/vehicles', router: vehiclesRouter },
+    { path: '/stations', router: stationsRouter },
+    { path: '/pricing', router: pricingRouter },
+    { path: '/bookings', router: bookingsRouter },
+    { path: '/sessions', router: sessionsRouter },
+    { path: '/recommendations', router: recommendationsRouter },
+    { path: '/forecast', router: forecastRouter },
+    { path: '/impact', router: impactRouter },
+    { path: '/analytics', router: analyticsRouter },
+    { path: '/notifications', router: notificationsRouter },
+  ];
+
+  for (const { path: routePath, router } of routeDefinitions) {
+    app.use(routePath, router);
+    app.use(`/api/v1${routePath}`, router);
+  }
 
   // 404 Handler
   app.use((req, _res, next) => {
