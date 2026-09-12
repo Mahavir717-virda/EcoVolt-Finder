@@ -29,6 +29,20 @@ type BookingConfirmRouteProp = RouteProp<DriverStackParamList, 'BookingConfirm'>
 interface PortDetail {
   portNumber: number;
   status: 'available' | 'booked' | 'maintenance' | 'offline';
+  bookingId?: string;
+  windowStart?: string;
+  windowEnd?: string;
+}
+
+function formatSlotTime(isoStr?: string) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const mStr = m > 0 ? `:${m.toString().padStart(2, '0')}` : ':00';
+  return `${h12}${mStr} ${suffix}`;
 }
 
 interface ConnectorSlot {
@@ -552,7 +566,11 @@ export const ConfirmBookingScreen: React.FC = () => {
                         { color: port.status === 'available' ? colors.brand : '#EF4444' },
                       ]}
                     >
-                      {port.status === 'available' ? 'Free for Window' : 'Booked for Window'}
+                      {port.status === 'available'
+                        ? 'Free for Window'
+                        : port.windowStart && port.windowEnd
+                        ? `Booked (${formatSlotTime(port.windowStart)} – ${formatSlotTime(port.windowEnd)})`
+                        : 'Booked for Window'}
                     </Text>
                   </View>
                 ))

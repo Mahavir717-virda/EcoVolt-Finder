@@ -15,6 +15,8 @@ export interface PortDetail {
   portNumber: number;
   status: 'available' | 'booked' | 'maintenance' | 'offline';
   bookingId?: string;
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 export interface ConnectorSlot {
@@ -66,6 +68,7 @@ export class BookingsService {
         id: true,
         connectorId: true,
         connectorType: true,
+        portNumber: true,
         windowStart: true,
         windowEnd: true,
         status: true,
@@ -117,9 +120,8 @@ export class BookingsService {
       throw new NotFoundError(`Station not found: ${stationId}`);
     }
 
-    // Count active bookings per connector for the window in one query
-    const bookingCounts = await prisma.booking.groupBy({
-      by: ['connectorId'],
+    // Query active bookings for the station and window to assign to ports
+    const activeBookings = await prisma.booking.findMany({
       where: {
         stationId,
         status: { in: [SessionStatus.reserved, SessionStatus.scheduled, SessionStatus.active] },
@@ -129,28 +131,53 @@ export class BookingsService {
         ],
         ...(connectorType ? { connectorType: connectorType as ConnectorType } : {}),
       },
-      _count: { id: true },
+      select: {
+        id: true,
+        connectorId: true,
+        portNumber: true,
+        windowStart: true,
+        windowEnd: true,
+        status: true,
+      },
     });
 
-    const bookedByConnectorId = new Map<string, number>(
-      bookingCounts.map((b) => [b.connectorId, b._count.id])
-    );
+    const bookingsByConnectorId = new Map<string, typeof activeBookings>();
+    for (const b of activeBookings) {
+      const list = bookingsByConnectorId.get(b.connectorId) ?? [];
+      list.push(b);
+      bookingsByConnectorId.set(b.connectorId, list);
+    }
 
     const connectorSlots: ConnectorSlot[] = station.connectors.map((c) => {
-      const booked = bookedByConnectorId.get(c.id) ?? 0;
-      const free = Math.max(0, c.totalCount - booked);
+      const connectorBookings = bookingsByConnectorId.get(c.id) ?? [];
+      // Map active bookings by physical portNumber
+      const byPort = new Map<number, (typeof activeBookings)[0]>();
+      for (const b of connectorBookings) {
+        if (!byPort.has(b.portNumber)) {
+          byPort.set(b.portNumber, b);
+        }
+      }
 
       const ports: PortDetail[] = Array.from({ length: c.totalCount }, (_, idx) => {
         const portNumber = idx + 1;
         if (c.status === 'maintenance' || c.status === 'offline') {
           return { portNumber, status: c.status as 'maintenance' | 'offline' };
         }
-        if (idx < booked) {
-          return { portNumber, status: 'booked' };
+        const b = byPort.get(portNumber);
+        if (b) {
+          return {
+            portNumber,
+            status: 'booked',
+            bookingId: b.id,
+            windowStart: b.windowStart.toISOString(),
+            windowEnd: b.windowEnd.toISOString(),
+          };
         }
         return { portNumber, status: 'available' };
       });
 
+      const booked = byPort.size;
+      const free = Math.max(0, c.totalCount - booked);
       const isOperational = c.status !== 'maintenance' && c.status !== 'offline';
       const availableCount = isOperational ? free : 0;
 
@@ -335,28 +362,32 @@ export class BookingsService {
           );
         }
 
-        // 4. Count overlapping bookings for this connector type (Edge Case #15)
-        //    Under SERIALIZABLE isolation, this count is stable — no concurrent TX can insert
-        //    a new booking with the same connectorType/window without being serialized after ours.
-        const overlappingBookings = await tx.booking.count({
+        // 4. Identify taken ports for this connector in the requested window (Edge Case #15)
+        //    Under SERIALIZABLE isolation, concurrent bookings for the same connector
+        //    will be serialized, preventing two sessions from booking the same physical port.
+        const takenPorts = await tx.booking.findMany({
           where: {
-            stationId,
-            connectorType: connectorType as ConnectorType,
+            connectorId: connector.id,
             status: { in: [SessionStatus.reserved, SessionStatus.scheduled, SessionStatus.active] },
             AND: [
               { windowStart: { lt: endDate } },
               { windowEnd: { gt: startDate } },
             ],
           },
+          select: { portNumber: true },
         });
 
-        if (overlappingBookings >= connector.totalCount) {
+        const takenSet = new Set<number>(takenPorts.map((b) => b.portNumber));
+        const freePort = Array.from({ length: connector.totalCount }, (_, i) => i + 1)
+          .find((p) => !takenSet.has(p));
+
+        if (!freePort) {
           throw new ConflictError(
             `No available ${connectorType} connectors for the requested time window`,
             {
               requestedWindow: { windowStart, windowEnd },
               totalConnectors: connector.totalCount,
-              activeReservations: overlappingBookings,
+              activeReservations: takenPorts.length,
             }
           );
         }
@@ -395,13 +426,14 @@ export class BookingsService {
           }
         }
 
-        // 6. Create the booking record
+        // 6. Create the booking record with assigned physical portNumber
         const booking = await tx.booking.create({
           data: {
             userId,
             stationId,
             connectorId: connector.id,
             connectorType: connectorType as ConnectorType,
+            portNumber: freePort,
             vehicleId,
             status: SessionStatus.reserved,
             windowStart: startDate,

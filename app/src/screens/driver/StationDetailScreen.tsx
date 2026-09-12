@@ -46,6 +46,9 @@ type StationDetailRouteProp = RouteProp<DriverStackParamList, 'StationDetail'>;
 interface PortDetail {
   portNumber: number;
   status: 'available' | 'booked' | 'maintenance' | 'offline';
+  bookingId?: string;
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 interface ConnectorSlot {

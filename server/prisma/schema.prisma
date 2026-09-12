@@ -229,6 +229,7 @@ model Booking {
   connectorId   String
   connectorType ConnectorType
   vehicleId     String
+  portNumber    Int            @default(1)
   status        SessionStatus  @default(reserved)
   windowStart   DateTime
   windowEnd     DateTime

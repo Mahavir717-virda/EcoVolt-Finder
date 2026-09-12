@@ -25,6 +25,9 @@ type SlotAvailabilityRouteProp = RouteProp<DriverStackParamList, 'SlotAvailabili
 interface PortDetail {
   portNumber: number;
   status: 'available' | 'booked' | 'maintenance' | 'offline';
+  bookingId?: string;
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 interface ConnectorSlot {
@@ -63,6 +66,17 @@ function formatHour(d: Date) {
   const suffix = h >= 12 ? 'PM' : 'AM';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:00 ${suffix}`;
+}
+
+function formatSlotTime(isoStr?: string) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const mStr = m > 0 ? `:${m.toString().padStart(2, '0')}` : ':00';
+  return `${h12}${mStr} ${suffix}`;
 }
 
 function statusColor(status: ConnectorSlot['status']) {
@@ -296,24 +310,29 @@ export const SlotAvailabilityScreen: React.FC = () => {
                 {/* Explicit Port Badges */}
                 <View style={styles.portPillsRow}>
                   {slot.ports && slot.ports.length > 0 ? (
-                    slot.ports.map((p) => (
-                      <View
-                        key={p.portNumber}
-                        style={[
-                          styles.portPill,
-                          p.status === 'available'
-                            ? styles.portPillAvailable
-                            : styles.portPillBooked,
-                        ]}
-                      >
-                        <Text style={styles.portPillIcon}>
-                          {p.status === 'available' ? '⚡' : '🔒'}
-                        </Text>
-                        <Text variant="micro" style={styles.portPillText}>
-                          Port {p.portNumber}: {p.status === 'available' ? 'Free' : 'Booked'}
-                        </Text>
-                      </View>
-                    ))
+                    slot.ports.map((p) => {
+                      const isAvail = p.status === 'available';
+                      const bookedWindow =
+                        p.status === 'booked' && p.windowStart && p.windowEnd
+                          ? ` (${formatSlotTime(p.windowStart)} – ${formatSlotTime(p.windowEnd)})`
+                          : '';
+                      return (
+                        <View
+                          key={p.portNumber}
+                          style={[
+                            styles.portPill,
+                            isAvail ? styles.portPillAvailable : styles.portPillBooked,
+                          ]}
+                        >
+                          <Text style={styles.portPillIcon}>
+                            {isAvail ? '⚡' : '🔒'}
+                          </Text>
+                          <Text variant="micro" style={styles.portPillText}>
+                            Port {p.portNumber}: {isAvail ? 'Free' : `Booked${bookedWindow}`}
+                          </Text>
+                        </View>
+                      );
+                    })
                   ) : (
                     Array.from({ length: slot.totalCount }).map((_, idx) => {
                       const isAvail = idx < slot.availableCount;
