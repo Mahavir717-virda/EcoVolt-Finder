@@ -225,6 +225,7 @@ export default function ReservationsScreen() {
 
       <ScrollView 
         style={styles.scrollView} 
+        contentContainerStyle={{ paddingBottom: 110 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
