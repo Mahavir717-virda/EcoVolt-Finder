@@ -123,12 +123,24 @@ export default function HomeScreen() {
     });
   }, [allStations, nearbyStations, filters, userCoords]);
 
-  // Calculate stats
+  // Calculate stats dynamically from live stations
   const stats = useMemo(() => {
     const totalStations = stations.length;
-    const availableChargers = stations.reduce((acc, s) => acc + (s.available_chargers || 0), 0);
-    // Default lowest price in INR for Indian EV charging
-    const lowestPrice = 9; // ₹9/kWh is typical lowest price in India
+    const availableChargers = stations.reduce((acc, s) => {
+      const connAvail = (s as any).connectors?.reduce(
+        (cAcc: number, c: any) => cAcc + (c.available ?? c.availableCount ?? 0),
+        0
+      );
+      const avail = typeof connAvail === 'number' && connAvail > 0 
+        ? connAvail 
+        : (s.available_chargers ?? 0);
+      return acc + avail;
+    }, 0);
+    
+    const prices = stations
+      .map((s) => s.price_from ?? (s as any).priceFrom)
+      .filter((p): p is number => typeof p === 'number' && p > 0);
+    const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
     
     return { totalStations, availableChargers, lowestPrice };
   }, [stations]);
@@ -446,7 +458,9 @@ export default function HomeScreen() {
             </View>
             <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: isDark ? 1 : 0 }]}>
               <Ionicons name="trending-down" size={20} color="#F59E0B" />
-              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>₹{stats.lowestPrice.toFixed(0)}</Text>
+              <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>
+                {stats.lowestPrice > 0 ? `₹${stats.lowestPrice.toFixed(1)}` : '--'}
+              </Text>
               <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Lowest/kWh</Text>
             </View>
             </View>
