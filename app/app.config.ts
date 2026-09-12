@@ -23,7 +23,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:4000',
-    useMocks: process.env.USE_MOCKS !== 'false',
+    useMocks: process.env.USE_MOCKS === 'true',
     googleMapsApiKey: process.env.GOOGLE_MAPS_ANDROID_KEY || '',
   },
 });
