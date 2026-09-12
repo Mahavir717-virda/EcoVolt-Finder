@@ -3,8 +3,10 @@ import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useLiveGrid } from '@/hooks/useLiveGrid';
+import { greennessColor } from '@/lib/gridData';
 import { updateChargerStatus } from '@/services/chargers.service';
-import { completeReservation, getReservationById } from '@/services/reservations.service';
+import { completeReservation, getReservationById, ReservationWithDetails } from '@/services/reservations.service';
 import { formatCurrency } from '@/utils/pricing';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -42,6 +44,7 @@ export default function ChargingSessionScreen() {
   const { colors: themeColors, isDark } = useTheme();
   const { t } = useLanguage();
   
+  const [reservation, setReservation] = useState<ReservationWithDetails | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [energyDelivered, setEnergyDelivered] = useState(0);
@@ -55,18 +58,21 @@ export default function ChargingSessionScreen() {
     duration: string;
   } | null>(null);
 
+  const { liveGrid, refresh: refreshLiveGrid } = useLiveGrid('IN-WE', reservation?.station?.id || undefined);
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Security Check: Verify that this reservation is not already completed/cancelled/expired
+  // Security Check & Real-time Telemetry Polling: Verify reservation status & keep live data fresh
   useEffect(() => {
     let isMounted = true;
     async function verifyReservationSecurity() {
       if (reservationId) {
         try {
           const res = await getReservationById(reservationId);
-          if (res && (res.status === 'completed' || res.status === 'cancelled' || res.status === 'expired')) {
-            if (isMounted) {
+          if (res && isMounted) {
+            setReservation(res);
+            if (res.status === 'completed' || res.status === 'cancelled' || res.status === 'expired') {
               Alert.alert(
                 t('charging.session_already_ended', 'Session Concluded'),
                 t('charging.session_already_ended_desc', 'This charging session has already ended or is no longer active.'),
@@ -89,19 +95,37 @@ export default function ChargingSessionScreen() {
         }
       }
     }
+
     verifyReservationSecurity();
+    refreshLiveGrid();
+
+    // 5-second real-time polling interval
+    const pollInterval = setInterval(() => {
+      verifyReservationSecurity();
+      refreshLiveGrid();
+    }, 5000);
+
     return () => {
       isMounted = false;
+      clearInterval(pollInterval);
     };
-  }, [reservationId, t]);
+  }, [reservationId, t, refreshLiveGrid]);
 
   const power = parseFloat(powerKw || '0');
   const price = parseFloat(pricePerKwh || '0');
 
-  // Calculate current cost
+  const effectivePower = reservation?.charger?.power_kw || (power > 0 ? power : 50.0);
+  const effectivePrice = reservation?.charger?.price_per_kwh || (price > 0 ? price : 13.5);
+  const effectiveStationName = reservation?.station?.name || stationName || t('charging.title', 'Charging Session');
+  const effectiveGreenPct = liveGrid.renewablePct > 0 
+    ? liveGrid.renewablePct 
+    : (reservation?.station?.greenness_score || 76);
+  const greenColor = greennessColor(effectiveGreenPct);
+
+  // Calculate current cost strictly from effective locked tariff
   const currentCost = useMemo(() => {
-    return energyDelivered * price;
-  }, [energyDelivered, price]);
+    return energyDelivered * effectivePrice;
+  }, [energyDelivered, effectivePrice]);
 
   // Format elapsed time
   const formattedTime = useMemo(() => {
@@ -142,9 +166,9 @@ export default function ChargingSessionScreen() {
     if (sessionStarted) {
       timerRef.current = setInterval(() => {
         setElapsedSeconds((prev) => prev + 1);
-        // Simulate energy delivery (power * time in hours)
+        // Simulate energy delivery based on real effective charger power (power * time in hours)
         setEnergyDelivered((prev) => {
-          const baseRate = Math.max(power, 7.4) / 3600; // kWh per second
+          const baseRate = Math.max(effectivePower, 7.4) / 3600; // kWh per second
           const variance = (Math.random() * 0.1 - 0.05) * baseRate;
           return prev + baseRate + variance;
         });
@@ -156,7 +180,7 @@ export default function ChargingSessionScreen() {
         clearInterval(timerRef.current);
       }
     };
-  }, [sessionStarted, power]);
+  }, [sessionStarted, effectivePower]);
 
   const handleStartSession = useCallback(() => {
     Alert.alert(
@@ -286,7 +310,7 @@ export default function ChargingSessionScreen() {
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
           <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>
-            {stationName || t('charging.title', 'Charging Session')}
+            {effectiveStationName}
           </Text>
           <Text style={[styles.headerSubtitle, { color: sessionStarted ? '#10B981' : themeColors.textSecondary }]}>
             {sessionStarted ? t('charging.in_progress', '⚡ Active Charging Session') : t('charging.ready', 'Ready to plug in & charge')}
@@ -416,7 +440,9 @@ export default function ChargingSessionScreen() {
               <Ionicons name="flash" size={16} color={themeColors.textSecondary} />
               <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.charger_power', 'Charger Power')}</Text>
             </View>
-            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>{power > 0 ? `${power} kW DC` : '7.4 kW AC'}</Text>
+            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>
+              {effectivePower} kW {effectivePower >= 30 ? 'DC Fast' : 'AC'}
+            </Text>
           </View>
 
           <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
@@ -426,7 +452,9 @@ export default function ChargingSessionScreen() {
               <Ionicons name="pricetag-outline" size={16} color={themeColors.textSecondary} />
               <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.rate', 'Tariff Rate')}</Text>
             </View>
-            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>{formatCurrency(price || 12.5)}/kWh</Text>
+            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>
+              {formatCurrency(effectivePrice)}/kWh
+            </Text>
           </View>
 
           <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
@@ -436,18 +464,22 @@ export default function ChargingSessionScreen() {
               <Ionicons name="speedometer-outline" size={16} color={themeColors.textSecondary} />
               <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.est_range', 'Est. Added Range')}</Text>
             </View>
-            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>~{Math.round(energyDelivered * 5)} km</Text>
+            <Text style={[styles.infoValue, { color: themeColors.textPrimary }]}>
+              ~{Math.round(energyDelivered * 6.5)} km
+            </Text>
           </View>
 
           <View style={[styles.infoDivider, { backgroundColor: themeColors.border }]} />
 
           <View style={styles.infoRow}>
             <View style={styles.infoRowLeft}>
-              <Ionicons name="leaf-outline" size={16} color="#10B981" />
+              <Ionicons name="leaf-outline" size={16} color={greenColor} />
               <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.clean_grid', 'Clean Energy Grid')}</Text>
             </View>
-            <View style={styles.greenBadge}>
-              <Text style={styles.greenBadgeText}>92% Solar/Wind</Text>
+            <View style={[styles.greenBadge, { backgroundColor: greenColor + '20', borderColor: greenColor + '40', borderWidth: 1 }]}>
+              <Text style={[styles.greenBadgeText, { color: greenColor }]}>
+                {effectiveGreenPct.toFixed(0)}% {liveGrid.zoneName ? `· ${liveGrid.zoneName}` : 'Renewable'}
+              </Text>
             </View>
           </View>
 
@@ -459,7 +491,7 @@ export default function ChargingSessionScreen() {
               <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>{t('charging.co2_avoided', 'CO₂ Avoided')}</Text>
             </View>
             <Text style={[styles.infoValue, { color: '#10B981', fontWeight: '700' }]}>
-              {(energyDelivered * 0.72).toFixed(2)} kg
+              {((energyDelivered * 710 * (effectiveGreenPct / 100)) / 1000).toFixed(2)} kg
             </Text>
           </View>
         </Card>

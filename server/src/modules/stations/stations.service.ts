@@ -35,7 +35,7 @@ export interface StationSummaryResponse {
   distanceKm?: number;
 }
 
-interface CachedForecast {
+export interface CachedForecast {
   renewablePct: number;
   quality: DataQuality;
   cachedAt: number;
@@ -49,7 +49,7 @@ const forecastMemoryCache = new Map<string, CachedForecast>();
  * Priority: ML live grid → DB forecastCache → hardcoded Indian-grid default.
  * Results are cached in-process for FORECAST_CACHE_TTL_MS to avoid hammering the ML service.
  */
-async function getZoneForecast(zoneId: string): Promise<CachedForecast> {
+export async function getZoneForecast(zoneId: string): Promise<CachedForecast> {
   const cached = forecastMemoryCache.get(zoneId);
   const now = Date.now();
   if (cached && (now - cached.cachedAt) < FORECAST_CACHE_TTL_MS) {

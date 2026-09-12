@@ -8,7 +8,7 @@ import {
 } from '../../middleware/error-handler';
 import { StopSessionInput } from './sessions.schema';
 import { NotificationsService } from '../notifications/notifications.service';
-import { StationsService } from '../stations/stations.service';
+import { StationsService, getZoneForecast } from '../stations/stations.service';
 
 export class SessionsService {
   /**
@@ -115,21 +115,9 @@ export class SessionsService {
 
     // 4. Resolve live grid greenness for station's zone
     const zoneId = session.station?.zoneId || 'IN-WE';
-    let renewablePct = 76.0;
-    let dataQuality = DataQuality.LIVE;
-
-    try {
-      const forecast = await prisma.forecastCache.findFirst({
-        where: { zoneId },
-        orderBy: { hourStartLocal: 'desc' },
-      });
-      if (forecast) {
-        renewablePct = forecast.renewablePct;
-        dataQuality = DataQuality.CACHED;
-      }
-    } catch {
-      // Fallback
-    }
+    const zoneForecast = await getZoneForecast(zoneId);
+    const renewablePct = zoneForecast.renewablePct;
+    const dataQuality = zoneForecast.quality;
 
     // 5. Calculate live telemetry from elapsed duration & connector power
     const now = new Date();
@@ -396,87 +384,16 @@ export class SessionsService {
     const finalPricePerKwh = lockedPriceObj?.finalPrice ?? 14.5;
     const totalCost = Math.round(energyKwh * finalPricePerKwh * 100) / 100;
 
-    // 3. Compute Renewable Share & Avoided CO2
-    // Look up actual renewable % from ForecastCache for the session zone at session start time.
-    // Strategy: find the most recent forecast record whose hourStartLocal is <= startedAt
-    // (matches the same approach used by stations.service.ts → getZoneForecast).
-    // Fall back to ML API, then to a zone-aware Indian grid average if both fail.
-    let avgRenewablePct = 72.0; // reasonable default: IN-WE grid average (above green threshold)
+    // 3. Compute Renewable Share & Avoided CO2 using real-time zone forecast
+    let avgRenewablePct = 72.0;
     try {
       const stationWithZone = await prisma.station.findUnique({
         where: { id: session.stationId },
         select: { zoneId: true },
       });
-
-      if (stationWithZone) {
-        const zoneId = stationWithZone.zoneId;
-
-        // Primary: Most recent forecast at or before session start
-        let forecast = await prisma.forecastCache.findFirst({
-          where: {
-            zoneId,
-            hourStartLocal: { lte: startedAt },
-          },
-          orderBy: { hourStartLocal: 'desc' },
-        });
-
-        // Secondary: If no past forecast, get the nearest future one (session started during an uncached window)
-        if (!forecast) {
-          forecast = await prisma.forecastCache.findFirst({
-            where: { zoneId },
-            orderBy: { hourStartLocal: 'asc' },
-          });
-        }
-
-        if (forecast) {
-          avgRenewablePct = forecast.renewablePct;
-        } else {
-          // Tertiary: Try ML service live snapshot
-          try {
-            const mlUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
-            const mlRes = await fetch(`${mlUrl}/grid/live?zoneId=${encodeURIComponent(zoneId)}`, {
-              signal: AbortSignal.timeout(3000),
-            });
-            if (mlRes.ok) {
-              const mlData: any = await mlRes.json();
-              // GridSnapshot shape: { renewablePct, carbonIntensity, carbonFreePct, ... }
-              const pct = mlData?.renewablePct ?? mlData?.renewable_pct;
-              if (typeof pct === 'number' && pct > 0) {
-                avgRenewablePct = pct;
-                // Persist to ForecastCache so future lookups within this zone hit the DB
-                try {
-                  const hourStart = new Date(startedAt);
-                  hourStart.setMinutes(0, 0, 0);
-                  const existing = await prisma.forecastCache.findFirst({
-                    where: { zoneId, hourStartLocal: hourStart },
-                  });
-                  if (existing) {
-                    await prisma.forecastCache.update({
-                      where: { id: existing.id },
-                      data: { renewablePct: pct, carbonIntensity: mlData?.carbonIntensity ?? 200, fetchedAt: new Date() },
-                    });
-                  } else {
-                    await prisma.forecastCache.create({
-                      data: {
-                        zoneId,
-                        hourStartLocal: hourStart,
-                        renewablePct: pct,
-                        carbonIntensity: mlData?.carbonIntensity ?? 200,
-                        confidence: 1.0,
-                      },
-                    });
-                  }
-                } catch {
-                  // ForecastCache write failed — non-critical
-                }
-              }
-            }
-          } catch {
-            // ML API unavailable — use zone-aware default
-            avgRenewablePct = zoneId === 'IN-WE' ? 72.0 : 65.0;
-          }
-        }
-      }
+      const zoneId = stationWithZone?.zoneId || 'IN-WE';
+      const forecast = await getZoneForecast(zoneId);
+      avgRenewablePct = forecast.renewablePct;
     } catch (e) {
       console.warn('Could not fetch forecast for session zone, using fallback:', e);
     }
