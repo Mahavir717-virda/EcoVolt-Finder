@@ -187,6 +187,35 @@ export class NotificationsService {
   }
 
   /**
+   * Smart Dynamic Savings Alert
+   */
+  public static async notifySmartSavings(
+    userId: string,
+    stationId: string,
+    stationName: string,
+    savingsInr: number,
+    distanceKm: number,
+    availableChargers?: number
+  ) {
+    const title = `⚡ Save ₹${savingsInr} on EV Recharge!`;
+    const body = `Special dynamic deal at ${stationName} (${distanceKm} km away). ${availableChargers !== undefined ? `${availableChargers} open chargers.` : ''} Charge now to lock in savings!`;
+
+    return this.send({
+      userId,
+      type: 'smart_savings_alert',
+      title,
+      body,
+      data: {
+        stationId,
+        stationName,
+        savingsInr,
+        distanceKm,
+        availableChargers,
+      },
+    });
+  }
+
+  /**
    * Session Completed Impact Summary & Sweet Driver Message
    */
   public static async notifySessionComplete(
@@ -212,3 +241,6 @@ export class NotificationsService {
     });
   }
 }
+
+export const notificationsService = NotificationsService;
+

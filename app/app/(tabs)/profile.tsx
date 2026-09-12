@@ -15,7 +15,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useLiveGrid } from '@/hooks/useLiveGrid';
