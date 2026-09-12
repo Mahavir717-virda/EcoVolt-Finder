@@ -105,15 +105,16 @@ export default function HomeScreen() {
       setUnreadCount(unread);
 
       const dealNotif = history.find((n) => n.type === 'smart_savings_alert' && n.data?.stationId);
-      if (dealNotif?.data) {
+      if (dealNotif?.data && dealNotif.data.stationId) {
         setActiveDeal({
-          stationId: dealNotif.data.stationId,
-          stationName: dealNotif.data.stationName || 'Nearby Charging Hub',
-          savingsInr: dealNotif.data.savingsInr || 100,
-          availableChargers: dealNotif.data.availableChargers || 3,
-          distanceKm: dealNotif.data.distanceKm || 1.5,
+          stationId: String(dealNotif.data.stationId),
+          stationName: String(dealNotif.data.stationName || 'Nearby Charging Hub'),
+          savingsInr: Number(dealNotif.data.savingsInr || 100),
+          availableChargers: Number(dealNotif.data.availableChargers || 3),
+          distanceKm: Number(dealNotif.data.distanceKm || 1.5),
         });
       }
+
 
       const gamProfile = await getGamificationProfile();
       if (gamProfile) {
@@ -328,12 +329,13 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {stationsLoading ? (
+          {(loadingNearby || loadingAll) ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.primary[500]} />
               <Text style={styles.loadingText}>Loading stations...</Text>
             </View>
           ) : stations.length === 0 ? (
+
             <View style={styles.emptyContainer}>
               <Ionicons name="flash-off-outline" size={48} color={colors.neutral[300]} />
               <Text style={styles.emptyText}>No stations found nearby</Text>
