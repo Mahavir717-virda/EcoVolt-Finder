@@ -50,7 +50,8 @@ export class BookingsController {
         stationId,
         typeof windowStart === 'string' ? windowStart : undefined,
         typeof windowEnd === 'string' ? windowEnd : undefined,
-        typeof connectorType === 'string' ? connectorType : undefined
+        typeof connectorType === 'string' ? connectorType : undefined,
+        req.user.sub
       );
 
       res.status(200).json(matrix);

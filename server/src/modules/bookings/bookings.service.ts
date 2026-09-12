@@ -17,6 +17,7 @@ export interface PortDetail {
   bookingId?: string;
   windowStart?: string;
   windowEnd?: string;
+  isMine?: boolean;
 }
 
 export interface ConnectorSlot {
@@ -101,7 +102,8 @@ export class BookingsService {
     stationId: string,
     windowStart?: string,
     windowEnd?: string,
-    connectorType?: string
+    connectorType?: string,
+    requestingUserId?: string
   ): Promise<SlotAvailabilityResponse> {
     const start = windowStart ? new Date(windowStart) : new Date();
     const end = windowEnd ? new Date(windowEnd) : new Date(start.getTime() + 3600 * 1000);
@@ -133,6 +135,7 @@ export class BookingsService {
       },
       select: {
         id: true,
+        userId: true,
         connectorId: true,
         portNumber: true,
         windowStart: true,
@@ -171,6 +174,7 @@ export class BookingsService {
             bookingId: b.id,
             windowStart: b.windowStart.toISOString(),
             windowEnd: b.windowEnd.toISOString(),
+            isMine: requestingUserId ? b.userId === requestingUserId : false,
           };
         }
         return { portNumber, status: 'available' };

@@ -49,6 +49,7 @@ interface PortDetail {
   bookingId?: string;
   windowStart?: string;
   windowEnd?: string;
+  isMine?: boolean;
 }
 
 interface ConnectorSlot {

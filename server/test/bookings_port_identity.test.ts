@@ -245,19 +245,29 @@ describe('Booking Persistent Port Identity & Slot Matrix Integration Tests', () 
     expect(c.availableCount).toBe(0);
     expect(c.ports).toHaveLength(2);
 
-    // Port 1 should be booked with its exact window
+    // Port 1 should be booked with its exact window and owned by User A
     const port1 = c.ports.find((p: any) => p.portNumber === 1);
     expect(port1).toBeDefined();
     expect(port1.status).toBe('booked');
     expect(port1.windowStart).toBe(booking1Start);
     expect(port1.windowEnd).toBe(booking1End);
+    expect(port1.isMine).toBe(true);
 
-    // Port 2 should be booked with its exact window
+    // Port 2 should be booked with its exact window and NOT owned by User A
     const port2 = c.ports.find((p: any) => p.portNumber === 2);
     expect(port2).toBeDefined();
     expect(port2.status).toBe('booked');
     expect(port2.windowStart).toBe(booking2Start);
     expect(port2.windowEnd).toBe(booking2End);
+    expect(port2.isMine).toBe(false);
+
+    // Querying as User B flips isMine
+    const resB = await request(app)
+      .get(`/bookings/station/${stationId}/slots?windowStart=${encodeURIComponent(booking1Start)}&windowEnd=${encodeURIComponent(booking1End)}`)
+      .set('Authorization', `Bearer ${tokenB}`);
+    const cB = resB.body.connectors[0];
+    expect(cB.ports.find((p: any) => p.portNumber === 1)?.isMine).toBe(false);
+    expect(cB.ports.find((p: any) => p.portNumber === 2)?.isMine).toBe(true);
   });
 
   it('4. Rejects a 3rd booking in the same window since both ports are occupied (409 Conflict)', async () => {
