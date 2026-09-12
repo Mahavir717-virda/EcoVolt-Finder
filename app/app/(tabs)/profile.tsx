@@ -11,8 +11,8 @@ import { spacing } from '@/styles/spacing';
 import { getGamificationProfile } from '@/services/gamification.service';
 import { GamificationProfile } from '@contracts/types';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useMemo } from 'react';
 import { useVehiclesStore } from '@/src/features/vehicles/vehiclesStore';
 
 import {
@@ -64,12 +64,19 @@ export default function ProfileScreen() {
   const hydrateVehicles = useVehiclesStore((state) => state.hydrate);
   const activeVehicle = vehicles.find((v) => v.id === activeVehicleId) || vehicles[0];
 
-  React.useEffect(() => {
+  const refreshGamification = useCallback(() => {
     hydrateVehicles();
     getGamificationProfile()
       .then((data) => setGamification(data))
       .catch(() => {});
   }, [hydrateVehicles]);
+
+  // Live refresh on focus whenever user visits profile
+  useFocusEffect(
+    useCallback(() => {
+      refreshGamification();
+    }, [refreshGamification])
+  );
 
   // Live grid snapshot for the Green Impact card
   const { liveGrid } = useLiveGrid('IN-WE');
@@ -146,21 +153,21 @@ export default function ProfileScreen() {
         >
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: '#F59E0B' }]}>
-              {gamification ? gamification.greenScore.toLocaleString() : '1,646'}
+              {gamification ? gamification.greenScore.toLocaleString() : '0'}
             </Text>
-            <Text style={styles.statLabel}>Green Pts (Rank #{gamification?.rank || 2})</Text>
+            <Text style={styles.statLabel}>Green Pts (Rank #{gamification?.rank || 1})</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
-              {gamification ? `${gamification.cleanKwh} kWh` : '131 kWh'}
+              {gamification ? `${gamification.cleanKwh} kWh` : '0 kWh'}
             </Text>
             <Text style={styles.statLabel}>Clean Power</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: '#10B981' }]}>
-              {gamification ? `${gamification.co2AvoidedKg} kg` : '110.8 kg'}
+              {gamification ? `${gamification.co2AvoidedKg} kg` : '0.0 kg'}
             </Text>
             <Text style={styles.statLabel}>CO₂ Saved</Text>
           </View>

@@ -140,7 +140,7 @@ export class SessionsService {
     sessionId: string,
     input: StopSessionInput = {}
   ) {
-    const session = await prisma.session.findFirst({
+    let session = await prisma.session.findFirst({
       where: {
         OR: [{ id: sessionId }, { bookingId: sessionId }],
         userId,
@@ -154,7 +154,45 @@ export class SessionsService {
     });
 
     if (!session) {
-      throw new NotFoundError(`Session not found with id: ${sessionId}`);
+      // Check if a booking exists for this ID
+      const booking = await prisma.booking.findFirst({
+        where: {
+          id: sessionId,
+          userId,
+        },
+        include: {
+          connector: true,
+          vehicle: true,
+          station: { select: { id: true, name: true, address: true } },
+        },
+      });
+
+      if (!booking) {
+        throw new NotFoundError(`Session or booking not found with id: ${sessionId}`);
+      }
+
+      // Create session on the fly
+      const now = new Date();
+      session = await prisma.session.create({
+        data: {
+          bookingId: booking.id,
+          stationId: booking.stationId,
+          connectorId: booking.connectorId,
+          connectorType: booking.connectorType,
+          vehicleId: booking.vehicleId,
+          userId,
+          status: SessionStatus.active,
+          startedAt: booking.windowStart || new Date(now.getTime() - 30 * 60 * 1000),
+          energyKwh: 0.0,
+          cost: 0.0,
+        },
+        include: {
+          booking: true,
+          connector: true,
+          vehicle: true,
+          station: { select: { id: true, name: true, address: true } },
+        },
+      });
     }
 
     if (session.status === SessionStatus.completed) {

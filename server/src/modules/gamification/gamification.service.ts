@@ -201,9 +201,6 @@ export class GamificationService {
    */
   public static async getLeaderboard(currentUserId?: string): Promise<LeaderboardResponse> {
     const drivers = await prisma.user.findMany({
-      where: {
-        role: 'driver',
-      },
       include: {
         sessions: {
           where: {

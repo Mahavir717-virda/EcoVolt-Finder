@@ -4,7 +4,7 @@
  * achievement badges with progress, live driver rankings, and 1-tap shareable cards.
  */
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/styles/spacing';
 import {
@@ -42,7 +42,7 @@ export default function LeaderboardScreen() {
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardResponse | null>(null);
   const [profileData, setProfileData] = useState<GamificationProfile | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [lb, prof] = await Promise.all([
         getLeaderboard().catch(() => null),
@@ -56,11 +56,14 @@ export default function LeaderboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchData();
   }, []);
+
+  // Live refresh on focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -213,68 +216,78 @@ export default function LeaderboardScreen() {
 
         {activeTab === 'leaderboard' ? (
           <>
-            {/* Top 3 Podium */}
-            {topThree.length >= 3 && (
+            {/* Top Podium */}
+            {topThree.length > 0 && (
               <View style={styles.podiumContainer}>
                 {/* 2nd Place (Silver) */}
-                <View style={[styles.podiumCol, styles.podiumColSilver]}>
-                  <View style={styles.podiumAvatarWrap}>
-                    <View style={[styles.podiumAvatar, styles.avatarSilver]}>
-                      <Text style={styles.podiumAvatarText}>{topThree[1].avatarInitial}</Text>
+                {topThree.length >= 2 ? (
+                  <View style={[styles.podiumCol, styles.podiumColSilver]}>
+                    <View style={styles.podiumAvatarWrap}>
+                      <View style={[styles.podiumAvatar, styles.avatarSilver]}>
+                        <Text style={styles.podiumAvatarText}>{topThree[1].avatarInitial}</Text>
+                      </View>
+                      <View style={[styles.podiumBadge, { backgroundColor: '#94A3B8' }]}>
+                        <Text style={styles.podiumBadgeText}>2</Text>
+                      </View>
                     </View>
-                    <View style={[styles.podiumBadge, { backgroundColor: '#94A3B8' }]}>
-                      <Text style={styles.podiumBadgeText}>2</Text>
+                    <Text style={styles.podiumName} numberOfLines={1}>
+                      {topThree[1].isCurrentUser ? 'You' : topThree[1].name.split(' ')[0]}
+                    </Text>
+                    <Text style={styles.podiumScore}>{topThree[1].greenScore} pts</Text>
+                    <View style={[styles.podiumPedestal, styles.pedestalSilver]}>
+                      <Text style={styles.podiumPedestalText}>🥈 2nd</Text>
                     </View>
                   </View>
-                  <Text style={styles.podiumName} numberOfLines={1}>
-                    {topThree[1].isCurrentUser ? 'You' : topThree[1].name.split(' ')[0]}
-                  </Text>
-                  <Text style={styles.podiumScore}>{topThree[1].greenScore} pts</Text>
-                  <View style={[styles.podiumPedestal, styles.pedestalSilver]}>
-                    <Text style={styles.podiumPedestalText}>🥈 2nd</Text>
-                  </View>
-                </View>
+                ) : (
+                  <View style={[styles.podiumCol, { opacity: 0 }]} />
+                )}
 
                 {/* 1st Place (Gold) */}
-                <View style={[styles.podiumCol, styles.podiumColGold]}>
-                  <Text style={styles.crownEmoji}>👑</Text>
-                  <View style={styles.podiumAvatarWrap}>
-                    <View style={[styles.podiumAvatar, styles.avatarGold]}>
-                      <Text style={styles.podiumAvatarText}>{topThree[0].avatarInitial}</Text>
+                {topThree.length >= 1 && (
+                  <View style={[styles.podiumCol, styles.podiumColGold]}>
+                    <Text style={styles.crownEmoji}>👑</Text>
+                    <View style={styles.podiumAvatarWrap}>
+                      <View style={[styles.podiumAvatar, styles.avatarGold]}>
+                        <Text style={styles.podiumAvatarText}>{topThree[0].avatarInitial}</Text>
+                      </View>
+                      <View style={[styles.podiumBadge, { backgroundColor: '#F59E0B' }]}>
+                        <Text style={styles.podiumBadgeText}>1</Text>
+                      </View>
                     </View>
-                    <View style={[styles.podiumBadge, { backgroundColor: '#F59E0B' }]}>
-                      <Text style={styles.podiumBadgeText}>1</Text>
+                    <Text style={styles.podiumName} numberOfLines={1}>
+                      {topThree[0].isCurrentUser ? 'You' : topThree[0].name.split(' ')[0]}
+                    </Text>
+                    <Text style={[styles.podiumScore, { color: '#F59E0B', fontWeight: '800' }]}>
+                      {topThree[0].greenScore} pts
+                    </Text>
+                    <View style={[styles.podiumPedestal, styles.pedestalGold]}>
+                      <Text style={styles.podiumPedestalText}>🥇 1st</Text>
                     </View>
                   </View>
-                  <Text style={styles.podiumName} numberOfLines={1}>
-                    {topThree[0].isCurrentUser ? 'You' : topThree[0].name.split(' ')[0]}
-                  </Text>
-                  <Text style={[styles.podiumScore, { color: '#F59E0B', fontWeight: '800' }]}>
-                    {topThree[0].greenScore} pts
-                  </Text>
-                  <View style={[styles.podiumPedestal, styles.pedestalGold]}>
-                    <Text style={styles.podiumPedestalText}>🥇 1st</Text>
-                  </View>
-                </View>
+                )}
 
                 {/* 3rd Place (Bronze) */}
-                <View style={[styles.podiumCol, styles.podiumColBronze]}>
-                  <View style={styles.podiumAvatarWrap}>
-                    <View style={[styles.podiumAvatar, styles.avatarBronze]}>
-                      <Text style={styles.podiumAvatarText}>{topThree[2].avatarInitial}</Text>
+                {topThree.length >= 3 ? (
+                  <View style={[styles.podiumCol, styles.podiumColBronze]}>
+                    <View style={styles.podiumAvatarWrap}>
+                      <View style={[styles.podiumAvatar, styles.avatarBronze]}>
+                        <Text style={styles.podiumAvatarText}>{topThree[2].avatarInitial}</Text>
+                      </View>
+                      <View style={[styles.podiumBadge, { backgroundColor: '#D97706' }]}>
+                        <Text style={styles.podiumBadgeText}>3</Text>
+                      </View>
                     </View>
-                    <View style={[styles.podiumBadge, { backgroundColor: '#D97706' }]}>
-                      <Text style={styles.podiumBadgeText}>3</Text>
+                    <Text style={styles.podiumName} numberOfLines={1}>
+                      {topThree[2].isCurrentUser ? 'You' : topThree[2].name.split(' ')[0]}
+                    </Text>
+                    <Text style={styles.podiumScore}>{topThree[2].greenScore} pts</Text>
+                    <View style={[styles.podiumPedestal, styles.pedestalBronze]}>
+                      <Text style={styles.podiumPedestalText}>🥉 3rd</Text>
                     </View>
                   </View>
-                  <Text style={styles.podiumName} numberOfLines={1}>
-                    {topThree[2].isCurrentUser ? 'You' : topThree[2].name.split(' ')[0]}
-                  </Text>
-                  <Text style={styles.podiumScore}>{topThree[2].greenScore} pts</Text>
-                  <View style={[styles.podiumPedestal, styles.pedestalBronze]}>
-                    <Text style={styles.podiumPedestalText}>🥉 3rd</Text>
-                  </View>
-                </View>
+                ) : (
+                  <View style={[styles.podiumCol, { opacity: 0 }]} />
+                )}
               </View>
             )}
 
