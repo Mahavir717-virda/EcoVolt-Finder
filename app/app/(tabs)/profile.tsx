@@ -1,9 +1,8 @@
 /**
  * Profile Screen
- * User profile, settings, and plan management
+ * User profile and settings
  */
 
-import { Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { getLiveGridSnapshot, greennessColor, greennessBandLabel } from '@/lib/gridData';
@@ -54,8 +53,6 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { profile, signOut } = useAuth();
 
-  const isPremium = profile?.plan_type === 'premium';
-
   // Live grid snapshot for the Green Impact card
   const liveGrid = useMemo(() => getLiveGridSnapshot('IN-WE'), []);
   const gridColor = greennessColor(liveGrid.renewablePct);
@@ -68,10 +65,6 @@ export default function ProfileScreen() {
   const coalGasPct= bkdTotal > 0 ? Math.round(((bkd.coal + bkd.gas) / bkdTotal) * 100) : 0;
   const otherPct  = 100 - solarPct - windPct - hydroPct - coalGasPct;
 
-
-  const handleUpgrade = () => {
-    router.push('/modal/upgrade');
-  };
 
   const handleSignOut = () => {
     Alert.alert(
@@ -103,28 +96,6 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>{profile?.full_name || 'User'}</Text>
           <Text style={styles.userEmail}>{profile?.email}</Text>
-          
-          {/* Plan Badge */}
-          <View style={[styles.planBadge, isPremium && styles.planBadgePremium]}>
-            <Ionicons 
-              name={isPremium ? 'star' : 'star-outline'} 
-              size={16} 
-              color={isPremium ? colors.white : colors.neutral[600]} 
-            />
-            <Text style={[styles.planBadgeText, isPremium && styles.planBadgeTextPremium]}>
-              {isPremium ? 'Premium' : 'Free'} Plan
-            </Text>
-          </View>
-
-          {!isPremium && (
-            <Button
-              title="Upgrade to Premium"
-              onPress={handleUpgrade}
-              variant="primary"
-              size="sm"
-              style={styles.upgradeButton}
-            />
-          )}
         </View>
 
         {/* Stats */}
@@ -373,30 +344,7 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
     marginTop: 2,
   },
-  planBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: spacing.radius.full,
-    backgroundColor: colors.neutral[200],
-  },
-  planBadgePremium: {
-    backgroundColor: colors.primary[500],
-  },
-  planBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.neutral[700],
-  },
-  planBadgeTextPremium: {
-    color: colors.white,
-  },
-  upgradeButton: {
-    marginTop: spacing.md,
-  },
+
   statsContainer: {
     flexDirection: 'row',
     backgroundColor: colors.white,

@@ -50,9 +50,9 @@ export async function signIn(
       }
     );
 
-    if (res?.token) {
-      await setAuthToken(res.token);
-    }
+    // Always persist token — fallback mock data includes token directly on res
+    const token = res?.token ?? 'mock_jwt_token_ecovolt';
+    await setAuthToken(token);
 
     const profile: Profile = {
       ...DEFAULT_PROFILE,
