@@ -8,14 +8,13 @@ import { spacing } from '@/styles/spacing';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useRef, useState } from 'react';
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    TextInputProps,
-    TouchableOpacity,
-    View,
-    ViewStyle,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  TouchableOpacity,
+  View,
+  ViewStyle,
 } from 'react-native';
 
 interface InputProps extends TextInputProps {
@@ -56,11 +55,8 @@ export function Input({
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
-      
-      <Pressable 
-        style={inputContainerStyles} 
-        onPress={() => inputRef.current?.focus()}
-      >
+
+      <View style={inputContainerStyles}>
         {leftIcon && (
           <Ionicons
             name={leftIcon}
@@ -69,7 +65,7 @@ export function Input({
             style={styles.leftIcon}
           />
         )}
-        
+
         <TextInput
           ref={inputRef}
           style={[styles.input, leftIcon && styles.inputWithLeftIcon, style]}
@@ -79,7 +75,7 @@ export function Input({
           secureTextEntry={isPassword && !showPassword}
           {...props}
         />
-        
+
         {isPassword && (
           <TouchableOpacity
             onPress={() => setIsPasswordVisible(!isPasswordVisible)}
@@ -92,7 +88,7 @@ export function Input({
             />
           </TouchableOpacity>
         )}
-        
+
         {rightIcon && !isPassword && (
           <TouchableOpacity
             onPress={onRightIconPress}
@@ -102,8 +98,8 @@ export function Input({
             <Ionicons name={rightIcon} size={20} color={colors.neutral[400]} />
           </TouchableOpacity>
         )}
-      </Pressable>
-      
+      </View>
+
       {error && <Text style={styles.error}>{error}</Text>}
       {hint && !error && <Text style={styles.hint}>{hint}</Text>}
     </View>
