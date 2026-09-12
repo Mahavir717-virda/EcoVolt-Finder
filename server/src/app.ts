@@ -21,6 +21,7 @@ import { sessionsRouter } from './modules/sessions/sessions.router';
 import { recommendationsRouter } from './modules/recommendations/recommendations.router';
 import { forecastRouter } from './modules/forecast/forecast.router';
 import { impactRouter, analyticsRouter } from './modules/analytics/analytics.router';
+import { gamificationRouter } from './modules/gamification/gamification.router';
 import { notificationsRouter } from './modules/notifications/notifications.router';
 
 export const createApp = (): Express => {
@@ -85,6 +86,7 @@ export const createApp = (): Express => {
     { path: '/recommendations', router: recommendationsRouter },
     { path: '/forecast', router: forecastRouter },
     { path: '/impact', router: impactRouter },
+    { path: '/gamification', router: gamificationRouter },
     { path: '/analytics', router: analyticsRouter },
     { path: '/notifications', router: notificationsRouter },
   ];

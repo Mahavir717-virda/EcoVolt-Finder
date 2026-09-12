@@ -33,6 +33,25 @@ export const requireAuth = (req: Request, _res: Response, next: NextFunction): v
 };
 
 /**
+ * Middleware: optional Bearer JWT access token
+ * If present and valid, populates req.user. If absent or invalid, silently continues.
+ */
+export const optionalAuth = (req: Request, _res: Response, next: NextFunction): void => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const payload = AuthService.verifyAccessToken(token);
+      req.user = payload;
+    } catch {
+      // Silently continue without user
+    }
+  }
+  next();
+};
+
+
+/**
  * Middleware: require specific role (e.g. manager, admin)
  */
 export const requireRole = (...allowedRoles: Role[]) => {

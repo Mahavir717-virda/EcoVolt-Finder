@@ -7,6 +7,8 @@ import { Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { spacing } from '@/styles/spacing';
+import { getGamificationProfile } from '@/services/gamification.service';
+import { GamificationProfile } from '@contracts/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -48,9 +50,17 @@ function MenuItem({ icon, label, value, onPress, showChevron = true, danger = fa
   );
 }
 
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { profile, signOut } = useAuth();
+  const [gamification, setGamification] = React.useState<GamificationProfile | null>(null);
+
+  React.useEffect(() => {
+    getGamificationProfile()
+      .then((data) => setGamification(data))
+      .catch(() => {});
+  }, []);
 
   const isPremium = profile?.plan_type === 'premium';
 
@@ -97,7 +107,7 @@ export default function ProfileScreen() {
               color={isPremium ? colors.white : colors.neutral[600]} 
             />
             <Text style={[styles.planBadgeText, isPremium && styles.planBadgeTextPremium]}>
-              {isPremium ? 'Premium' : 'Free'} Plan
+              {gamification?.tier || (isPremium ? 'Premium' : 'Free')} • Rank #{gamification?.rank || 2}
             </Text>
           </View>
 
@@ -112,23 +122,53 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Stats */}
-        <View style={styles.statsContainer}>
+        {/* Dynamic Green Stats */}
+        <TouchableOpacity
+          style={styles.statsContainer}
+          onPress={() => router.push('/leaderboard')}
+          activeOpacity={0.8}
+        >
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>12</Text>
-            <Text style={styles.statLabel}>Charges</Text>
+            <Text style={[styles.statValue, { color: '#F59E0B' }]}>
+              {gamification ? gamification.greenScore.toLocaleString() : '1,646'}
+            </Text>
+            <Text style={styles.statLabel}>Green Pts (Rank #{gamification?.rank || 2})</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>218 kWh</Text>
-            <Text style={styles.statLabel}>Clean Energy</Text>
+            <Text style={styles.statValue}>
+              {gamification ? `${gamification.cleanKwh} kWh` : '131 kWh'}
+            </Text>
+            <Text style={styles.statLabel}>Clean Power</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#10B981' }]}>48.5 kg</Text>
+            <Text style={[styles.statValue, { color: '#10B981' }]}>
+              {gamification ? `${gamification.co2AvoidedKg} kg` : '110.8 kg'}
+            </Text>
             <Text style={styles.statLabel}>CO₂ Saved</Text>
           </View>
+        </TouchableOpacity>
+
+        {/* Gamification & Green Impact Hub */}
+        <View style={styles.menuSection}>
+          <Text style={styles.menuSectionTitle}>Eco Impact & Standing</Text>
+          <View style={styles.menuCard}>
+            <MenuItem
+              icon="trophy-outline"
+              label="Leaderboard & Green Score"
+              value={gamification ? `Rank #${gamification.rank} • 🔥 ${gamification.currentStreak} Streak` : 'View Rankings'}
+              onPress={() => router.push('/leaderboard')}
+            />
+            <MenuItem
+              icon="ribbon-outline"
+              label="Badges & Achievements"
+              value={gamification ? `${gamification.badges.filter(b => b.unlocked).length} Unlocked` : '5 Badges'}
+              onPress={() => router.push('/leaderboard')}
+            />
+          </View>
         </View>
+
 
         {/* Workspace Portals (EcoVolt Multi-Role Hub) */}
         <View style={styles.menuSection}>

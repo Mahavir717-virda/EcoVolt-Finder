@@ -29,6 +29,7 @@ import {
   getNotificationHistory,
   AppNotification,
 } from '@/services/notifications.service';
+import { getGamificationProfile } from '@/services/gamification.service';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -37,6 +38,12 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [gamification, setGamification] = useState<{
+    score: number;
+    rank: number;
+    streak: number;
+    tier: string;
+  } | null>(null);
   const [activeDeal, setActiveDeal] = useState<{
     stationId: string;
     stationName: string;
@@ -44,6 +51,7 @@ export default function HomeScreen() {
     availableChargers: number;
     distanceKm: number;
   } | null>(null);
+
 
   // Reliable location hook with instant cache and fallback
   const {
@@ -106,6 +114,16 @@ export default function HomeScreen() {
           distanceKm: dealNotif.data.distanceKm || 1.5,
         });
       }
+
+      const gamProfile = await getGamificationProfile();
+      if (gamProfile) {
+        setGamification({
+          score: gamProfile.greenScore,
+          rank: gamProfile.rank,
+          streak: gamProfile.currentStreak,
+          tier: gamProfile.tier,
+        });
+      }
     } catch {}
   };
 
@@ -118,6 +136,7 @@ export default function HomeScreen() {
     await Promise.all([refreshAll(), refreshNearby(), refreshLocation(), checkNotificationsAndDeals()]);
     setRefreshing(false);
   };
+
 
   const handleStationPress = (stationId: string) => {
     router.push(`/station/${stationId}`);
@@ -146,18 +165,32 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.subtitle}>Find your nearest charging station</Text>
         </View>
-        <TouchableOpacity
-          style={styles.notificationButton}
-          onPress={() => router.push('/modal/notifications')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="notifications-outline" size={24} color={colors.neutral[700]} />
-          {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            style={styles.trophyButton}
+            onPress={() => router.push('/leaderboard')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trophy" size={20} color="#F59E0B" />
+            {gamification && (
+              <View style={styles.trophyBadge}>
+                <Text style={styles.trophyBadgeText}>#{gamification.rank}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.notificationButton}
+            onPress={() => router.push('/modal/notifications')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications-outline" size={24} color={colors.neutral[700]} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Bar */}
@@ -176,6 +209,35 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary[500]]} />
         }
       >
+        {/* Dynamic Green Score & Leaderboard Banner */}
+        {gamification && (
+          <TouchableOpacity
+            style={styles.gamificationBanner}
+            onPress={() => router.push('/leaderboard')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.gamificationIconWrap}>
+              <Ionicons name="leaf" size={20} color="#059669" />
+            </View>
+            <View style={styles.gamificationInfo}>
+              <View style={styles.gamificationTopRow}>
+                <Text style={styles.gamificationScoreText}>
+                  🏆 {gamification.score.toLocaleString()} pts • Rank #{gamification.rank}
+                </Text>
+                {gamification.streak > 0 && (
+                  <View style={styles.gamificationStreakTag}>
+                    <Text style={styles.gamificationStreakText}>🔥 {gamification.streak} Streak</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.gamificationSubText}>
+                {gamification.tier} • Tap to view Leaderboard & Badges
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#059669" />
+          </TouchableOpacity>
+        )}
+
         {/* Proactive Smart Savings Deal Banner */}
         {activeDeal && (
           <TouchableOpacity
@@ -200,6 +262,7 @@ export default function HomeScreen() {
             <Ionicons name="arrow-forward-circle" size={24} color="#15803D" />
           </TouchableOpacity>
         )}
+
         {/* Fallback Location Notice if GPS pending or permission not given */}
         {isFallback && (
           <TouchableOpacity 
@@ -653,4 +716,89 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: 'center',
   },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  trophyButton: {
+    width: 44,
+    height: 44,
+    borderRadius: spacing.radius.full,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  trophyBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#D97706',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trophyBadgeText: {
+    color: colors.white,
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  gamificationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    marginHorizontal: spacing.screenPadding,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  gamificationIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#D1FAE5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  gamificationInfo: {
+    flex: 1,
+  },
+  gamificationTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  gamificationScoreText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  gamificationStreakTag: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  gamificationStreakText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  gamificationSubText: {
+    fontSize: 11,
+    color: '#047857',
+    marginTop: 2,
+    fontWeight: '500',
+  },
 });
+
