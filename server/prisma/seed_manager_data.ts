@@ -58,7 +58,7 @@ async function main() {
   await prisma.station.updateMany({
     data: {
       operatorId: operator.id,
-      status: 'active',
+      isActive: true,
     },
   });
 

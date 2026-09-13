@@ -382,6 +382,49 @@ export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav 
         </View>
       </View>
 
+      {/* Top Sub-Tab Navigation Bar */}
+      {!hideTopNav && (
+        <View style={[styles.tabBar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScrollContent}>
+            {[
+              { id: 'analytics' as const, label: t('manager.tab_analytics', 'Analytics'), icon: 'stats-chart' },
+              { id: 'stations' as const, label: t('manager.tab_stations', 'Stations'), icon: 'business' },
+              { id: 'pricing' as const, label: t('manager.tab_pricing', 'Tariff Rules'), icon: 'pricetag' },
+              { id: 'sessions' as const, label: t('manager.tab_sessions', 'Live Sessions'), icon: 'flash' },
+              { id: 'payout' as const, label: t('manager.tab_payout', 'Payout & Bank'), icon: 'wallet' },
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <TouchableOpacity
+                  key={tab.id}
+                  style={[
+                    styles.tabItem,
+                    isActive && styles.tabItemActive,
+                    isActive && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.12)' },
+                  ]}
+                  onPress={() => setActiveTab(tab.id)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={isActive ? (tab.icon as any) : (`${tab.icon}-outline` as any)}
+                    size={16}
+                    color={isActive ? '#10B981' : themeColors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      { color: isActive ? '#10B981' : themeColors.textSecondary },
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
 
 
       {/* Main Content View */}
