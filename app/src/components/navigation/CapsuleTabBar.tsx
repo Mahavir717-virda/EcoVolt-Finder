@@ -86,6 +86,7 @@ const TAB_CONFIG: Record<
 
 interface CapsuleTabItemProps {
   routeName: string;
+  options?: any;
   isFocused: boolean;
   onPress: () => void;
   onLongPress: () => void;
@@ -94,6 +95,7 @@ interface CapsuleTabItemProps {
 
 const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
   routeName,
+  options = {},
   isFocused,
   onPress,
   onLongPress,
@@ -104,6 +106,9 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
     iconActive: 'ellipse' as const,
     iconInactive: 'ellipse-outline' as const,
   };
+
+  const label = options.title || options.tabBarLabel || config.label;
+  const renderCustomIcon = options.tabBarIcon;
 
   const scale = useSharedValue(1);
   const iconScale = useSharedValue(isFocused ? 1.05 : 0.95);
@@ -134,7 +139,7 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
     transform: [{ scale: iconScale.value }],
   }));
 
-  const isCenterHome = !!config.isHome;
+  const isCenterHome = routeName === 'index' || routeName === 'Home' || !!config.isHome;
 
   return (
     <Pressable
@@ -144,11 +149,11 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
       onPressOut={handlePressOut}
       accessibilityRole="button"
       accessibilityState={{ selected: isFocused }}
-      accessibilityLabel={`${config.label} Tab`}
+      accessibilityLabel={`${label} Tab`}
       style={[styles.tabButton, { width: tabWidth }]}
     >
       <Animated.View style={[styles.tabContent, animatedContainerStyle]}>
-        {/* Icon with Subtle Spring Pop */}
+        {/* Icon with Spring Pop */}
         <Animated.View
           style={[
             styles.iconWrapper,
@@ -156,14 +161,22 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
             animatedIconStyle,
           ]}
         >
-          <Ionicons
-            name={isFocused ? config.iconActive : config.iconInactive}
-            size={isCenterHome ? 22 : 21}
-            color={isFocused ? defaultTokens.brand : defaultTokens.ink3}
-          />
+          {typeof renderCustomIcon === 'function' ? (
+            renderCustomIcon({
+              color: isFocused ? defaultTokens.brand : defaultTokens.ink3,
+              focused: isFocused,
+              size: isCenterHome ? 22 : 21,
+            })
+          ) : (
+            <Ionicons
+              name={isFocused ? config.iconActive : config.iconInactive}
+              size={isCenterHome ? 22 : 21}
+              color={isFocused ? defaultTokens.brand : defaultTokens.ink3}
+            />
+          )}
         </Animated.View>
 
-        {/* Dynamic Label */}
+        {/* Dynamic Label from Route Options */}
         <Text
           style={[
             styles.tabLabel,
@@ -176,7 +189,7 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
           ]}
           numberOfLines={1}
         >
-          {config.label}
+          {label}
         </Text>
       </Animated.View>
     </Pressable>
@@ -301,10 +314,14 @@ export const CapsuleTabBar: React.FC<BottomTabBarProps> = ({
               });
             };
 
+            const descriptor = descriptors[route.key];
+            const options = descriptor?.options || {};
+
             return (
               <CapsuleTabItem
                 key={route.key}
                 routeName={route.name}
+                options={options}
                 isFocused={isFocused}
                 onPress={onPress}
                 onLongPress={onLongPress}

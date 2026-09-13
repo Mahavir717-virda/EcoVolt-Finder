@@ -27,11 +27,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ManagerDashboardScreen as ManagerHubScreen } from '@/src/screens/manager/ManagerDashboardScreen';
 import AdminConsoleScreen from '../admin';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
 import ManagerHubScreen from '../manager/index';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TabType = 'active' | 'past';
 
@@ -45,7 +43,9 @@ export default function ReservationsScreen() {
     (profile as any)?.role === 'admin' ||
     (user as any)?.role === 'admin' ||
     user?.email === 'admin@ecovolt.in' ||
-    profile?.email === 'admin@ecovolt.in';
+    profile?.email === 'admin@ecovolt.in' ||
+    user?.email === 'admin@ecovolt.com' ||
+    profile?.email === 'admin@ecovolt.com';
 
   if (isAdmin) {
     return <AdminConsoleScreen initialTab="registry" />;

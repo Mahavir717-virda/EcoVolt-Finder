@@ -34,8 +34,6 @@ import { calculateDistance } from '@/utils/distance';
 import { getNotificationHistory } from '@/services/notifications.service';
 import { getGamificationProfile } from '@/services/gamification.service';
 import AdminConsoleScreen from '../admin';
-import { ManagerDashboardScreen as ManagerHubScreen } from '@/src/screens/manager/ManagerDashboardScreen';
-
 import ManagerHubScreen from '../manager/index';
 
 export default function HomeScreen() {
@@ -47,10 +45,12 @@ export default function HomeScreen() {
     (profile as any)?.role === 'admin' ||
     (user as any)?.role === 'admin' ||
     user?.email === 'admin@ecovolt.in' ||
-    profile?.email === 'admin@ecovolt.in';
+    profile?.email === 'admin@ecovolt.in' ||
+    user?.email === 'admin@ecovolt.com' ||
+    profile?.email === 'admin@ecovolt.com';
 
   if (isAdmin) {
-    return <AdminConsoleScreen />;
+    return <AdminConsoleScreen initialTab="overview" />;
   }
 
   const isManager =
@@ -60,7 +60,7 @@ export default function HomeScreen() {
     profile?.email === 'mahavir@gmail.com';
 
   if (isManager) {
-    return <ManagerHubScreen />;
+    return <ManagerHubScreen initialTab="analytics" />;
   }
   const { t } = useLanguage();
   const { filters, activeFiltersCount } = useFilters();

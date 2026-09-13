@@ -95,11 +95,8 @@ export const createApp = (): Express => {
     { path: '/gamification', router: gamificationRouter },
     { path: '/analytics', router: analyticsRouter },
     { path: '/notifications', router: notificationsRouter },
-<<<<<<< HEAD
     { path: '/admin', router: adminRouter },
-=======
     { path: '/manager', router: managerRouter },
->>>>>>> 4c6f67cfbe53bf754419cf8840522b61af6a21dc
   ];
 
   for (const { path: routePath, router } of routeDefinitions) {

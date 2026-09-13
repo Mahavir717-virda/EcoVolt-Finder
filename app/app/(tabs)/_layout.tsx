@@ -8,6 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useLanguage } from '@/hooks/useLanguage';
 
+import { CapsuleTabBar } from '@/src/components/navigation/CapsuleTabBar';
+
 export default function TabLayout() {
   const { isDark, colors } = useTheme();
   const { t } = useLanguage();
@@ -23,7 +25,9 @@ export default function TabLayout() {
     (profile as any)?.role === 'admin' ||
     (user as any)?.role === 'admin' ||
     user?.email === 'admin@ecovolt.in' ||
-    profile?.email === 'admin@ecovolt.in';
+    profile?.email === 'admin@ecovolt.in' ||
+    user?.email === 'admin@ecovolt.com' ||
+    profile?.email === 'admin@ecovolt.com';
 
   // While checking token on mount, show a centered spinner
   if (isLoading) {
@@ -42,7 +46,7 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="index"
-      tabBar={(props) => (isAdmin || isManager) ? null : <CapsuleTabBar {...props} />}
+      tabBar={(props) => <CapsuleTabBar {...props} />}
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: isDark ? colors.textMuted : colors.textSecondary,
@@ -63,10 +67,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: isManager ? 'Manager Hub' : t('tab.home', 'Home'),
+          title: isAdmin ? t('admin.tab_overview', 'Admin Hub') : isManager ? t('manager.tab_analytics', 'Manager Hub') : t('tab.home', 'Home'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? (isManager ? 'business' : 'map') : (isManager ? 'business-outline' : 'map-outline')} 
+              name={focused ? (isAdmin ? 'shield-checkmark' : isManager ? 'business' : 'map') : (isAdmin ? 'shield-checkmark-outline' : isManager ? 'business-outline' : 'map-outline')} 
               size={24} 
               color={color} 
             />
@@ -76,10 +80,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="reservations"
         options={{
-          title: isManager ? 'Live Sessions' : t('tab.reservations', 'Reservations'),
+          title: isAdmin ? t('admin.tab_registry', 'Station Registry') : isManager ? t('manager.tab_sessions', 'Live Sessions') : t('tab.reservations', 'Reservations'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? (isManager ? 'flash' : 'calendar') : (isManager ? 'flash-outline' : 'calendar-outline')} 
+              name={focused ? (isAdmin ? 'business' : isManager ? 'flash' : 'calendar') : (isAdmin ? 'business-outline' : isManager ? 'flash-outline' : 'calendar-outline')} 
               size={24} 
               color={color} 
             />
@@ -89,10 +93,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="favorites"
         options={{
-          title: isManager ? 'Pricing Engine' : t('tab.saved', 'Saved'),
+          title: isAdmin ? t('admin.tab_users', 'User Governance') : isManager ? t('manager.tab_pricing', 'Pricing Engine') : t('tab.saved', 'Saved'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? (isManager ? 'pricetag' : 'bookmark') : (isManager ? 'pricetag-outline' : 'bookmark-outline')} 
+              name={focused ? (isAdmin ? 'people' : isManager ? 'pricetag' : 'bookmark') : (isAdmin ? 'people-outline' : isManager ? 'pricetag-outline' : 'bookmark-outline')} 
               size={24} 
               color={color} 
             />
@@ -102,10 +106,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: isManager ? 'Operator Profile' : t('tab.profile', 'Profile'),
+          title: isAdmin ? t('admin.tab_audit', 'Audit & Health') : isManager ? t('manager.tab_payout', 'Operator Profile') : t('tab.profile', 'Profile'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? 'person' : 'person-outline'} 
+              name={focused ? (isAdmin ? 'stats-chart' : 'person') : (isAdmin ? 'stats-chart-outline' : 'person-outline')} 
               size={24} 
               color={color} 
             />

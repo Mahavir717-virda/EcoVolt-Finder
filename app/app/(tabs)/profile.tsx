@@ -27,7 +27,7 @@ import { useVehiclesStore } from '@/src/features/vehicles/vehiclesStore';
 import { useTheme } from '@/hooks/useTheme';
 import { useLanguage } from '@/hooks/useLanguage';
 import AdminConsoleScreen from '../admin';
-import { ManagerDashboardScreen as ManagerHubScreen } from '@/src/screens/manager/ManagerDashboardScreen';
+import ManagerHubScreen from '../manager/index';
 
 interface MenuItemProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -86,31 +86,19 @@ function MenuItem({
   );
 }
 
-import ManagerHubScreen from '../manager/index';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { profile, user, signOut } = useAuth();
   const { colors, isDark } = useTheme();
 
-  const isManager =
-    (profile as any)?.role === 'manager' ||
-    (user as any)?.role === 'manager' ||
-    user?.email === 'mahavir@gmail.com' ||
-    profile?.email === 'mahavir@gmail.com';
-
-  if (isManager) {
-    return <ManagerHubScreen initialTab="payout" />;
-  }
-
-  const { t, language } = useLanguage();
-  const [gamification, setGamification] = React.useState<GamificationProfile | null>(null);
-
   const isAdmin =
     (profile as any)?.role === 'admin' ||
     (user as any)?.role === 'admin' ||
     user?.email === 'admin@ecovolt.in' ||
-    profile?.email === 'admin@ecovolt.in';
+    profile?.email === 'admin@ecovolt.in' ||
+    user?.email === 'admin@ecovolt.com' ||
+    profile?.email === 'admin@ecovolt.com';
 
   if (isAdmin) {
     return <AdminConsoleScreen initialTab="audit" />;
@@ -125,6 +113,9 @@ export default function ProfileScreen() {
   if (isManager) {
     return <ManagerHubScreen initialTab="payout" />;
   }
+
+  const { t, language } = useLanguage();
+  const [gamification, setGamification] = React.useState<GamificationProfile | null>(null);
 
   const vehicles = useVehiclesStore((state) => state.vehicles);
   const activeVehicleId = useVehiclesStore((state) => state.activeVehicleId);

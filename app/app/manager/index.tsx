@@ -25,6 +25,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
+import { useLanguage } from '@/hooks/useLanguage';
+import { useAuth } from '@/hooks/useAuth';
 import { Button, Card } from '@/components/ui';
 import {
   fetchManagerAnalytics,
@@ -49,9 +51,12 @@ import {
 
 type ManagerTab = 'analytics' | 'stations' | 'pricing' | 'sessions' | 'payout';
 
-export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav = true }: { initialTab?: ManagerTab; hideTopNav?: boolean }) {
+export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav = false }: { initialTab?: ManagerTab; hideTopNav?: boolean }) {
   const insets = useSafeAreaInsets();
-  const { colors: themeColors, isDark } = useTheme();
+  const { colors: themeColors, isDark, setThemeMode } = useTheme();
+  const toggleTheme = () => setThemeMode(isDark ? 'light' : 'dark');
+  const { language, setLanguage, t } = useLanguage();
+  const { signOut } = useAuth();
 
   const [activeTab, setActiveTab] = useState<ManagerTab>(initialTab);
   const [refreshing, setRefreshing] = useState(false);
@@ -357,10 +362,10 @@ export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav 
           </View>
           <View style={styles.headerTitleWrap}>
             <View style={styles.titleRow}>
-              <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Station Manager</Text>
+              <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>{t('manager.title_short', 'Station Manager')}</Text>
               <View style={styles.liveBadge}>
                 <View style={styles.liveDot} />
-                <Text style={styles.liveBadgeText}>ONLINE</Text>
+                <Text style={styles.liveBadgeText}>{t('manager.online', 'ONLINE')}</Text>
               </View>
             </View>
             <Text style={styles.headerSubtitle} numberOfLines={1}>
@@ -369,63 +374,21 @@ export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav 
           </View>
         </View>
 
-        <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn} activeOpacity={0.7}>
-          <Ionicons name="refresh-outline" size={20} color="#10B981" />
-        </TouchableOpacity>
+        {/* Action Controls: Refresh */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity onPress={onRefresh} style={[styles.headerActionBtn, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]} activeOpacity={0.7}>
+            <Ionicons name="refresh-outline" size={17} color="#10B981" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Navigation Tabs (Hidden when embedded in tab navigation) */}
-      {!hideTopNav && (
-        <View style={[styles.tabBar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScrollContent}>
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'analytics' && styles.tabItemActive]}
-              onPress={() => setActiveTab('analytics')}
-            >
-              <Ionicons name="bar-chart-outline" size={18} color={activeTab === 'analytics' ? '#10B981' : themeColors.textSecondary} />
-              <Text style={[styles.tabLabel, { color: activeTab === 'analytics' ? '#10B981' : themeColors.textSecondary }]}>Analytics</Text>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'stations' && styles.tabItemActive]}
-              onPress={() => setActiveTab('stations')}
-            >
-              <Ionicons name="business-outline" size={18} color={activeTab === 'stations' ? '#10B981' : themeColors.textSecondary} />
-              <Text style={[styles.tabLabel, { color: activeTab === 'stations' ? '#10B981' : themeColors.textSecondary }]}>Stations ({stations.length})</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'pricing' && styles.tabItemActive]}
-              onPress={() => setActiveTab('pricing')}
-            >
-              <Ionicons name="pricetag-outline" size={18} color={activeTab === 'pricing' ? '#10B981' : themeColors.textSecondary} />
-              <Text style={[styles.tabLabel, { color: activeTab === 'pricing' ? '#10B981' : themeColors.textSecondary }]}>Pricing Engine</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'sessions' && styles.tabItemActive]}
-              onPress={() => setActiveTab('sessions')}
-            >
-              <Ionicons name="flash-outline" size={18} color={activeTab === 'sessions' ? '#10B981' : themeColors.textSecondary} />
-              <Text style={[styles.tabLabel, { color: activeTab === 'sessions' ? '#10B981' : themeColors.textSecondary }]}>Live Sessions</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'payout' && styles.tabItemActive]}
-              onPress={() => setActiveTab('payout')}
-            >
-              <Ionicons name="wallet-outline" size={18} color={activeTab === 'payout' ? '#10B981' : themeColors.textSecondary} />
-              <Text style={[styles.tabLabel, { color: activeTab === 'payout' ? '#10B981' : themeColors.textSecondary }]}>Payouts & Bank</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      )}
 
       {/* Main Content View */}
       {loading && !refreshing ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color="#10B981" />
-          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading Manager Telemetry...</Text>
+          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>{t('manager.telemetry_loading', 'Loading Manager Telemetry...')}</Text>
         </View>
       ) : (
         <ScrollView
@@ -454,50 +417,50 @@ export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav 
                 <Card style={[styles.metricCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                   <Text style={styles.metricEmoji}>💰</Text>
                   <Text style={[styles.metricVal, { color: themeColors.textPrimary }]}>₹{analytics?.totalRevenue?.toLocaleString('en-IN')}</Text>
-                  <Text style={[styles.metricLbl, { color: themeColors.textSecondary }]}>Total Station Revenue</Text>
+                  <Text style={[styles.metricLbl, { color: themeColors.textSecondary }]}>{t('manager.total_revenue', 'Total Station Revenue')}</Text>
                 </Card>
 
                 <Card style={[styles.metricCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                   <Text style={styles.metricEmoji}>⚡</Text>
                   <Text style={[styles.metricVal, { color: themeColors.textPrimary }]}>{analytics?.totalEnergyKwh} kWh</Text>
-                  <Text style={[styles.metricLbl, { color: themeColors.textSecondary }]}>Clean Power Delivered</Text>
+                  <Text style={[styles.metricLbl, { color: themeColors.textSecondary }]}>{t('manager.clean_power_delivered', 'Clean Power Delivered')}</Text>
                 </Card>
 
                 <Card style={[styles.metricCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                   <Text style={styles.metricEmoji}>🌿</Text>
                   <Text style={[styles.metricVal, { color: '#10B981' }]}>{analytics?.avgRenewablePct}%</Text>
-                  <Text style={[styles.metricLbl, { color: themeColors.textSecondary }]}>Green Share vs {analytics?.gridAverageRenewablePct}% Grid Avg</Text>
+                  <Text style={[styles.metricLbl, { color: themeColors.textSecondary }]}>{t('manager.green_share', 'Green Share')} vs {analytics?.gridAverageRenewablePct}% Grid Avg</Text>
                 </Card>
 
                 <Card style={[styles.metricCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                   <Text style={styles.metricEmoji}>📊</Text>
                   <Text style={[styles.metricVal, { color: themeColors.textPrimary }]}>{analytics?.utilizationPct}%</Text>
-                  <Text style={[styles.metricLbl, { color: themeColors.textSecondary }]}>Network Utilization Rate</Text>
+                  <Text style={[styles.metricLbl, { color: themeColors.textSecondary }]}>{t('manager.utilization_rate', 'Network Utilization Rate')}</Text>
                 </Card>
               </View>
 
               {/* Station Overview Breakdown */}
               <Card style={[styles.sectionCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-                <Text style={[styles.sectionCardTitle, { color: themeColors.textPrimary }]}>Operational Status</Text>
+                <Text style={[styles.sectionCardTitle, { color: themeColors.textPrimary }]}>{t('manager.operational_status', 'Operational Status')}</Text>
 
                 <View style={styles.rowBetween}>
-                  <Text style={[styles.rowLabel, { color: themeColors.textSecondary }]}>Managed Stations</Text>
-                  <Text style={[styles.rowValue, { color: themeColors.textPrimary }]}>{analytics?.totalStations} Hubs</Text>
+                  <Text style={[styles.rowLabel, { color: themeColors.textSecondary }]}>{t('manager.managed_stations', 'Managed Stations')}</Text>
+                  <Text style={[styles.rowValue, { color: themeColors.textPrimary }]}>{analytics?.totalStations} {t('manager.hubs', 'Hubs')}</Text>
                 </View>
 
                 <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                 <View style={styles.rowBetween}>
-                  <Text style={[styles.rowLabel, { color: themeColors.textSecondary }]}>Active Charging Sessions</Text>
+                  <Text style={[styles.rowLabel, { color: themeColors.textSecondary }]}>{t('manager.active_sessions', 'Active Charging Sessions')}</Text>
                   <View style={styles.badgeGreen}>
-                    <Text style={styles.badgeGreenText}>⚡ {analytics?.activeSessionsCount} Live Now</Text>
+                    <Text style={styles.badgeGreenText}>⚡ {analytics?.activeSessionsCount} {t('manager.live_now', 'Live Now')}</Text>
                   </View>
                 </View>
 
                 <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                 <View style={styles.rowBetween}>
-                  <Text style={[styles.rowLabel, { color: themeColors.textSecondary }]}>Net CO₂ Emissions Avoided</Text>
+                  <Text style={[styles.rowLabel, { color: themeColors.textSecondary }]}>{t('manager.co2_avoided', 'Net CO₂ Emissions Avoided')}</Text>
                   <Text style={[styles.rowValue, { color: '#10B981', fontWeight: '700' }]}>{analytics?.totalCo2AvoidedKg} kg</Text>
                 </View>
               </Card>
@@ -716,13 +679,14 @@ export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav 
 
           {/* TAB 5: PAYOUT & BANK SETTINGS */}
           {activeTab === 'payout' && (
-            <Card style={[styles.payoutCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-              <Text style={[styles.payoutTitle, { color: themeColors.textPrimary }]}>Razorpay Payout Bank Details</Text>
+            <View>
+              <Card style={[styles.payoutCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+              <Text style={[styles.payoutTitle, { color: themeColors.textPrimary }]}>{t('manager.payout_bank_details', 'Razorpay Payout Bank Details')}</Text>
               <Text style={[styles.payoutSub, { color: themeColors.textSecondary }]}>
-                Money collected from EV charging sessions is automatically settled to this account via Razorpay.
+                {t('manager.payout_desc', 'Money collected from EV charging sessions is automatically settled to this account via Razorpay.')}
               </Text>
 
-              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Account Holder Name</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>{t('manager.account_holder_name', 'Account Holder Name')}</Text>
               <TextInput
                 style={[styles.textInput, { color: themeColors.textPrimary, borderColor: themeColors.border }]}
                 value={bankAccountName}
@@ -731,7 +695,7 @@ export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav 
                 placeholderTextColor={themeColors.textSecondary}
               />
 
-              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Bank Name</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>{t('manager.bank_name', 'Bank Name')}</Text>
               <TextInput
                 style={[styles.textInput, { color: themeColors.textPrimary, borderColor: themeColors.border }]}
                 value={bankName}
@@ -740,7 +704,7 @@ export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav 
                 placeholderTextColor={themeColors.textSecondary}
               />
 
-              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Account Number</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>{t('manager.account_number', 'Account Number')}</Text>
               <TextInput
                 style={[styles.textInput, { color: themeColors.textPrimary, borderColor: themeColors.border }]}
                 value={bankAccountNumber}
@@ -750,7 +714,7 @@ export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav 
                 placeholderTextColor={themeColors.textSecondary}
               />
 
-              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>IFSC Code</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>{t('manager.ifsc_code', 'IFSC Code')}</Text>
               <TextInput
                 style={[styles.textInput, { color: themeColors.textPrimary, borderColor: themeColors.border }]}
                 value={bankIfsc}
@@ -762,20 +726,20 @@ export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav 
 
               <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
-              <Text style={[styles.payoutTitle, { color: themeColors.textPrimary }]}>Alert & Notification Toggles</Text>
+              <Text style={[styles.payoutTitle, { color: themeColors.textPrimary }]}>{t('manager.alert_toggles', 'Alert & Notification Toggles')}</Text>
 
               <View style={styles.rowBetween}>
-                <Text style={[styles.rowLabel, { color: themeColors.textPrimary }]}>Outage & Connector Offline Alerts</Text>
+                <Text style={[styles.rowLabel, { color: themeColors.textPrimary }]}>{t('manager.outage_alerts', 'Outage & Connector Offline Alerts')}</Text>
                 <Switch value={outageAlerts} onValueChange={setOutageAlerts} trackColor={{ true: '#10B981' }} />
               </View>
 
               <View style={styles.rowBetween}>
-                <Text style={[styles.rowLabel, { color: themeColors.textPrimary }]}>Email Settlement Summaries</Text>
+                <Text style={[styles.rowLabel, { color: themeColors.textPrimary }]}>{t('manager.email_alerts', 'Email Settlement Summaries')}</Text>
                 <Switch value={emailAlerts} onValueChange={setEmailAlerts} trackColor={{ true: '#10B981' }} />
               </View>
 
               <Button
-                title={savingPayout ? 'Saving Settings...' : '💾 Save Bank & Alert Settings'}
+                title={savingPayout ? 'Saving Settings...' : t('manager.save_payout_settings', '💾 Save Bank & Alert Settings')}
                 variant="primary"
                 loading={savingPayout}
                 onPress={handleSavePayout}
@@ -783,7 +747,77 @@ export default function ManagerHubScreen({ initialTab = 'analytics', hideTopNav 
                 fullWidth
               />
             </Card>
-          )}
+
+            {/* App Preferences & Sign Out Card */}
+            <Card style={[styles.sectionCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border, marginTop: 16 }]}>
+              <Text style={[styles.sectionCardTitle, { color: themeColors.textPrimary, marginBottom: 12 }]}>{t('manager.app_preferences', '🌐 App Preferences & Governance')}</Text>
+
+              {/* Language Switcher Row */}
+              <TouchableOpacity
+                style={[styles.rowBetween, { paddingVertical: 8 }]}
+                onPress={() => setLanguage(language === 'hi' ? 'en' : 'hi')}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name="language-outline" size={20} color={themeColors.textPrimary} />
+                  <Text style={[styles.rowLabel, { color: themeColors.textPrimary }]}>{t('manager.app_language', 'App Language / भाषा')}</Text>
+                </View>
+                <View style={{ backgroundColor: '#10B9811A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#10B981' }}>
+                    {language === 'hi' ? 'हिन्दी (Hindi)' : 'English'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+              {/* Theme Switcher Row */}
+              <TouchableOpacity
+                style={[styles.rowBetween, { paddingVertical: 8 }]}
+                onPress={toggleTheme}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={isDark ? '#F59E0B' : '#6366F1'} />
+                  <Text style={[styles.rowLabel, { color: themeColors.textPrimary }]}>{t('manager.appearance_theme', 'Appearance Theme')}</Text>
+                </View>
+                <View style={{ backgroundColor: isDark ? '#334155' : '#E2E8F0', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: themeColors.textPrimary }}>
+                    {isDark ? '🌙 Dark Mode' : '☀️ Light Mode'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+              {/* Sign Out Button */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FCA5A5',
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: 8,
+                  marginTop: 10,
+                }}
+                onPress={() => {
+                  Alert.alert(t('manager.sign_out', 'Sign Out'), t('manager.sign_out_confirm', 'Are you sure you want to log out of Station Manager?'), [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: t('manager.sign_out', 'Sign Out'), style: 'destructive', onPress: () => signOut() },
+                  ]);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+                <Text style={{ color: '#DC2626', fontWeight: '800', fontSize: 14 }}>Sign Out of Manager Account</Text>
+              </TouchableOpacity>
+            </Card>
+          </View>
+        )}
         </ScrollView>
       )}
 
@@ -1051,6 +1085,16 @@ const styles = StyleSheet.create({
     color: '#10B981',
     fontWeight: '600',
     marginTop: 2,
+  },
+  headerActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+    minHeight: 34,
+    justifyContent: 'center',
   },
   refreshBtn: {
     width: 38,

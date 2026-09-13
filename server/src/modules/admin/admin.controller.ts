@@ -21,7 +21,7 @@ export class AdminController {
 
   public static async getStationRegistry(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const stations = await AdminService.getStationRegistry();
+      const stations = await AdminService.getStationsList();
       res.status(200).json(stations);
     } catch (err) {
       next(err);
@@ -54,7 +54,7 @@ export class AdminController {
       const adminId = AdminController.getAdminUserId(req);
       const userId = String(req.params.id);
       const { role, status, reason } = req.body;
-      const updated = await AdminService.updateUserRoleAndStatus(
+      const updated = await AdminService.updateUserGovernance(
         adminId,
         userId,
         role as Role,
