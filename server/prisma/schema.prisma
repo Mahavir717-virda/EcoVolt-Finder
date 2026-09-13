@@ -353,7 +353,6 @@ model NotificationLog {
   @@map("notification_logs")
 }
 
-<<<<<<< HEAD
 model AuditLog {
   id        String   @id @default(uuid())
   action    String   // e.g. "ROLE_CHANGE", "SUSPEND_USER", "DEACTIVATE_STATION"
@@ -368,7 +367,7 @@ model AuditLog {
   @@index([targetId])
   @@map("audit_logs")
 }
-=======
+
 model Payment {
   id                String    @id @default(uuid())
   userId            String
@@ -409,5 +408,3 @@ model WebhookEvent {
   @@index([eventId])
   @@map("webhook_events")
 }
-
->>>>>>> 1ab46708769d1e16c5f49067fc1889cb51cf3642

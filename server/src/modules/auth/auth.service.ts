@@ -8,8 +8,10 @@ import {
   ConflictError,
   UnauthorizedError,
   NotFoundError,
+  ValidationError,
 } from '../../middleware/error-handler';
-import { SignupInput, LoginInput, GoogleAuthInput } from './auth.schema';
+import { SignupInput, LoginInput, GoogleAuthInput, ForgotPasswordInput, VerifyOtpInput, ResetPasswordInput } from './auth.schema';
+import { sendOtpEmail } from '../../services/email.service';
 
 export interface TokenPayload {
   sub: string; // userId
@@ -17,6 +19,9 @@ export interface TokenPayload {
   role: Role;
 }
 
+// In-memory OTP and reset token store (production setup can use Redis or DB table)
+const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+const resetTokenStore = new Map<string, { email: string; expiresAt: number }>();
 
 export class AuthService {
   private static SALT_ROUNDS = 12;
@@ -318,6 +323,113 @@ export class AuthService {
         email: user.email,
         role: user.role,
       },
+    };
+  }
+
+  /**
+   * Send 6-digit OTP to user's email for password reset
+   */
+  public static async forgotPassword(data: ForgotPasswordInput) {
+    const email = data.email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new NotFoundError('No user account found with this email address.');
+    }
+
+    // Generate random 6-digit OTP code
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes valid
+
+    otpStore.set(email, { otp, expiresAt });
+
+    // Send email asynchronously
+    const emailSent = await sendOtpEmail(email, otp, user.name || 'EcoVolt User');
+
+    return {
+      success: true,
+      message: emailSent
+        ? 'OTP reset code has been sent to your email address.'
+        : 'OTP generated and logged to dev server console.',
+    };
+  }
+
+  /**
+   * Verify the 6-digit OTP code and issue a short-lived reset token
+   */
+  public static async verifyOtp(data: VerifyOtpInput) {
+    const email = data.email.toLowerCase().trim();
+    const stored = otpStore.get(email);
+
+    if (!stored) {
+      throw new ValidationError('No OTP request found. Please request a new OTP code.');
+    }
+
+    if (Date.now() > stored.expiresAt) {
+      otpStore.delete(email);
+      throw new ValidationError('OTP code has expired. Please request a new OTP code.');
+    }
+
+    if (stored.otp !== data.otp.trim()) {
+      throw new ValidationError('Invalid OTP code. Please check your email and try again.');
+    }
+
+    // OTP verified, remove from store
+    otpStore.delete(email);
+
+    // Issue reset token valid for 15 minutes
+    const resetToken = jwt.sign({ email, scope: 'password_reset' }, env.JWT_SECRET, {
+      expiresIn: '15m',
+    });
+
+    resetTokenStore.set(resetToken, { email, expiresAt: Date.now() + 15 * 60 * 1000 });
+
+    return {
+      success: true,
+      resetToken,
+      message: 'OTP verified successfully.',
+    };
+  }
+
+  /**
+   * Reset user password using verified reset token
+   */
+  public static async resetPassword(data: ResetPasswordInput) {
+    const { resetToken, newPassword } = data;
+    const stored = resetTokenStore.get(resetToken);
+
+    let email: string | null = stored ? stored.email : null;
+
+    if (!email) {
+      try {
+        const decoded = jwt.verify(resetToken, env.JWT_SECRET) as any;
+        if (decoded && decoded.scope === 'password_reset' && decoded.email) {
+          email = decoded.email;
+        }
+      } catch {
+        throw new UnauthorizedError('Invalid or expired password reset session. Please request a new OTP.');
+      }
+    }
+
+    if (!email) {
+      throw new UnauthorizedError('Invalid or expired password reset session. Please request a new OTP.');
+    }
+
+    // Hash new password and update user record
+    const passwordHash = await this.hashPassword(newPassword);
+    await prisma.user.update({
+      where: { email },
+      data: { passwordHash },
+    });
+
+    // Cleanup reset token store
+    resetTokenStore.delete(resetToken);
+
+    return {
+      success: true,
+      message: 'Your password has been reset successfully. Please log in with your new password.',
     };
   }
 }

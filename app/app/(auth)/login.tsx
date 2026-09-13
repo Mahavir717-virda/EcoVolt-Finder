@@ -127,9 +127,11 @@ export default function LoginScreen() {
                 leftIcon="lock-closed-outline"
               />
 
-              <TouchableOpacity style={styles.forgotPassword}>
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-              </TouchableOpacity>
+              <Link href={"/(auth)/forgot-password" as any} asChild>
+                <TouchableOpacity style={styles.forgotPassword}>
+                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+              </Link>
 
               <Button
                 title="Sign In"

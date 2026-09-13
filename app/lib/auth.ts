@@ -242,3 +242,71 @@ export async function updateProfile(
   }
 }
 
+/**
+ * Step 1: Request a 6-digit OTP code to reset password.
+ */
+export async function requestPasswordResetOtp(
+  email: string
+): Promise<AuthResult<{ message: string }>> {
+  try {
+    const res = await apiRequest<{ success: boolean; message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+
+    return { data: { message: res.message }, error: null };
+  } catch (err: any) {
+    return {
+      data: null,
+      error: { message: err.message || 'Failed to send OTP code. Please check your email address.' },
+    };
+  }
+}
+
+/**
+ * Step 2: Verify the 6-digit OTP code. Returns a short-lived resetToken.
+ */
+export async function verifyPasswordResetOtp(
+  email: string,
+  otp: string
+): Promise<AuthResult<{ resetToken: string }>> {
+  try {
+    const res = await apiRequest<{ success: boolean; resetToken: string; message: string }>(
+      '/auth/verify-otp',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, otp }),
+      }
+    );
+
+    return { data: { resetToken: res.resetToken }, error: null };
+  } catch (err: any) {
+    return {
+      data: null,
+      error: { message: err.message || 'Invalid or expired OTP code. Please try again.' },
+    };
+  }
+}
+
+/**
+ * Step 3: Reset password using verified resetToken and new password.
+ */
+export async function resetPassword(
+  resetToken: string,
+  newPassword: string
+): Promise<AuthResult<{ message: string }>> {
+  try {
+    const res = await apiRequest<{ success: boolean; message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ resetToken, newPassword }),
+    });
+
+    return { data: { message: res.message }, error: null };
+  } catch (err: any) {
+    return {
+      data: null,
+      error: { message: err.message || 'Failed to reset password. Session may have expired.' },
+    };
+  }
+}
+

@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/nodemailer": "^8.0.1",
     "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.2",
@@ -29,6 +30,7 @@
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^10.0.9",
     "razorpay": "^2.9.8",
     "swagger-ui-express": "^5.0.1",
     "yamljs": "^0.3.0",

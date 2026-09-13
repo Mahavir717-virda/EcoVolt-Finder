@@ -35,9 +35,26 @@ export const googleAuthSchema = z
     message: 'Either idToken or email is required for Google Sign-In',
   });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email('Invalid email address'),
+});
+
+export const verifyOtpSchema = z.object({
+  email: z.string().trim().email('Invalid email address'),
+  otp: z.string().length(6, 'OTP must be 6 digits'),
+});
+
+export const resetPasswordSchema = z.object({
+  resetToken: z.string().min(1, 'Reset token is required'),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters long'),
+});
+
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
 export type UpdateMeInput = z.infer<typeof updateMeSchema>;
 export type GoogleAuthInput = z.infer<typeof googleAuthSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
