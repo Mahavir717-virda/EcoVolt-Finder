@@ -5,6 +5,7 @@
 
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { PaymentReceipt } from '@/services/payments.service';
 import { formatCurrency } from '@/utils/pricing';

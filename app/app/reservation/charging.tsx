@@ -9,8 +9,6 @@ import { greennessColor } from '@/lib/gridData';
 import { updateChargerStatus } from '@/services/chargers.service';
 import { completeReservation, getReservationById, ReservationWithDetails } from '@/services/reservations.service';
 import { useRazorpayCheckout } from '@/hooks/useRazorpayCheckout';
-import { updateChargerStatus } from '@/services/chargers.service';
-import { completeReservation, getReservationById } from '@/services/reservations.service';
 import { downloadOrShareReceiptPdf } from '@/utils/receiptGenerator';
 import { formatCurrency } from '@/utils/pricing';
 import { Ionicons } from '@expo/vector-icons';

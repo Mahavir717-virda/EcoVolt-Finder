@@ -33,7 +33,6 @@
       ]
     },
     "plugins": [
-      "expo-dev-client",
       "expo-asset",
       "expo-router"
     ],

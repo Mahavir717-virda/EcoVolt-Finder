@@ -14,6 +14,7 @@
 
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
+// @ts-ignore
 import RazorpayCheckout from 'react-native-razorpay';
 import {
   createPaymentOrder,

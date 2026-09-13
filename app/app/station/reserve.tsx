@@ -288,7 +288,6 @@ export default function ReserveScreen() {
     }
 
     try {
-      const startTime = parseTimeString(selectedDate, selectedTime);
       const [timePart, ampm] = selectedTime.split(' ');
       let [hours, minutes] = timePart.split(':').map(Number);
       if (ampm === 'PM' && hours < 12) hours += 12;
@@ -307,13 +306,13 @@ export default function ReserveScreen() {
 
       if (reservation && reservation.id) {
         triggerDeviceNotification({
-          title: '⚡ Booking Confirmed!',
-          body: `Your charging slot is locked for ${formatDate(selectedDate)} at ${selectedTime}. Tap to view your pass!`,
+          title: t('reserve.success_title', '⚡ Booking Confirmed!'),
+          body: `Your charging slot is locked for ${formatDate(selectedDate)} at ${selectedTime}.`,
           data: { bookingId: reservation.id, stationId },
         }).catch(() => {});
 
         Alert.alert(
-          '⚡ Reservation Confirmed!',
+          t('reserve.success_title', '⚡ Reservation Confirmed!'),
           `Your slot is locked for ${formatDate(selectedDate)} at ${selectedTime}.`,
           [
             {
@@ -323,33 +322,17 @@ export default function ReserveScreen() {
             {
               text: 'OK',
               onPress: () => router.replace('/(tabs)'),
-      if (reservation) {
-        Alert.alert(
-          t('reserve.success_title', 'Reservation Confirmed!'),
-          t('reserve.success_message', 'Your charging slot has been reserved successfully.'),
-          [
-            {
-              text: t('common.ok', 'OK'),
-              onPress: () => {
-                router.replace({
-                  pathname: '/(tabs)/reservations',
-                  params: { tab: 'active', refresh: Date.now().toString() },
-                });
-              },
             },
           ]
         );
       }
     } catch (error: any) {
       console.error('Reservation error:', error);
-      // Immediately refresh live availability to reflect new bookings / conflicts
       refreshAvailability();
       Alert.alert(
         'Reservation Failed',
         error?.message || 'The selected time slot is no longer available. Please choose another time.'
       );
-      console.error('[ReserveScreen] Reservation creation error:', error);
-      Alert.alert('Reservation Failed', error?.message || 'Could not reserve slot. Please try again.');
     }
   };
 
