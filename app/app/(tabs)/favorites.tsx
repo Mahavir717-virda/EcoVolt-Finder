@@ -7,7 +7,7 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { useTheme } from '@/hooks/useTheme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { spacing } from '@/styles/spacing';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,6 +30,13 @@ export default function SavedScreen() {
   // Fetch saved (favorites)
   const { favorites, loading, refresh, remove } = useFavorites();
   const [removingId, setRemovingId] = useState<string | null>(null);
+
+  // Automatically refresh when tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);

@@ -62,6 +62,9 @@ export async function apiRequest<T = any>(
   const token = await getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
     ...(options.headers as Record<string, string>),
   };
 
@@ -80,6 +83,7 @@ export async function apiRequest<T = any>(
       ...options,
       headers,
       signal: controller.signal,
+      cache: 'no-store', // Prevent fetch caching on mobile
     });
     clearTimeout(timeoutId);
 

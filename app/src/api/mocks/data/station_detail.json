@@ -1,23 +1,22 @@
 {
-  "id": "station-001",
-  "name": "Torrent Charging Hub – CG Road",
-  "location": { "lat": 23.0370, "lng": 72.5622 },
-  "address": "Nr. Pantaloons, CG Road, Ahmedabad, Gujarat 380006",
-  "operatorName": "Green Drive Pvt Ltd",
-  "operatorPhone": "+91-79-4000-1234",
-  "provider": "torrent_power",
-  "zoneId": "IN-WE",
+  "id": "station-gn-1",
+  "name": "Statiq Hub — Sector 11 GSRTC Bus Stand",
+  "location": { "lat": 23.2230, "lng": 72.6500 },
+  "address": "Near GSRTC Bus Stand, Sector 11, Gandhinagar, Gujarat 382011",
+  "operatorName": "Statiq EV Charging Network",
+  "provider": "guvnl_gb",
+  "contactNumber": "+91 1800 123 4567",
   "image_url": "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&auto=format&fit=crop&q=80",
   "connectors": [
-    { "type": "ccs2", "powerKw": 60, "available": 2, "total": 3 },
-    { "type": "type2_ac", "powerKw": 22, "available": 1, "total": 2 }
+    { "id": "conn1", "type": "ccs2", "powerKw": 60, "available": 3, "total": 4, "status": "available", "price": 11.5 },
+    { "id": "conn2", "type": "type2_ac", "powerKw": 22, "available": 2, "total": 2, "status": "available", "price": 10.0 }
   ],
   "greenness": {
     "renewablePct": 85,
     "carbonFreePct": 88,
     "carbonIntensity": 320,
     "band": "very_high",
-    "quality": "mock",
+    "quality": "live",
     "asOfAgeSec": 120
   },
   "pricing": [

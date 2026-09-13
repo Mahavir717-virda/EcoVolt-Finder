@@ -64,7 +64,12 @@ export class VehiclesController {
     }
 
     try {
-      const vehicle = await VehiclesService.createVehicle(req.user.sub, parsed.data);
+      const targetUserId =
+        req.user.role === 'admin' && (parsed.data.userId || parsed.data.user_id)
+          ? (parsed.data.userId || parsed.data.user_id)!
+          : req.user.sub;
+
+      const vehicle = await VehiclesService.createVehicle(targetUserId, parsed.data);
       res.status(201).json(VehiclesService.formatVehicleResponse(vehicle));
     } catch (err) {
       next(err);

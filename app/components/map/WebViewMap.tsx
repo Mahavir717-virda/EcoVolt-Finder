@@ -50,8 +50,8 @@ export function WebViewMap({
   // Leaflet is 100% reliable with zero API key / billing errors
   const [useLeaflet, setUseLeaflet] = useState(true);
 
-  // Default to Ahmedabad Central EV Hub if no user location
-  const center = userLocation || { latitude: 23.0370, longitude: 72.5622 };
+  // Default to Gandhinagar EV Hub if no user location
+  const center = userLocation || { latitude: 23.2156, longitude: 72.6369 };
 
   // Handle messages from iframe on web
   useEffect(() => {

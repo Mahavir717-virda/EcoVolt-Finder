@@ -1,97 +1,97 @@
 [
   {
-    "id": "station-001",
-    "name": "Torrent Charging Hub – CG Road",
-    "location": { "lat": 23.0370, "lng": 72.5622 },
-    "address": "Nr. Pantaloons, CG Road, Ahmedabad, Gujarat 380006",
-    "operatorName": "Green Drive Pvt Ltd",
-    "provider": "torrent_power",
+    "id": "station-gn-1",
+    "name": "Statiq Hub — Sector 11 GSRTC Bus Stand",
+    "location": { "lat": 23.2230, "lng": 72.6500 },
+    "address": "Near GSRTC Bus Stand, Sector 11, Gandhinagar, Gujarat 382011",
+    "operatorName": "Statiq EV Charging Network",
+    "provider": "guvnl_gb",
     "image_url": "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&auto=format&fit=crop&q=80",
     "connectors": [
-      { "type": "ccs2", "powerKw": 60, "available": 2, "total": 3 },
-      { "type": "type2_ac", "powerKw": 22, "available": 1, "total": 2 }
+      { "type": "ccs2", "powerKw": 60, "available": 3, "total": 4 },
+      { "type": "type2_ac", "powerKw": 22, "available": 2, "total": 2 }
     ],
     "greenness": {
-      "renewablePct": 85,
+      "renewablePct": 82,
       "band": "very_high",
-      "quality": "mock"
+      "quality": "live"
     },
-    "priceFrom": 6.2
+    "priceFrom": 11.5
   },
   {
-    "id": "station-002",
-    "name": "GUVNL Fast Charger – Navrangpura",
-    "location": { "lat": 23.0469, "lng": 72.5631 },
-    "address": "Opp. University Ground, Navrangpura, Ahmedabad 380009",
-    "operatorName": "EV Point Gujarat",
-    "provider": "guvnl_gb",
+    "id": "station-gn-2",
+    "name": "Tata EZ Charge — Sector 16 Capital Complex",
+    "location": { "lat": 23.2156, "lng": 72.6369 },
+    "address": "Capital Complex, Sector 16, Gandhinagar, Gujarat 382016",
+    "operatorName": "Tata Power EZ Charge",
+    "provider": "torrent_power",
     "image_url": "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=1200&auto=format&fit=crop&q=80",
     "connectors": [
-      { "type": "bharat_dc_001", "powerKw": 15, "available": 0, "total": 2 },
+      { "type": "ccs2", "powerKw": 50, "available": 2, "total": 2 },
+      { "type": "bharat_dc_001", "powerKw": 15, "available": 2, "total": 2 }
+    ],
+    "greenness": {
+      "renewablePct": 75,
+      "band": "high",
+      "quality": "live"
+    },
+    "priceFrom": 12.8
+  },
+  {
+    "id": "station-gn-3",
+    "name": "Jio-bp Pulse — GIFT City IFSC",
+    "location": { "lat": 23.1559, "lng": 72.6762 },
+    "address": "GIFT One Tower, GIFT City, Gandhinagar, Gujarat 382355",
+    "operatorName": "Jio-bp Pulse EV Charging",
+    "provider": "torrent_power",
+    "image_url": "https://images.unsplash.com/photo-1558441719-2345b85ab814?w=1200&auto=format&fit=crop&q=80",
+    "connectors": [
+      { "type": "ccs2", "powerKw": 120, "available": 4, "total": 6 },
+      { "type": "type2_ac", "powerKw": 22, "available": 4, "total": 4 }
+    ],
+    "greenness": {
+      "renewablePct": 77,
+      "band": "high",
+      "quality": "live"
+    },
+    "priceFrom": 13.5
+  },
+  {
+    "id": "station-gn-4",
+    "name": "Statiq Fast Charger — Akshardham NH-8C",
+    "location": { "lat": 23.2161, "lng": 72.6844 },
+    "address": "NH-8C, Near Akshardham Temple, Gandhinagar, Gujarat 382021",
+    "operatorName": "Statiq EV Charging Network",
+    "provider": "guvnl_gb",
+    "image_url": "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1200&auto=format&fit=crop&q=80",
+    "connectors": [
+      { "type": "ccs2", "powerKw": 50, "available": 4, "total": 4 },
+      { "type": "chademo", "powerKw": 50, "available": 1, "total": 2 }
+    ],
+    "greenness": {
+      "renewablePct": 88,
+      "band": "very_high",
+      "quality": "live"
+    },
+    "priceFrom": 11.8
+  },
+  {
+    "id": "station-gn-5",
+    "name": "Tata Power EZ Charge — Adalaj Circle",
+    "location": { "lat": 23.1646, "lng": 72.5779 },
+    "address": "Adalaj Trimandir Road, Adalaj, Gandhinagar, Gujarat 382421",
+    "operatorName": "Tata Power EZ Charge",
+    "provider": "adani_energy",
+    "image_url": "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=1200&auto=format&fit=crop&q=80",
+    "connectors": [
+      { "type": "ccs2", "powerKw": 60, "available": 1, "total": 2 },
       { "type": "type2_ac", "powerKw": 7.4, "available": 3, "total": 4 }
     ],
     "greenness": {
-      "renewablePct": 72,
-      "band": "high",
-      "quality": "mock"
-    },
-    "priceFrom": 5.8
-  },
-  {
-    "id": "station-003",
-    "name": "Adani EV Point – Satellite",
-    "location": { "lat": 23.0225, "lng": 72.5059 },
-    "address": "Ramdevnagar Cross Road, Satellite, Ahmedabad 380015",
-    "operatorName": "Adani Total Energies",
-    "provider": "adani_energy",
-    "image_url": "https://images.unsplash.com/photo-1558441719-2345b85ab814?w=1200&auto=format&fit=crop&q=80",
-    "connectors": [
-      { "type": "ccs2", "powerKw": 50, "available": 1, "total": 2 },
-      { "type": "chademo", "powerKw": 50, "available": 1, "total": 1 }
-    ],
-    "greenness": {
-      "renewablePct": 42,
+      "renewablePct": 65,
       "band": "moderate",
-      "quality": "mock"
+      "quality": "live"
     },
-    "priceFrom": 5.4
-  },
-  {
-    "id": "station-004",
-    "name": "Tata Power EZ Charge – SG Highway",
-    "location": { "lat": 23.0712, "lng": 72.5184 },
-    "address": "SG Highway, Bodakdev, Ahmedabad, Gujarat 380054",
-    "operatorName": "Tata Power Mobility",
-    "provider": "tata_power",
-    "image_url": "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1200&auto=format&fit=crop&q=80",
-    "connectors": [
-      { "type": "ccs2", "powerKw": 60, "available": 3, "total": 4 },
-      { "type": "type2_ac", "powerKw": 22, "available": 2, "total": 2 },
-      { "type": "three_pin", "powerKw": 3.3, "available": 1, "total": 2 }
-    ],
-    "greenness": {
-      "renewablePct": 68,
-      "band": "high",
-      "quality": "mock"
-    },
-    "priceFrom": 6.8
-  },
-  {
-    "id": "station-005",
-    "name": "Charanka Solar Park Fast Hub – Mehsana Outskirts",
-    "location": { "lat": 23.5880, "lng": 72.3693 },
-    "address": "Charanka Solar Park Highway Exit, Mehsana District, Gujarat 384002",
-    "operatorName": "Gujarat Solar Grid Corp",
-    "provider": "guvnl_gb",
-    "image_url": "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=1200&auto=format&fit=crop&q=80",
-    "connectors": [
-      { "type": "ccs2", "powerKw": 120, "available": 4, "total": 4 }
-    ],
-    "greenness": {
-      "renewablePct": 94,
-      "band": "very_high",
-      "quality": "mock"
-    },
-    "priceFrom": 4.9
+    "priceFrom": 12.5
   }
 ]

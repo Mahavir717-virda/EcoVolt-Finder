@@ -308,7 +308,7 @@ export default function HomeScreen() {
           >
             <Ionicons name="navigate-circle-outline" size={16} color={themeColors.primary} />
             <Text style={[styles.fallbackNoticeText, { color: themeColors.textPrimary }]}>
-              Showing Ahmedabad EV Hub • Tap to locate me
+              Showing Gandhinagar EV Hub • Tap to locate me
             </Text>
           </TouchableOpacity>
         )}
@@ -384,7 +384,7 @@ export default function HomeScreen() {
                   station={station}
                   distance={(station as any).distance ?? undefined}
                   isSaved={isFavorited(station.id)}
-                  onSave={() => toggleFavorite(station.id)}
+                  onSave={() => toggleFavorite(station.id, station)}
                   onPress={() => handleStationPress(station.id)}
                 />
               ))

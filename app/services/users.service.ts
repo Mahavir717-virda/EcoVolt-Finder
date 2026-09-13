@@ -4,8 +4,9 @@
  * All operations hit real DB endpoints — no in-memory state.
  */
 
-import { Profile, PlanType } from '@/types/database.types';
+import { Profile, PlanType, Station } from '@/types/database.types';
 import { apiRequest, setStoredUser } from './api';
+import { adaptEcoVoltStation } from './adapters';
 
 export interface UpdateProfileParams {
   fullName?: string;
@@ -79,13 +80,38 @@ export async function updateUserProfile(
 
 
 // ─── Favorites ────────────────────────────────────────────────────────────────
+ 
+export interface FavoriteItem {
+  id: string;
+  stationId: string;
+  created_at: string;
+  station: Station;
+}
 
 /**
  * Get all favorite stations for the current user from DB.
  */
-export async function getFavoriteStations(_userId: string): Promise<any[]> {
-  const raw = await apiRequest<any[]>('/me/favorites', { method: 'GET' });
-  return raw || [];
+export async function getFavoriteStations(_userId?: string): Promise<FavoriteItem[]> {
+  try {
+    const raw = await apiRequest<any[]>('/me/favorites', { method: 'GET' });
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((fav: any) => {
+        if (!fav) return null;
+        const stationObj = fav.station ? adaptEcoVoltStation(fav.station) : null;
+        if (!stationObj) return null;
+        return {
+          id: String(fav.id || `fav_${fav.stationId || stationObj.id}`),
+          stationId: String(fav.stationId || stationObj.id),
+          created_at: fav.createdAt || fav.created_at || new Date().toISOString(),
+          station: stationObj,
+        };
+      })
+      .filter((fav): fav is FavoriteItem => fav !== null);
+  } catch (err) {
+    console.error('getFavoriteStations error:', err);
+    return [];
+  }
 }
 
 /**

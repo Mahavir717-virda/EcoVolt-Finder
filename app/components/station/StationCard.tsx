@@ -92,10 +92,20 @@ export function StationCard({
     }
   };
 
+  const totalChargers =
+    station.total_chargers ||
+    (station as any).totalChargers ||
+    ((station as any).chargers?.length) ||
+    ((station as any).connectors?.reduce((acc: number, c: any) => acc + (c.total || c.totalCount || 1), 0)) ||
+    4;
+  const availableChargers =
+    station.available_chargers !== undefined
+      ? station.available_chargers
+      : (((station as any).availableChargers) ??
+         ((station as any).connectors?.reduce((acc: number, c: any) => acc + (c.available ?? c.availableCount ?? 1), 0)) ??
+         2);
   const availabilityPercentage =
-    station.total_chargers > 0
-      ? (station.available_chargers / station.total_chargers) * 100
-      : 0;
+    totalChargers > 0 ? (availableChargers / totalChargers) * 100 : 0;
 
   const getAvailabilityColor = () => {
     if (availabilityPercentage >= 50) return colors.status.success;
@@ -103,7 +113,7 @@ export function StationCard({
     return colors.status.error;
   };
 
-  const isAvailable = station.available_chargers > 0;
+  const isAvailable = availableChargers > 0;
 
   // ── Compact variant ──
   if (variant === 'compact') {
@@ -122,12 +132,12 @@ export function StationCard({
             </View>
             <View style={styles.compactStats}>
               <Text style={[styles.availableText, { color: themeColors.textPrimary }]}>
-                {station.available_chargers}/{station.total_chargers}
+                {availableChargers}/{totalChargers}
               </Text>
               {station.price_from !== undefined && (
                 <Text style={[styles.compactPriceText, { color: themeColors.primary }]}>₹{station.price_from}/kWh</Text>
               )}
-              {distance !== undefined && (
+              {distance !== undefined && !Number.isNaN(distance) && (
                 <Text style={[styles.distanceText, { color: themeColors.textSecondary }]}>
                   {distance < 1 ? `${(distance * 1000).toFixed(0)}m` : `${distance.toFixed(1)}km`}
                 </Text>
@@ -148,7 +158,7 @@ export function StationCard({
       ? { uri: station.image_url }
       : getStationImageSource(station.id || station.name);
 
-  const distanceKm = distance !== undefined ? distance : null;
+  const distanceKm = distance !== undefined && !Number.isNaN(distance) ? distance : null;
   const driveMinutes =
     distanceKm !== null ? Math.round(distanceKm * 3.5 + 2) : null;
 
@@ -184,8 +194,7 @@ export function StationCard({
               </Text>
               <TouchableOpacity
                 style={styles.bookmarkButton}
-                onPress={(e) => {
-                  e.stopPropagation();
+                onPress={() => {
                   onSave?.();
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -291,7 +300,7 @@ export function StationCard({
           </View>
           <TouchableOpacity onPress={handlePress} style={styles.chargerCountBtn}>
             <Text style={[styles.chargerCountText, { color: themeColors.textSecondary }]}>
-              {station.total_chargers} {t('card.chargers', 'chargers')} {'>'}
+              {totalChargers} {t('card.chargers', 'chargers')} {'>'}
             </Text>
           </TouchableOpacity>
         </View>

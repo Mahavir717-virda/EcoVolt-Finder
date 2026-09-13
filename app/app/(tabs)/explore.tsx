@@ -102,7 +102,7 @@ export default function ExploreScreen() {
         station={station}
         distance={station.distance}
         isSaved={isFavorited(station.id)}
-        onSave={() => toggleFavorite(station.id)}
+        onSave={() => toggleFavorite(station.id, station)}
         onPress={() => handleStationPress(station.id)}
       />
     );

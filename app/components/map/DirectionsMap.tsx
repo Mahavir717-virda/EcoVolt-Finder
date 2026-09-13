@@ -7,6 +7,7 @@
 import { colors } from '@/constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -81,41 +82,16 @@ export function DirectionsMap({ destination, onClose, style }: DirectionsMapProp
     }
   }, []);
 
-  // Acquire user location with quick last-known check and fallback
+  const { coords: globalCoords, isLoading: locationLoading } = useUserLocation();
+
   useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          try {
-            const lastKnown = await Location.getLastKnownPositionAsync();
-            if (lastKnown?.coords) {
-              setUserLocation({
-                latitude: lastKnown.coords.latitude,
-                longitude: lastKnown.coords.longitude,
-              });
-            }
-          } catch {}
-
-          const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4500));
-          const posPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          const result = await Promise.race([posPromise, timeoutPromise]);
-
-          if (result && result.coords) {
-            setUserLocation({
-              latitude: result.coords.latitude,
-              longitude: result.coords.longitude,
-            });
-            return;
-          }
-        }
-        // Fallback default hub
-        setUserLocation((prev) => prev || { latitude: 23.0370, longitude: 72.5622 });
-      } catch (err) {
-        setUserLocation((prev) => prev || { latitude: 23.0370, longitude: 72.5622 });
-      }
-    })();
-  }, []);
+    if (!locationLoading && globalCoords) {
+      setUserLocation({
+        latitude: globalCoords.latitude,
+        longitude: globalCoords.longitude,
+      });
+    }
+  }, [globalCoords, locationLoading]);
 
   // Launch external native navigation app (Google Maps / Apple Maps)
   const openExternalNavigation = useCallback(() => {

@@ -266,15 +266,30 @@ async function main() {
 
   // 7. Seed Charging Stations in Ahmedabad / Western Zone
   console.log('⚡ Seeding Stations & Connectors...');
-  const station1 = await prisma.station.create({
+  // ──────────────────────────────────────────────────────────────────────────
+  // 7b. Seed 8 Real-World EV Charging Stations in Gandhinagar, Gujarat
+  // ──────────────────────────────────────────────────────────────────────────
+  console.log('⚡ Seeding Gandhinagar (Gujarat) Stations & Connectors...');
+
+  // Operator: Jio-bp Pulse (already active in Gujarat)
+  const operatorJioBp = await prisma.operator.create({
     data: {
-      name: 'Statiq Hub — SG Highway Sindhu Bhavan',
+      userId: managerUser.id,
+      name: 'Jio-bp Pulse EV Charging',
+      contactEmail: 'pulse@jiobp.com',
+    },
+  });
+
+  // GN-1 | Statiq — Gandhinagar Sector 11 GSRTC Bus Stand
+  const gnStation1 = await prisma.station.create({
+    data: {
+      name: 'Statiq Hub — Sector 11 GSRTC Bus Stand',
       operatorId: operatorStatiq.id,
       zoneId: zoneWest.id,
-      provider: PowerProvider.torrent_power,
-      lat: 23.0441,
-      lng: 72.5085,
-      address: 'Sindhu Bhavan Road, Bodakdev, Ahmedabad, Gujarat 380054',
+      provider: PowerProvider.guvnl_gb,
+      lat: 23.2230,
+      lng: 72.6500,
+      address: 'Near GSRTC Bus Stand, Sector 11, Gandhinagar, Gujarat 382011',
       isActive: true,
       connectors: {
         create: [
@@ -296,32 +311,35 @@ async function main() {
       },
       pricingRules: {
         create: {
-          providerMarkup: 3.5,
+          providerMarkup: 2.0,
           enableDynamicDiscount: true,
-          discountMaxKwh: 3.0,
+          discountMaxKwh: 2.5,
+          lowOccupancyDiscountInr: 2.0,
+          occupancyThresholdPct: 50.0,
         },
       },
     },
     include: { connectors: true },
   });
 
-  const station2 = await prisma.station.create({
+  // GN-2 | Tata EZ Charge — Gandhinagar Sector 16 Capital Complex
+  const gnStation2 = await prisma.station.create({
     data: {
-      name: 'Tata EZ Charge — Prahlad Nagar',
+      name: 'Tata EZ Charge — Sector 16 Capital Complex',
       operatorId: operatorTata.id,
       zoneId: zoneWest.id,
-      provider: PowerProvider.adani_energy,
-      lat: 23.0125,
-      lng: 72.5112,
-      address: 'Prahlad Nagar Corporate Road, Ahmedabad, Gujarat 380015',
+      provider: PowerProvider.torrent_power,
+      lat: 23.2156,
+      lng: 72.6369,
+      address: 'Capital Complex, Sector 16, Gandhinagar, Gujarat 382016',
       isActive: true,
       connectors: {
         create: [
           {
             type: ConnectorType.ccs2,
-            powerKw: 120.0,
+            powerKw: 50.0,
             totalCount: 2,
-            availableCount: 1,
+            availableCount: 2,
             status: 'available',
           },
           {
@@ -335,32 +353,119 @@ async function main() {
       },
       pricingRules: {
         create: {
-          providerMarkup: 2.8,
+          providerMarkup: 3.5,
           enableDynamicDiscount: true,
-          discountMaxKwh: 2.5,
+          discountMaxKwh: 3.0,
+          lowOccupancyDiscountInr: 3.0,
+          occupancyThresholdPct: 50.0,
         },
       },
     },
     include: { connectors: true },
   });
 
-  const station3 = await prisma.station.create({
+  // GN-3 | Jio-bp Pulse — GIFT City Gandhinagar
+  const gnStation3 = await prisma.station.create({
     data: {
-      name: 'Statiq Fast Charger — Infocity Gandhinagar',
+      name: 'Jio-bp Pulse — GIFT City IFSC',
+      operatorId: operatorJioBp.id,
+      zoneId: zoneWest.id,
+      provider: PowerProvider.torrent_power,
+      lat: 23.1559,
+      lng: 72.6762,
+      address: 'GIFT One Tower, GIFT City, Gandhinagar, Gujarat 382355',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 120.0,
+            totalCount: 6,
+            availableCount: 4,
+            status: 'available',
+          },
+          {
+            type: ConnectorType.type2_ac,
+            powerKw: 22.0,
+            totalCount: 4,
+            availableCount: 4,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 4.0,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 4.0,
+          lowOccupancyDiscountInr: 3.5,
+          occupancyThresholdPct: 50.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  // GN-4 | Statiq — Near Akshardham Mandir NH-8C
+  const gnStation4 = await prisma.station.create({
+    data: {
+      name: 'Statiq Fast Charger — Akshardham NH-8C',
       operatorId: operatorStatiq.id,
       zoneId: zoneWest.id,
       provider: PowerProvider.guvnl_gb,
-      lat: 23.1895,
-      lng: 72.6288,
-      address: 'Infocity Club & Resort Road, Gandhinagar, Gujarat 382007',
+      lat: 23.2161,
+      lng: 72.6844,
+      address: 'NH-8C, Near Akshardham Temple, Gandhinagar, Gujarat 382021',
       isActive: true,
       connectors: {
         create: [
           {
             type: ConnectorType.ccs2,
             powerKw: 50.0,
+            totalCount: 4,
+            availableCount: 4,
+            status: 'available',
+          },
+          {
+            type: ConnectorType.chademo,
+            powerKw: 50.0,
             totalCount: 2,
-            availableCount: 2,
+            availableCount: 1,
+            status: 'available',
+          },
+        ],
+      },
+      pricingRules: {
+        create: {
+          providerMarkup: 2.5,
+          enableDynamicDiscount: true,
+          discountMaxKwh: 2.5,
+          lowOccupancyDiscountInr: 2.5,
+          occupancyThresholdPct: 50.0,
+        },
+      },
+    },
+    include: { connectors: true },
+  });
+
+  // GN-5 | Tata Power EZ Charge — Adalaj Circle, Gandhinagar
+  const gnStation5 = await prisma.station.create({
+    data: {
+      name: 'Tata Power EZ Charge — Adalaj Circle',
+      operatorId: operatorTata.id,
+      zoneId: zoneWest.id,
+      provider: PowerProvider.adani_energy,
+      lat: 23.1646,
+      lng: 72.5779,
+      address: 'Adalaj Trimandir Road, Adalaj, Gandhinagar, Gujarat 382421',
+      isActive: true,
+      connectors: {
+        create: [
+          {
+            type: ConnectorType.ccs2,
+            powerKw: 60.0,
+            totalCount: 2,
+            availableCount: 1,
             status: 'available',
           },
           {
@@ -374,10 +479,10 @@ async function main() {
       },
       pricingRules: {
         create: {
-          providerMarkup: 2.0,
+          providerMarkup: 3.0,
           enableDynamicDiscount: true,
-          discountMaxKwh: 2.0,
-          lowOccupancyDiscountInr: 2.0,
+          discountMaxKwh: 3.0,
+          lowOccupancyDiscountInr: 3.0,
           occupancyThresholdPct: 50.0,
         },
       },
@@ -385,25 +490,24 @@ async function main() {
     include: { connectors: true },
   });
 
-  // 7b. Seed 6 EV Charging Stations in Mumbai (Maharashtra / Western Zone)
-  console.log('⚡ Seeding Mumbai Stations & Connectors...');
-  const mumbaiStation1 = await prisma.station.create({
+  // GN-6 | Jio-bp Pulse — CH-0 Circle Gandhinagar Highway
+  const gnStation6 = await prisma.station.create({
     data: {
-      name: 'Tata Power EV Hub — BKC Bandra',
-      operatorId: operatorTata.id,
+      name: 'Jio-bp Pulse — CH-0 Circle Gandhinagar Highway',
+      operatorId: operatorJioBp.id,
       zoneId: zoneWest.id,
-      provider: PowerProvider.tata_power,
-      lat: 19.0657,
-      lng: 72.8683,
-      address: 'G Block BKC, Bandra East, Mumbai, Maharashtra 400051',
+      provider: PowerProvider.torrent_power,
+      lat: 23.1952,
+      lng: 72.6241,
+      address: 'CH-0 Circle, Gandhinagar-Ahmedabad Highway, Gandhinagar, Gujarat 382007',
       isActive: true,
       connectors: {
         create: [
           {
             type: ConnectorType.ccs2,
-            powerKw: 60.0,
+            powerKw: 120.0,
             totalCount: 4,
-            availableCount: 4, // 100% available (low occupancy deal)
+            availableCount: 3,
             status: 'available',
           },
           {
@@ -428,33 +532,41 @@ async function main() {
     include: { connectors: true },
   });
 
-  const mumbaiStation2 = await prisma.station.create({
+  // GN-7 | Statiq — Kudasan Gota Road Gandhinagar
+  const gnStation7 = await prisma.station.create({
     data: {
-      name: 'Adani Electricity Supercharge — Andheri West',
-      operatorId: operatorTata.id,
+      name: 'Statiq EV Point — Kudasan Gota Road',
+      operatorId: operatorStatiq.id,
       zoneId: zoneWest.id,
-      provider: PowerProvider.adani_energy,
-      lat: 19.1363,
-      lng: 72.8277,
-      address: 'Link Road, Andheri West, Mumbai, Maharashtra 400053',
+      provider: PowerProvider.guvnl_gb,
+      lat: 23.1780,
+      lng: 72.6050,
+      address: 'Kudasan, Gota-Tragad Road, Gandhinagar, Gujarat 382421',
       isActive: true,
       connectors: {
         create: [
           {
             type: ConnectorType.ccs2,
-            powerKw: 120.0,
+            powerKw: 50.0,
+            totalCount: 2,
+            availableCount: 2,
+            status: 'available',
+          },
+          {
+            type: ConnectorType.bharat_ac_001,
+            powerKw: 3.3,
             totalCount: 4,
-            availableCount: 3,
+            availableCount: 4,
             status: 'available',
           },
         ],
       },
       pricingRules: {
         create: {
-          providerMarkup: 4.0,
+          providerMarkup: 1.5,
           enableDynamicDiscount: true,
-          discountMaxKwh: 4.0,
-          lowOccupancyDiscountInr: 3.8,
+          discountMaxKwh: 2.0,
+          lowOccupancyDiscountInr: 2.0,
           occupancyThresholdPct: 50.0,
         },
       },
@@ -462,15 +574,16 @@ async function main() {
     include: { connectors: true },
   });
 
-  const mumbaiStation3 = await prisma.station.create({
+  // GN-8 | Tata EZ Charge — Sargasan IIT Gandhinagar Bypass
+  const gnStation8 = await prisma.station.create({
     data: {
-      name: 'Jio-bp Pulse Hub — Worli Sea Face',
-      operatorId: operatorStatiq.id,
+      name: 'Tata EZ Charge — Sargasan IIT Gandhinagar Bypass',
+      operatorId: operatorTata.id,
       zoneId: zoneWest.id,
-      provider: PowerProvider.tata_power,
-      lat: 19.0178,
-      lng: 72.8172,
-      address: 'Worli Sea Face, Mumbai, Maharashtra 400018',
+      provider: PowerProvider.adani_energy,
+      lat: 23.2050,
+      lng: 72.6613,
+      address: 'Sargasan Village, Near IIT Gandhinagar, Gandhinagar, Gujarat 382470',
       isActive: true,
       connectors: {
         create: [
@@ -481,158 +594,6 @@ async function main() {
             availableCount: 3,
             status: 'available',
           },
-        ],
-      },
-      pricingRules: {
-        create: {
-          providerMarkup: 3.0,
-          enableDynamicDiscount: true,
-          discountMaxKwh: 3.0,
-          lowOccupancyDiscountInr: 3.0,
-          occupancyThresholdPct: 50.0,
-        },
-      },
-    },
-    include: { connectors: true },
-  });
-
-  const mumbaiStation4 = await prisma.station.create({
-    data: {
-      name: 'Fortum Charge & Drive — Lower Parel',
-      operatorId: operatorStatiq.id,
-      zoneId: zoneWest.id,
-      provider: PowerProvider.adani_energy,
-      lat: 18.9953,
-      lng: 72.8242,
-      address: 'High Street Phoenix, Lower Parel, Mumbai, Maharashtra 400013',
-      isActive: true,
-      connectors: {
-        create: [
-          {
-            type: ConnectorType.ccs2,
-            powerKw: 50.0,
-            totalCount: 2,
-            availableCount: 1,
-            status: 'available',
-          },
-          {
-            type: ConnectorType.type2_ac,
-            powerKw: 22.0,
-            totalCount: 4,
-            availableCount: 3,
-            status: 'available',
-          },
-        ],
-      },
-      pricingRules: {
-        create: {
-          providerMarkup: 3.2,
-          enableDynamicDiscount: true,
-          discountMaxKwh: 3.0,
-          lowOccupancyDiscountInr: 3.0,
-          occupancyThresholdPct: 50.0,
-        },
-      },
-    },
-    include: { connectors: true },
-  });
-
-  const mumbaiStation5 = await prisma.station.create({
-    data: {
-      name: 'MSEDCL Green Grid Station — Dadar TT Circle',
-      operatorId: operatorTata.id,
-      zoneId: zoneWest.id,
-      provider: PowerProvider.adani_energy,
-      lat: 19.0178,
-      lng: 72.8478,
-      address: 'Dadar East, Mumbai, Maharashtra 400014',
-      isActive: true,
-      connectors: {
-        create: [
-          {
-            type: ConnectorType.ccs2,
-            powerKw: 50.0,
-            totalCount: 2,
-            availableCount: 2,
-            status: 'available',
-          },
-        ],
-      },
-      pricingRules: {
-        create: {
-          providerMarkup: 2.5,
-          enableDynamicDiscount: true,
-          discountMaxKwh: 2.5,
-          lowOccupancyDiscountInr: 2.5,
-          occupancyThresholdPct: 50.0,
-        },
-      },
-    },
-    include: { connectors: true },
-  });
-
-  const mumbaiStation6 = await prisma.station.create({
-    data: {
-      name: 'Ather & Fast EV Hub — Powai Hiranandani',
-      operatorId: operatorTata.id,
-      zoneId: zoneWest.id,
-      provider: PowerProvider.tata_power,
-      lat: 19.1197,
-      lng: 72.9051,
-      address: 'Central Ave, Hiranandani Gardens, Powai, Mumbai, Maharashtra 400076',
-      isActive: true,
-      connectors: {
-        create: [
-          {
-            type: ConnectorType.ccs2,
-            powerKw: 50.0,
-            totalCount: 4,
-            availableCount: 4,
-            status: 'available',
-          },
-          {
-            type: ConnectorType.type2_ac,
-            powerKw: 7.4,
-            totalCount: 4,
-            availableCount: 4,
-            status: 'available',
-          },
-        ],
-      },
-      pricingRules: {
-        create: {
-          providerMarkup: 3.0,
-          enableDynamicDiscount: true,
-          discountMaxKwh: 3.0,
-          lowOccupancyDiscountInr: 3.0,
-          occupancyThresholdPct: 50.0,
-        },
-      },
-    },
-    include: { connectors: true },
-  });
-
-  // 7c. Seed 3 EV Charging Stations in Delhi (North Zone)
-  console.log('⚡ Seeding Delhi Stations & Connectors...');
-  const delhiStation1 = await prisma.station.create({
-    data: {
-      name: 'BSES Rajdhani Hub — Connaught Place',
-      operatorId: operatorTata.id,
-      zoneId: zoneNorth.id,
-      provider: PowerProvider.bses,
-      lat: 28.6304,
-      lng: 77.2177,
-      address: 'Inner Circle, Connaught Place, New Delhi, Delhi 110001',
-      isActive: true,
-      connectors: {
-        create: [
-          {
-            type: ConnectorType.ccs2,
-            powerKw: 60.0,
-            totalCount: 4,
-            availableCount: 2,
-            status: 'available',
-          },
           {
             type: ConnectorType.type2_ac,
             powerKw: 22.0,
@@ -644,120 +605,23 @@ async function main() {
       },
       pricingRules: {
         create: {
-          providerMarkup: 3.5,
+          providerMarkup: 2.8,
           enableDynamicDiscount: true,
           discountMaxKwh: 3.0,
+          lowOccupancyDiscountInr: 2.8,
+          occupancyThresholdPct: 50.0,
         },
       },
     },
     include: { connectors: true },
   });
 
-  const delhiStation2 = await prisma.station.create({
-    data: {
-      name: 'Statiq Fast Charger — Cyber Hub Gurugram',
-      operatorId: operatorStatiq.id,
-      zoneId: zoneNorth.id,
-      provider: PowerProvider.bses,
-      lat: 28.4950,
-      lng: 77.0895,
-      address: 'DLF Cyber City, DLF Phase 2, Gurugram, Haryana 122002',
-      isActive: true,
-      connectors: {
-        create: [
-          {
-            type: ConnectorType.ccs2,
-            powerKw: 120.0,
-            totalCount: 6,
-            availableCount: 3,
-            status: 'available',
-          },
-        ],
-      },
-      pricingRules: {
-        create: {
-          providerMarkup: 4.0,
-          enableDynamicDiscount: true,
-          discountMaxKwh: 4.0,
-        },
-      },
-    },
-    include: { connectors: true },
-  });
+  // ──────────────────────────────────────────────────────────────────────────
+  // 7b2. Seed 15 Real-World EV Charging Stations in Ahmedabad
+  // ──────────────────────────────────────────────────────────────────────────
+  await require('./seed-ahmedabad.js')(prisma, { operatorStatiq, operatorTata, operatorJioBp, zoneWest, managerUser });
 
-  // 7d. Seed 3 EV Charging Stations in Bengaluru (South Zone)
-  console.log('⚡ Seeding Bengaluru Stations & Connectors...');
-  const bangaloreStation1 = await prisma.station.create({
-    data: {
-      name: 'Ather Space — Indiranagar',
-      operatorId: operatorTata.id,
-      zoneId: zoneSouth.id,
-      provider: PowerProvider.other,
-      lat: 12.9716,
-      lng: 77.6411,
-      address: '100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038',
-      isActive: true,
-      connectors: {
-        create: [
-          {
-            type: ConnectorType.ccs2,
-            powerKw: 50.0,
-            totalCount: 2,
-            availableCount: 2,
-            status: 'available',
-          },
-          {
-            type: ConnectorType.type2_ac,
-            powerKw: 22.0,
-            totalCount: 6,
-            availableCount: 5,
-            status: 'available',
-          },
-        ],
-      },
-      pricingRules: {
-        create: {
-          providerMarkup: 3.0,
-          enableDynamicDiscount: true,
-          discountMaxKwh: 3.0,
-        },
-      },
-    },
-    include: { connectors: true },
-  });
-
-  const bangaloreStation2 = await prisma.station.create({
-    data: {
-      name: 'Statiq Supercharger — Electronic City',
-      operatorId: operatorStatiq.id,
-      zoneId: zoneSouth.id,
-      provider: PowerProvider.other,
-      lat: 12.8399,
-      lng: 77.6770,
-      address: 'Phase 1, Electronic City, Bengaluru, Karnataka 560100',
-      isActive: true,
-      connectors: {
-        create: [
-          {
-            type: ConnectorType.ccs2,
-            powerKw: 150.0,
-            totalCount: 8,
-            availableCount: 4,
-            status: 'available',
-          },
-        ],
-      },
-      pricingRules: {
-        create: {
-          providerMarkup: 2.5,
-          enableDynamicDiscount: true,
-          discountMaxKwh: 2.5,
-        },
-      },
-    },
-    include: { connectors: true },
-  });
-
+  // ──────────────────────────────────────────────────────────────────────────
   // 8. Seed Bookings & Sessions with Rich Historical Data
   console.log('📅 Seeding Bookings & Sessions for Live Leaderboard & Gamification...');
 
@@ -825,10 +689,86 @@ async function main() {
     });
   };
 
+  // ── Gandhinagar station sessions (seeded after helper definition) ─────────
+  console.log('📅 Seeding Gandhinagar Sessions...');
+  // Aarav Patel sessions at Gandhinagar stations
+  await seedCompletedSession({
+    user: driverUser,
+    station: gnStation1,
+    vehicle: nexonEv,
+    daysAgo: 6,
+    hoursAgo: 144,
+    hourOfDay: 13,
+    durationMinutes: 40,
+    energyKwh: 24.0,
+    finalPricePerKwh: 11.5,
+    renewablePct: 82.0,
+    co2Kg: 17.0,
+  });
+
+  await seedCompletedSession({
+    user: driverUser,
+    station: gnStation3,
+    vehicle: nexonEv,
+    daysAgo: 3,
+    hoursAgo: 72,
+    hourOfDay: 12,
+    durationMinutes: 35,
+    energyKwh: 20.0,
+    finalPricePerKwh: 13.5,
+    renewablePct: 77.0,
+    co2Kg: 14.0,
+  });
+
+  // Priya Nair sessions at Gandhinagar stations
+  await seedCompletedSession({
+    user: demoDriver2,
+    station: gnStation4,
+    vehicle: mgZsEv,
+    daysAgo: 5,
+    hoursAgo: 120,
+    hourOfDay: 14,
+    durationMinutes: 50,
+    energyKwh: 35.0,
+    finalPricePerKwh: 11.8,
+    renewablePct: 88.0,
+    co2Kg: 25.0,
+  });
+
+  // Vikram Desai sessions at Gandhinagar stations
+  await seedCompletedSession({
+    user: demoDriver4,
+    station: gnStation6,
+    vehicle: tiagoEv,
+    daysAgo: 2,
+    hoursAgo: 48,
+    hourOfDay: 10,
+    durationMinutes: 30,
+    energyKwh: 15.0,
+    finalPricePerKwh: 12.8,
+    renewablePct: 70.0,
+    co2Kg: 9.5,
+  });
+
+  // Rohan Mehta sessions at Gandhinagar stations
+  await seedCompletedSession({
+    user: demoDriver3,
+    station: gnStation8,
+    vehicle: curvvEv,
+    daysAgo: 4,
+    hoursAgo: 96,
+    hourOfDay: 11,
+    durationMinutes: 45,
+    energyKwh: 28.0,
+    finalPricePerKwh: 12.5,
+    renewablePct: 79.0,
+    co2Kg: 20.0,
+  });
+
   // 1. Sessions for Aarav Patel (Current User, driver@ecovolt.in) - 6 sessions, 5 consecutive green streak
   await seedCompletedSession({
     user: driverUser,
-    station: mumbaiStation1,
+    station: gnStation1,
     vehicle: nexonEv,
     daysAgo: 12,
     hoursAgo: 288,
@@ -842,7 +782,7 @@ async function main() {
 
   await seedCompletedSession({
     user: driverUser,
-    station: mumbaiStation2,
+    station: gnStation2,
     vehicle: nexonEv,
     daysAgo: 9,
     hoursAgo: 216,
@@ -856,7 +796,7 @@ async function main() {
 
   await seedCompletedSession({
     user: driverUser,
-    station: mumbaiStation3,
+    station: gnStation3,
     vehicle: nexonEv,
     daysAgo: 7,
     hoursAgo: 168,
@@ -870,7 +810,7 @@ async function main() {
 
   await seedCompletedSession({
     user: driverUser,
-    station: mumbaiStation4,
+    station: gnStation4,
     vehicle: nexonEv,
     daysAgo: 4,
     hoursAgo: 96,
@@ -884,7 +824,7 @@ async function main() {
 
   await seedCompletedSession({
     user: driverUser,
-    station: mumbaiStation1,
+    station: gnStation1,
     vehicle: nexonEv,
     daysAgo: 2,
     hoursAgo: 48,
@@ -898,7 +838,7 @@ async function main() {
 
   await seedCompletedSession({
     user: driverUser,
-    station: mumbaiStation6,
+    station: gnStation6,
     vehicle: nexonEv,
     daysAgo: 0,
     hoursAgo: 4,
@@ -914,7 +854,7 @@ async function main() {
   for (let i = 8; i >= 1; i--) {
     await seedCompletedSession({
       user: demoDriver2,
-      station: i % 2 === 0 ? mumbaiStation1 : mumbaiStation2,
+      station: i % 2 === 0 ? gnStation1 : gnStation2,
       vehicle: mgZsEv,
       daysAgo: i * 2,
       hoursAgo: i * 48,
@@ -931,7 +871,7 @@ async function main() {
   for (let i = 4; i >= 1; i--) {
     await seedCompletedSession({
       user: demoDriver3,
-      station: mumbaiStation3,
+      station: gnStation3,
       vehicle: curvvEv,
       daysAgo: i * 3,
       hoursAgo: i * 72,
@@ -948,7 +888,7 @@ async function main() {
   for (let i = 3; i >= 1; i--) {
     await seedCompletedSession({
       user: demoDriver4,
-      station: mumbaiStation5,
+      station: gnStation5,
       vehicle: tiagoEv,
       daysAgo: i * 4,
       hoursAgo: i * 96,
@@ -965,7 +905,7 @@ async function main() {
   for (let i = 2; i >= 1; i--) {
     await seedCompletedSession({
       user: demoDriver5,
-      station: mumbaiStation4,
+      station: gnStation4,
       vehicle: ioniqEv,
       daysAgo: i * 5,
       hoursAgo: i * 120,
@@ -981,7 +921,7 @@ async function main() {
   // 6. Sessions for Sameer Joshi (#6)
   await seedCompletedSession({
     user: demoDriver6,
-    station: mumbaiStation6,
+    station: gnStation6,
     vehicle: olaS1,
     daysAgo: 1,
     hoursAgo: 24,
@@ -997,7 +937,7 @@ async function main() {
   await prisma.review.create({
     data: {
       userId: driverUser.id,
-      stationId: mumbaiStation1.id,
+      stationId: gnStation1.id,
       rating: 5,
       comment: 'Super fast CCS2 charging and great clean solar power discount during afternoon hours!',
     },

@@ -13,9 +13,9 @@ declare global {
 }
 
 /**
- * Middleware: require valid Bearer JWT access token
+ * Middleware: require valid Bearer JWT access token and active user
  */
-export const requireAuth = (req: Request, _res: Response, next: NextFunction): void => {
+export const requireAuth = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -25,7 +25,31 @@ export const requireAuth = (req: Request, _res: Response, next: NextFunction): v
   const token = authHeader.split(' ')[1];
   try {
     const payload = AuthService.verifyAccessToken(token);
-    req.user = payload;
+
+    // Verify user exists in database
+    let user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, email: true, role: true },
+    });
+
+    // Graceful self-healing for reseeded/migrated databases:
+    // If UUID changed during a re-seed but user email matches an existing account
+    if (!user && payload.email) {
+      user = await prisma.user.findUnique({
+        where: { email: payload.email.toLowerCase() },
+        select: { id: true, email: true, role: true },
+      });
+    }
+
+    if (!user) {
+      return next(new UnauthorizedError('User session expired or user no longer exists. Please sign in again.'));
+    }
+
+    req.user = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
     next();
   } catch (err) {
     next(err);
@@ -36,13 +60,31 @@ export const requireAuth = (req: Request, _res: Response, next: NextFunction): v
  * Middleware: optional Bearer JWT access token
  * If present and valid, populates req.user. If absent or invalid, silently continues.
  */
-export const optionalAuth = (req: Request, _res: Response, next: NextFunction): void => {
+export const optionalAuth = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     try {
       const payload = AuthService.verifyAccessToken(token);
-      req.user = payload;
+      let user = await prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { id: true, email: true, role: true },
+      });
+
+      if (!user && payload.email) {
+        user = await prisma.user.findUnique({
+          where: { email: payload.email.toLowerCase() },
+          select: { id: true, email: true, role: true },
+        });
+      }
+
+      if (user) {
+        req.user = {
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+        };
+      }
     } catch {
       // Silently continue without user
     }

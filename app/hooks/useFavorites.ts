@@ -1,101 +1,81 @@
 /**
  * useFavorites Hook
- * React hook for managing user's favorite stations
+ * Shared reactive state for user favorite stations backed by Zustand favoritesStore.
  */
 
-import {
-    addFavorite,
-    getFavoriteStations,
-    isFavorite,
-    removeFavorite,
-    toggleFavorite,
-} from '@/services/users.service';
 import { Station } from '@/types/database.types';
-import { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from './useAuth';
+import { useFavoritesStore, FavoriteStation } from '../src/features/favorites/favoritesStore';
 
-interface FavoriteStation {
-  id: string;
-  created_at: string;
-  station: Station;
-}
+export type { FavoriteStation };
 
 /**
- * Hook to manage user's favorite stations
+ * Hook to manage user's favorite stations across the entire app
  */
 export function useFavorites() {
   const { user } = useAuth();
-  const [favorites, setFavorites] = useState<FavoriteStation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const favorites = useFavoritesStore((s) => s.favorites);
+  const loading = useFavoritesStore((s) => s.isLoading);
+  const error = useFavoritesStore((s) => s.error);
+  const hasLoaded = useFavoritesStore((s) => s.hasLoaded);
+  const fetchFavorites = useFavoritesStore((s) => s.fetchFavorites);
+  const addFavorite = useFavoritesStore((s) => s.addFavorite);
+  const removeFavorite = useFavoritesStore((s) => s.removeFavorite);
+  const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
+  const isFavorited = useFavoritesStore((s) => s.isFavorited);
 
-  const fetchFavorites = useCallback(async () => {
-    if (!user?.id) return;
-
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getFavoriteStations(user.id);
-      setFavorites(data);
-    } catch (err) {
-      setError('Failed to fetch favorites');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
-
-  useFocusEffect(
-    useCallback(() => {
+  // Initial load only if user is logged in and not loaded yet
+  useEffect(() => {
+    if (user?.id && !hasLoaded) {
       fetchFavorites();
-    }, [fetchFavorites])
+    }
+  }, [user?.id, hasLoaded, fetchFavorites]);
+
+  const stations = useMemo(
+    () => favorites.map((f) => f.station).filter(Boolean) as Station[],
+    [favorites]
   );
 
-  const add = useCallback(async (stationId: string): Promise<boolean> => {
-    if (!user?.id) return false;
-    
-    const success = await addFavorite(user.id, stationId);
-    if (success) {
-      await fetchFavorites();
-    }
-    return success;
-  }, [user?.id, fetchFavorites]);
+  const refresh = useCallback(
+    () => fetchFavorites(true),
+    [fetchFavorites]
+  );
 
-  const remove = useCallback(async (stationId: string): Promise<boolean> => {
-    if (!user?.id) return false;
-    
-    const success = await removeFavorite(user.id, stationId);
-    if (success) {
-      setFavorites(prev => prev.filter(f => f.station?.id !== stationId));
-    }
-    return success;
-  }, [user?.id]);
+  const add = useCallback(
+    async (stationId: string, stationData?: Station): Promise<boolean> => {
+      return addFavorite(stationId, stationData);
+    },
+    [addFavorite]
+  );
 
-  const toggle = useCallback(async (stationId: string): Promise<boolean> => {
-    if (!user?.id) return false;
-    
-    const isFav = await toggleFavorite(user.id, stationId);
-    await fetchFavorites();
-    return isFav;
-  }, [user?.id, fetchFavorites]);
+  const remove = useCallback(
+    async (stationId: string): Promise<boolean> => {
+      return removeFavorite(stationId);
+    },
+    [removeFavorite]
+  );
 
-  const checkIsFavorite = useCallback(async (stationId: string): Promise<boolean> => {
-    if (!user?.id) return false;
-    return isFavorite(user.id, stationId);
-  }, [user?.id]);
+  const toggle = useCallback(
+    async (stationId: string, stationData?: Station): Promise<boolean> => {
+      return toggleFavorite(stationId, stationData);
+    },
+    [toggleFavorite]
+  );
 
-  // Quick check if station is in current favorites list
-  const isFavorited = useCallback((stationId: string): boolean => {
-    return favorites.some(f => f.station?.id === stationId);
-  }, [favorites]);
+  const checkIsFavorite = useCallback(
+    async (stationId: string): Promise<boolean> => {
+      return isFavorited(stationId);
+    },
+    [isFavorited]
+  );
 
   return {
     favorites,
-    stations: favorites.map(f => f.station).filter(Boolean) as Station[],
+    stations,
     loading,
     error,
-    refresh: fetchFavorites,
+    refresh,
     add,
     remove,
     toggle,
@@ -108,50 +88,28 @@ export function useFavorites() {
  * Hook to check/toggle favorite status for a single station
  */
 export function useFavoriteStatus(stationId: string | null) {
-  const { user } = useAuth();
-  const [isFav, setIsFav] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const isFav = useFavoritesStore((s) => (stationId ? s.isFavorited(stationId) : false));
+  const toggleFav = useFavoritesStore((s) => s.toggleFavorite);
+  const fetchFavorites = useFavoritesStore((s) => s.fetchFavorites);
+  const loading = useFavoritesStore((s) => s.isLoading);
 
-  const checkStatus = useCallback(async () => {
-    if (!user?.id || !stationId) return;
-
-    setLoading(true);
-    try {
-      const result = await isFavorite(user.id, stationId);
-      setIsFav(result);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, stationId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      checkStatus();
-    }, [checkStatus])
+  const toggle = useCallback(
+    async (stationData?: Station): Promise<boolean> => {
+      if (!stationId) return false;
+      return toggleFav(stationId, stationData);
+    },
+    [stationId, toggleFav]
   );
 
-  const toggle = useCallback(async (): Promise<boolean> => {
-    if (!user?.id || !stationId) return false;
-
-    setLoading(true);
-    try {
-      const newStatus = await toggleFavorite(user.id, stationId);
-      setIsFav(newStatus);
-      return newStatus;
-    } catch (err) {
-      console.error(err);
-      return isFav;
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, stationId, isFav]);
+  const refresh = useCallback(
+    () => fetchFavorites(true),
+    [fetchFavorites]
+  );
 
   return {
     isFavorite: isFav,
     loading,
     toggle,
-    refresh: checkStatus,
+    refresh,
   };
 }

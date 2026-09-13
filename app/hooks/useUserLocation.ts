@@ -11,10 +11,10 @@ export interface LocationCoords {
   longitude: number;
 }
 
-// Default central EV hub coordinates (Ahmedabad CG Road / Navrangpura)
+// Default central EV hub coordinates (Gandhinagar, Gujarat - near Capital Complex)
 export const DEFAULT_EV_HUB_COORDS: LocationCoords = {
-  latitude: 23.0370,
-  longitude: 72.5622,
+  latitude: 23.2156,
+  longitude: 72.6369,
 };
 
 export interface UserLocationState {
@@ -46,7 +46,7 @@ export function useUserLocation() {
           isFallback: true,
           isLoading: false,
           permissionGranted: false,
-          errorMessage: 'Location permission not granted. Showing Ahmedabad EV Hub.',
+          errorMessage: 'Location permission not granted. Showing Gandhinagar EV Hub.',
         });
         return;
       }
@@ -105,7 +105,7 @@ export function useUserLocation() {
         isFallback: true,
         isLoading: false,
         permissionGranted: false,
-        errorMessage: 'Unable to get GPS fix. Using default Ahmedabad hub.',
+        errorMessage: 'Unable to get GPS fix. Using default Gandhinagar hub.',
       });
     }
   }, []);

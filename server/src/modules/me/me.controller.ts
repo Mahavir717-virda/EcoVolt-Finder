@@ -89,6 +89,16 @@ export class MeController {
         where: { userId_stationId: { userId: req.user.sub, stationId } },
         update: {},
         create: { userId: req.user.sub, stationId },
+        include: {
+          station: {
+            include: {
+              connectors: true,
+              operator: true,
+              pricingRules: true,
+              zone: { include: { tariffs: true } },
+            },
+          },
+        },
       });
 
       res.status(201).json({ success: true, favorite });

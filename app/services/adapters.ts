@@ -94,7 +94,7 @@ export function adaptEcoVoltChargers(rawStation: any): Charger[] {
   ];
 
   return connectors.map((c: any, index: number) => {
-    const isAvailable = (c.available ?? 1) > 0;
+    const isAvailable = (c.available ?? c.availableCount ?? 1) > 0;
     const connectorType = c.type === 'ccs2' ? 'ccs' : c.type === 'type2_ac' ? 'type2' : 'chademo';
     const chargerType = (c.powerKw || 50) >= 50 ? 'dc_fast' : 'level_2';
     return {

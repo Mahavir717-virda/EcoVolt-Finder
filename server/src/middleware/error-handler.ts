@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { Prisma } from '@prisma/client';
 
 export interface ErrorDetails {
   [key: string]: unknown;
@@ -76,6 +77,28 @@ export const errorHandler = (
     code = err.code;
     message = err.message;
     details = err.details;
+  } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === 'P2002') {
+      statusCode = 409;
+      code = 'CONFLICT';
+      message = 'A record with this unique value already exists';
+      details = err.meta as ErrorDetails;
+    } else if (err.code === 'P2025') {
+      statusCode = 404;
+      code = 'NOT_FOUND';
+      message = 'Requested record was not found';
+      details = err.meta as ErrorDetails;
+    } else if (err.code === 'P2003') {
+      statusCode = 400;
+      code = 'FOREIGN_KEY_VIOLATION';
+      message = 'Referenced entity does not exist or constraint violated';
+      details = err.meta as ErrorDetails;
+    } else {
+      statusCode = 400;
+      code = `PRISMA_${err.code}`;
+      message = err.message;
+      details = err.meta as ErrorDetails;
+    }
   } else if (err.name === 'SyntaxError') {
     statusCode = 400;
     code = 'INVALID_JSON';

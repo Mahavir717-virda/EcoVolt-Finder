@@ -175,7 +175,7 @@ export default function StationDetailScreen() {
   };
 
   const handleToggleFavorite = async () => {
-    await toggleFavorite();
+    await toggleFavorite(station || undefined);
   };
 
   // Loading state

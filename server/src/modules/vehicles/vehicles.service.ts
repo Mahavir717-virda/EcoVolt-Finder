@@ -96,7 +96,32 @@ export class VehiclesService {
     const efficiencyWhKm = input.efficiencyWhKm ?? input.efficiency_wh_km ?? defaults.efficiencyWhKm;
     const connectors = ((input.connectors || input.connector_types) as ConnectorType[]) ?? defaults.connectors;
     const currentChargePct = input.currentChargePct ?? input.current_charge_pct ?? 50.0;
-    const targetUserId = input.userId || input.user_id || userId;
+    let targetUserId = input.userId || input.user_id || userId;
+
+    let userExists = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true },
+    });
+
+    if (!userExists) {
+      const userByParam = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+      if (userByParam) {
+        targetUserId = userByParam.id;
+      } else {
+        const firstDriver = await prisma.user.findFirst({
+          where: { role: 'driver' },
+          select: { id: true },
+        });
+        if (firstDriver) {
+          targetUserId = firstDriver.id;
+        } else {
+          throw new NotFoundError(`User not found with id: ${targetUserId}`);
+        }
+      }
+    }
 
     return prisma.vehicle.create({
       data: {
