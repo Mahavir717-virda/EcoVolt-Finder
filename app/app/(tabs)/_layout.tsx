@@ -72,7 +72,7 @@ export default function TabLayout() {
           title: isAdmin ? t('admin.tab_overview', 'Admin Hub') : isManager ? t('manager.tab_analytics', 'Manager Hub') : t('tab.home', 'Home'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? (isAdmin ? 'shield-checkmark' : isManager ? 'business' : 'map') : (isAdmin ? 'shield-checkmark-outline' : isManager ? 'business-outline' : 'map-outline')} 
+              name={focused ? (isAdmin ? 'shield-checkmark' : isManager ? 'business' : 'home') : (isAdmin ? 'shield-checkmark-outline' : isManager ? 'business-outline' : 'home-outline')} 
               size={24} 
               color={color} 
             />

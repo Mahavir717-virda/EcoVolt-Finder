@@ -249,8 +249,11 @@ export default function HomeScreen() {
           <Text style={[styles.greeting, { color: themeColors.textPrimary }]}>
             {t('home.greeting', 'Hello')}, {profile?.full_name?.split(' ')[0] || 'there'}! 👋
           </Text>
-          <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>{t('home.subtitle', 'Find your nearest charging station')}</Text>
+          <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
+            {t('home.subtitle', 'Find your nearest charging station')}
+          </Text>
         </View>
+
         <View style={styles.headerRightActions}>
           <TouchableOpacity
             style={[styles.trophyButton, { backgroundColor: isDark ? '#1F2937' : '#FEF3C7', borderColor: isDark ? '#374151' : '#FDE68A' }]}
@@ -269,7 +272,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/modal/notifications')}
             activeOpacity={0.7}
           >
-            <Ionicons name="notifications-outline" size={24} color={themeColors.textPrimary} />
+            <Ionicons name="notifications-outline" size={22} color={themeColors.textPrimary} />
             {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -429,15 +432,55 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     backgroundColor: colors.white,
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  logoBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+  },
+  brandTextCol: {
+    justifyContent: 'center',
+  },
+  brandTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  brandTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  brandLivePill: {
+    backgroundColor: colors.primary[500],
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  brandLiveText: {
+    color: colors.white,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   greeting: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.neutral[900],
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.neutral[500],
-    marginTop: 2,
+    marginTop: 1,
   },
   notificationButton: {
     width: 44,
@@ -540,7 +583,11 @@ const styles = StyleSheet.create({
     color: colors.neutral[400],
   },
   filterButton: {
-    padding: spacing.xs,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterBadge: {
     position: 'absolute',
