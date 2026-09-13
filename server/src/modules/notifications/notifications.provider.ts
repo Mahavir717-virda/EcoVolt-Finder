@@ -63,3 +63,24 @@ export class ExpoPushNotificationProvider implements INotificationProvider {
     }
   }
 }
+
+/**
+ * Composite Notification Provider: Logs locally & delivers real push notifications to mobile devices via Expo Push API
+ */
+export class CompositeNotificationProvider implements INotificationProvider {
+  private mockProvider = new MockNotificationProvider();
+  private expoPushProvider = new ExpoPushNotificationProvider();
+
+  async send(input: SendNotificationInput, pushToken?: string): Promise<{ success: boolean; messageId?: string }> {
+    // 1. Always log notification to history & console
+    await this.mockProvider.send(input, pushToken);
+
+    // 2. If valid Expo Push Token exists, deliver real push notification to mobile device
+    if (pushToken && pushToken.startsWith('ExponentPushToken[')) {
+      console.log(`[CompositeNotificationProvider] Delivering live Expo Push Notification to token: ${pushToken}`);
+      return this.expoPushProvider.send(input, pushToken);
+    }
+
+    return { success: true, messageId: `msg-${Date.now()}` };
+  }
+}

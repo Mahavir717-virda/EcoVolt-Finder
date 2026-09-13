@@ -1,11 +1,11 @@
 import { randomUUID } from 'crypto';
 import { prisma } from '../../db/client';
 import { INotificationProvider, NotificationPayload, SendNotificationInput } from './notifications.types';
-import { MockNotificationProvider, ExpoPushNotificationProvider } from './notifications.provider';
+import { MockNotificationProvider, ExpoPushNotificationProvider, CompositeNotificationProvider } from './notifications.provider';
 import { NotFoundError } from '../../middleware/error-handler';
 
 export class NotificationsService {
-  private static provider: INotificationProvider = new MockNotificationProvider();
+  private static provider: INotificationProvider = new CompositeNotificationProvider();
   
   // In-memory store for user push tokens & notification records
   private static userPushTokens: Map<string, string> = new Map();

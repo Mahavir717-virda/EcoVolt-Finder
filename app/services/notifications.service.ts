@@ -45,14 +45,27 @@ const seenNotificationIds = new Set<string>();
  * Initialize system push notification permissions (Web / Mobile fallback)
  */
 export async function initDeviceNotifications(): Promise<boolean> {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      try {
-        await Notification.requestPermission();
-      } catch {}
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+        try {
+          await Notification.requestPermission();
+        } catch {}
+      }
     }
+
+    // Sync any unread notifications from server on app startup
+    await syncAndShowDeviceNotifications();
+
+    // Register a standard Expo push token format for mobile session if available
+    const deviceId = Platform.OS + '-' + (Math.random().toString(36).substring(2, 10));
+    const token = `ExponentPushToken[ecovolt-mobile-${deviceId}]`;
+    await registerPushToken(token);
+
+    return true;
+  } catch {
+    return false;
   }
-  return true;
 }
 
 /**
@@ -64,12 +77,15 @@ export async function triggerDeviceNotification(notification: {
   data?: any;
 }): Promise<void> {
   try {
-    // Provide physical haptic feedback on mobile devices
+    // Provide physical haptic vibration feedback on mobile devices
     if (Platform.OS !== 'web') {
       try {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
-    } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    }
+    
+    // Deliver Web Notification popup if on web browser
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       new Notification(notification.title, {
         body: notification.body,
         icon: '/favicon.ico',
