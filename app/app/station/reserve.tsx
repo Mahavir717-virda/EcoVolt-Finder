@@ -289,9 +289,14 @@ export default function ReserveScreen() {
 
     try {
       const startTime = parseTimeString(selectedDate, selectedTime);
+      const [timePart, ampm] = selectedTime.split(' ');
+      let [hours, minutes] = timePart.split(':').map(Number);
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      const startTime = new Date(selectedDate);
+      startTime.setHours(hours, minutes, 0, 0);
       const endTime = addMinutes(startTime, selectedDuration);
 
-      // Create the reservation — passes real stationId, connectorType, vehicleId
       const reservation = await createReservation(
         stationId,
         charger.connector_type,
@@ -318,6 +323,19 @@ export default function ReserveScreen() {
             {
               text: 'OK',
               onPress: () => router.replace('/(tabs)'),
+      if (reservation) {
+        Alert.alert(
+          t('reserve.success_title', 'Reservation Confirmed!'),
+          t('reserve.success_message', 'Your charging slot has been reserved successfully.'),
+          [
+            {
+              text: t('common.ok', 'OK'),
+              onPress: () => {
+                router.replace({
+                  pathname: '/(tabs)/reservations',
+                  params: { tab: 'active', refresh: Date.now().toString() },
+                });
+              },
             },
           ]
         );
@@ -330,6 +348,8 @@ export default function ReserveScreen() {
         'Reservation Failed',
         error?.message || 'The selected time slot is no longer available. Please choose another time.'
       );
+      console.error('[ReserveScreen] Reservation creation error:', error);
+      Alert.alert('Reservation Failed', error?.message || 'Could not reserve slot. Please try again.');
     }
   };
 

@@ -8,7 +8,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   version: '1.0.0',
   orientation: 'portrait',
   userInterfaceStyle: 'light',
-  plugins: ['expo-asset', 'expo-router'],
+  splash: {
+    image: './assets/images/splash-icon.png',
+    resizeMode: 'contain',
+    backgroundColor: '#0F172A',
+  },
+  plugins: ['expo-dev-client', 'expo-asset', 'expo-router'],
   android: {
     ...config.android,
     package: 'com.ecovolt.finder',
@@ -29,5 +34,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '',
     googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '',
     googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+    eas: {
+      projectId: '56fb073a-579d-4c0f-9637-5cac473791c7',
+    },
   },
+  owner: 'virdamahavirs-team',
 });

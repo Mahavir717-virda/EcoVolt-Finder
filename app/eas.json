@@ -1,0 +1,38 @@
+{
+  "cli": {
+    "version": ">= 10.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "env": {
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_Tb9V6Z62rcOTWe"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_Tb9V6Z62rcOTWe"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_live_Tb9QrkMJPQWVss"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

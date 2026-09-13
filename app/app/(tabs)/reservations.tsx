@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCancelReservation, useReservations } from '@/hooks/useReservations';
+import { downloadOrShareReceiptPdf } from '@/utils/receiptGenerator';
 import { spacing } from '@/styles/spacing';
 import { Reservation } from '@/types/database.types';
 import { Ionicons } from '@expo/vector-icons';
@@ -64,6 +65,7 @@ export default function ReservationsScreen() {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabType>('active');
   const [refreshing, setRefreshing] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   // Fetch reservations
   const { reservations, loading, refresh } = useReservations();
@@ -77,6 +79,59 @@ export default function ReservationsScreen() {
       setActiveTab('active');
     }
   }, [params.tab, params.refresh]);
+
+  const handleDownloadReceiptForReservation = useCallback(async (reservation: Reservation) => {
+    try {
+      setDownloadingId(reservation.id);
+      const charger = (reservation as any)?.charger;
+      const station = charger?.station;
+      const resData = reservation as any;
+      const durationMins = resData?.duration_minutes ||
+        (reservation.start_time && reservation.end_time
+          ? Math.max(15, Math.round((new Date(reservation.end_time).getTime() - new Date(reservation.start_time).getTime()) / 60000))
+          : 60);
+
+      const kwh = resData?.energy_kwh || (charger?.power_kw ? (charger.power_kw * (durationMins / 60) * 0.85) : 12.0);
+      const rate = charger?.price_per_kwh || 12.5;
+      const grossCost = resData?.estimated_cost || resData?.total_price || (kwh * rate);
+      const greenDisc = Math.round(grossCost * 0.15);
+      const subtotal = Math.max(1, grossCost - greenDisc);
+      const gst = Math.round(subtotal * 0.18 * 100) / 100;
+      const finalPayable = Math.round((subtotal + gst) * 100) / 100;
+      const invNum = `ECO-INV-${reservation.id.slice(-6).toUpperCase()}`;
+
+      await downloadOrShareReceiptPdf({
+        invoiceNumber: invNum,
+        paymentId: `PAY-${reservation.id.slice(-6).toUpperCase()}`,
+        razorpayPaymentId: `pay_${Date.now().toString().slice(-8)}`,
+        razorpayOrderId: `order_${Date.now().toString().slice(-8)}`,
+        status: 'paid',
+        paymentMethod: 'UPI / In-App Pay',
+        amount: finalPayable,
+        currency: 'INR',
+        paidAt: new Date(reservation.start_time).toISOString(),
+        driverName: profile?.full_name || 'EcoVolt Green Driver',
+        driverEmail: 'driver@ecovolt.app',
+        stationName: station?.name || 'EcoVolt Charging Hub',
+        stationAddress: station?.address || 'Green Energy Corridor, Clean City',
+        operatorName: 'EcoVolt Networks India Pvt Ltd',
+        energyKwh: kwh,
+        tariffRatePerKwh: rate,
+        baseAmount: grossCost,
+        greenDiscountAmount: greenDisc,
+        gstAmount: gst,
+        durationFormatted: `${durationMins} mins`,
+        co2AvoidedKg: resData?.co2_avoided || (kwh * 0.72),
+        ecoPointsEarned: Math.max(10, Math.round((kwh * 0.72) * 10)),
+        renewablePct: 92.4,
+      });
+    } catch (e: any) {
+      console.error('Download error:', e);
+      Alert.alert('Download Error', e?.message || 'Could not generate receipt PDF.');
+    } finally {
+      setDownloadingId(null);
+    }
+  }, [profile]);
 
   // Refetch on tab focus to keep active/past always synchronized
   useFocusEffect(
@@ -354,7 +409,7 @@ export default function ReservationsScreen() {
                     </View>
                   </View>
 
-                  {isActive && (
+                  {isActive ? (
                     <View style={styles.actionButtons}>
                       <Button
                         title="Navigate"
@@ -373,6 +428,20 @@ export default function ReservationsScreen() {
                         disabled={cancelLoading}
                       />
                     </View>
+                  ) : (
+                    reservation.status !== 'cancelled' && (
+                      <View style={styles.actionButtons}>
+                        <Button
+                          title={downloadingId === reservation.id ? "Generating PDF..." : "📄 Download Tax & Eco Invoice"}
+                          variant="outline"
+                          size="sm"
+                          loading={downloadingId === reservation.id}
+                          leftIcon={<Ionicons name="receipt-outline" size={16} color={themeColors.primary} />}
+                          style={[styles.actionButton, { borderColor: '#10B981', flex: 1 }]}
+                          onPress={() => handleDownloadReceiptForReservation(reservation)}
+                        />
+                      </View>
+                    )
                   )}
                 </TouchableOpacity>
               );

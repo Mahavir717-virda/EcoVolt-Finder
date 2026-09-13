@@ -8,6 +8,7 @@
     "scheme": "ecovolt",
     "userInterfaceStyle": "automatic",
     "splash": {
+      "image": "./assets/images/splash-icon.png",
       "backgroundColor": "#0F172A",
       "resizeMode": "contain"
     },
@@ -32,11 +33,26 @@
       ]
     },
     "plugins": [
+      "expo-dev-client",
       "expo-asset",
       "expo-router"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:4000",
+      "useMocks": false,
+      "googleMapsApiKey": "",
+      "googleClientId": "",
+      "googleAndroidClientId": "",
+      "googleWebClientId": "",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "56fb073a-579d-4c0f-9637-5cac473791c7"
+      }
     }
   }
 }

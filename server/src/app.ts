@@ -25,6 +25,7 @@ import { gamificationRouter } from './modules/gamification/gamification.router';
 import { notificationsRouter } from './modules/notifications/notifications.router';
 import { adminRouter } from './modules/admin/admin.router';
 import { managerRouter } from './modules/manager/manager.router';
+import { paymentsRouter } from './modules/payments/payments.router';
 
 export const createApp = (): Express => {
   const app = express();
@@ -97,6 +98,7 @@ export const createApp = (): Express => {
     { path: '/notifications', router: notificationsRouter },
     { path: '/admin', router: adminRouter },
     { path: '/manager', router: managerRouter },
+    { path: '/payments', router: paymentsRouter },
   ];
 
   for (const { path: routePath, router } of routeDefinitions) {
