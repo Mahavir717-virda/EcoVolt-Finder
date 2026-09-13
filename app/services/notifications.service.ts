@@ -1,8 +1,10 @@
 /**
  * EcoVolt Notifications Service
- * Real-time notification inbox, push registration, and smart savings evaluation
+ * Real-time notification inbox, haptic feedback alerts, and dynamic notification delivery
  */
 
+import { Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { apiRequest } from './api';
 
 export interface AppNotification {
@@ -36,18 +38,85 @@ export interface EvaluateSavingsResponse {
   availableChargers?: number;
 }
 
-export async function getNotificationHistory(): Promise<AppNotification[]> {
+// In-memory set of notification IDs already presented
+const seenNotificationIds = new Set<string>();
+
+/**
+ * Initialize system push notification permissions (Web / Mobile fallback)
+ */
+export async function initDeviceNotifications(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      try {
+        await Notification.requestPermission();
+      } catch {}
+    }
+  }
+  return true;
+}
+
+/**
+ * Send an immediate push banner / notification alert directly to the user
+ */
+export async function triggerDeviceNotification(notification: {
+  title: string;
+  body: string;
+  data?: any;
+}): Promise<void> {
+  try {
+    // Provide physical haptic feedback on mobile devices
+    if (Platform.OS !== 'web') {
+      try {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+    } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(notification.title, {
+        body: notification.body,
+        icon: '/favicon.ico',
+      });
+      return;
+    }
+  } catch (err) {
+    console.warn('[Notifications] triggerDeviceNotification fallback:', err);
+  }
+}
+
+/**
+ * Sync notification history from server and trigger alerts for any unread/new notification
+ */
+export async function syncAndShowDeviceNotifications(): Promise<AppNotification[]> {
   try {
     const raw = await apiRequest<AppNotification[]>('/notifications', { method: 'GET' });
-    return Array.isArray(raw) ? raw : [];
+    const notifications = Array.isArray(raw) ? raw : [];
+
+    // Deliver alert for any new unread notification
+    for (const notif of notifications) {
+      if (!notif.isRead && !seenNotificationIds.has(notif.id)) {
+        seenNotificationIds.add(notif.id);
+        await triggerDeviceNotification({
+          title: notif.title,
+          body: notif.body,
+          data: notif.data,
+        });
+      } else if (notif.isRead) {
+        seenNotificationIds.add(notif.id);
+      }
+    }
+
+    return notifications;
   } catch {
     return [];
   }
 }
 
+export async function getNotificationHistory(): Promise<AppNotification[]> {
+  return syncAndShowDeviceNotifications();
+}
+
 export async function markNotificationAsRead(notificationId: string): Promise<boolean> {
   try {
     await apiRequest(`/notifications/${notificationId}/read`, { method: 'PATCH' });
+    seenNotificationIds.add(notificationId);
     return true;
   } catch {
     return false;
@@ -67,6 +136,18 @@ export async function evaluateNearbySavings(
         force,
       }),
     });
+
+    if (res?.notified && res.stationName && res.savingsInr) {
+      const notifTitle = `⚡ Save ₹${res.savingsInr} on EV Recharge!`;
+      const notifBody = `Special dynamic deal at ${res.stationName} (${res.distanceKm?.toFixed(1) || 1.5} km away). ${res.availableChargers || 3} open chargers. Charge now to lock in savings!`;
+      
+      await triggerDeviceNotification({
+        title: notifTitle,
+        body: notifBody,
+        data: { stationId: res.stationId, savingsInr: res.savingsInr },
+      });
+    }
+
     return res;
   } catch (e) {
     return null;

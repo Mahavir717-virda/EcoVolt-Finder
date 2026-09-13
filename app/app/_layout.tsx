@@ -10,6 +10,7 @@ import { LanguageProvider } from '@/hooks/useLanguage';
 import { ThemeProvider, useTheme } from '@/hooks/useTheme';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { initDeviceNotifications } from '@/services/notifications.service';
 
 export const unstable_settings = {
   initialRouteName: '(auth)',
@@ -36,6 +37,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     } else if (isAuthenticated && inAuthGroup) {
       // Logged in but still on an auth screen → send to app
       router.replace('/(tabs)');
+      initDeviceNotifications().catch(() => {});
+    } else if (isAuthenticated) {
+      initDeviceNotifications().catch(() => {});
     }
   }, [isAuthenticated, isLoading, segments]);
 

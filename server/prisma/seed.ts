@@ -7,6 +7,9 @@ async function main() {
   console.log('🌱 Starting ecoVolt-finder database seed...');
 
   // 1. Clean existing records in reverse dependency order
+  await prisma.auditLog.deleteMany();
+  await prisma.notificationLog.deleteMany();
+  await prisma.favorite.deleteMany();
   await prisma.review.deleteMany();
   await prisma.session.deleteMany();
   await prisma.booking.deleteMany();

@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCharger } from '@/hooks/useChargers';
 import { useCreateReservation, useStationAvailability } from '@/hooks/useReservations';
+import { triggerDeviceNotification } from '@/services/notifications.service';
 
 import { useVehiclesStore } from '@/src/features/vehicles/vehiclesStore';
 import { normalizeConnectorType } from '@/utils/chargerMatcher';
@@ -300,6 +301,12 @@ export default function ReserveScreen() {
       );
 
       if (reservation && reservation.id) {
+        triggerDeviceNotification({
+          title: '⚡ Booking Confirmed!',
+          body: `Your charging slot is locked for ${formatDate(selectedDate)} at ${selectedTime}. Tap to view your pass!`,
+          data: { bookingId: reservation.id, stationId },
+        }).catch(() => {});
+
         Alert.alert(
           '⚡ Reservation Confirmed!',
           `Your slot is locked for ${formatDate(selectedDate)} at ${selectedTime}.`,

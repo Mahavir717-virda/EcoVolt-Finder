@@ -3,6 +3,7 @@
     "name": "ecoVolt-finder",
     "slug": "ecovolt-finder",
     "version": "1.0.0",
+    "newArchEnabled": true,
     "orientation": "portrait",
     "scheme": "ecovolt",
     "userInterfaceStyle": "automatic",
