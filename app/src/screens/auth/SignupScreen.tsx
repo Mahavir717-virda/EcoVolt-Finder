@@ -73,26 +73,18 @@ export const SignupScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <View style={styles.logoRow}>
+          <View style={styles.logoBadgeContainer}>
             <Image
               source={require('../../../assets/images/ecovolt-logo.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />
-            <View>
-              <Text variant="h2" style={styles.brandTitle}>
-                ecoVolt<Text variant="h2" color={colors.brand}>-finder</Text>
-              </Text>
-              <Text variant="caption" color={colors.ink3}>
-                Clean Energy EV Network
-              </Text>
-            </View>
           </View>
           <Text variant="h1" style={styles.title}>
-            Create Account
+            Join ecoVolt<Text variant="h1" color={colors.brand}>-finder</Text>
           </Text>
-          <Text variant="body" color={colors.ink2}>
-            Join the decentralized green EV charging network.
+          <Text variant="body" color={colors.ink2} style={styles.subtitle}>
+            Create your account to start clean green EV charging
           </Text>
         </View>
 
@@ -211,25 +203,38 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxxl,
   },
   header: {
-    gap: spacing.xs,
-  },
-  logoRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
     marginBottom: spacing.xs,
-    paddingBottom: spacing.xs,
+  },
+  logoBadgeContainer: {
+    width: 68,
+    height: 68,
+    borderRadius: 18,
+    backgroundColor: '#E7F7EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#1C9B4A25',
+    marginBottom: spacing.xs,
   },
   logoImage: {
-    width: 48,
-    height: 55,
-  },
-  brandTitle: {
-    fontFamily: 'SpaceGrotesk_700Bold',
-    letterSpacing: -0.5,
+    width: 44,
+    height: 50,
   },
   title: {
     fontFamily: 'SpaceGrotesk_700Bold',
+    fontSize: 22,
+    textAlign: 'center',
+    color: colors.ink,
+  },
+  subtitle: {
+    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.ink2,
+    maxWidth: 290,
   },
   formCard: {
     gap: spacing.base,

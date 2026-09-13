@@ -147,7 +147,7 @@ export const HomeMapScreen: React.FC = () => {
           }
         ]}
       >
-        {/* 1. Top Identity & Quick Action Bar */}
+        {/* 1. Top Identity & Status Bar */}
         <View style={styles.topIdentityBar}>
           <View style={styles.brandLocationBlock}>
             <View style={styles.brandRow}>
@@ -156,21 +156,23 @@ export const HomeMapScreen: React.FC = () => {
                 style={styles.logoMark}
                 resizeMode="contain"
               />
-              <Text style={styles.brandName}>
-                ecoVolt<Text style={{ color: colors.brand }}>-finder</Text>
-              </Text>
+              <View>
+                <Text style={styles.greetingText}>
+                  Hello, {firstName} 👋
+                </Text>
+                <TouchableOpacity 
+                  activeOpacity={0.7} 
+                  style={styles.locationPill}
+                  onPress={() => setIsFilterSheetOpen(true)}
+                >
+                  <Ionicons name="location-sharp" size={11} color={colors.brand} />
+                  <Text style={styles.locationText} numberOfLines={1}>
+                    Ahmedabad, Gujarat
+                  </Text>
+                  <Ionicons name="chevron-down" size={10} color={colors.ink3} />
+                </TouchableOpacity>
+              </View>
             </View>
-            <TouchableOpacity 
-              activeOpacity={0.7} 
-              style={styles.locationPill}
-              onPress={() => setIsFilterSheetOpen(true)}
-            >
-              <Ionicons name="location-sharp" size={12} color={colors.brand} />
-              <Text style={styles.locationText} numberOfLines={1}>
-                Ahmedabad, Gujarat
-              </Text>
-              <Ionicons name="chevron-down" size={11} color={colors.ink3} />
-            </TouchableOpacity>
           </View>
 
           <View style={styles.topActionsRow}>
@@ -181,9 +183,7 @@ export const HomeMapScreen: React.FC = () => {
                 onPress={() => navigation.navigate('Vehicles')}
                 style={styles.activeVehicleChip}
               >
-                <View style={styles.vehicleIconCircle}>
-                  <Ionicons name="car-sport" size={12} color={colors.brand} />
-                </View>
+                <Ionicons name="car-sport" size={12} color={colors.brand} />
                 <Text style={styles.vehicleChipText} numberOfLines={1}>
                   {activeVehicle.model?.split(' ')[0] || 'EV'} • {activeVehicle.currentChargePct ?? 68}%
                 </Text>
@@ -202,35 +202,7 @@ export const HomeMapScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* 2. Hero Greeting & Headline */}
-        <View style={styles.heroSection}>
-          <Text style={styles.greetingText}>
-            {greeting}, {firstName} 👋
-          </Text>
-          <Text style={styles.heroHeading}>
-            Find & Book Clean Energy{'\n'}
-            <Text style={styles.heroHeadingAccent}>EV Charging Hubs</Text>
-          </Text>
-        </View>
-
-        {/* 3. Live Renewable Grid Window Incentive Banner */}
-        <View style={styles.gridIncentiveBanner}>
-          <View style={styles.gridIncentiveLeft}>
-            <View style={styles.gridLeafBadge}>
-              <Ionicons name="leaf" size={13} color={colors.brand} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.gridIncentiveTitle}>
-                78% Green Grid Active • Low Tariff Window
-              </Text>
-              <Text style={styles.gridIncentiveSubtitle}>
-                Save up to ₹2.8/kWh charging now with solar & wind peak
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 4. Search Bar */}
+        {/* 2. Search Bar */}
         <View style={styles.searchContainer}>
           <SearchBar
             value={filters.query}
@@ -417,7 +389,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.base,
+    marginBottom: spacing.md,
     paddingTop: 2,
   },
   brandLocationBlock: {
@@ -426,27 +398,27 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
   },
   logoMark: {
-    width: 26,
-    height: 30,
+    width: 32,
+    height: 37,
   },
-  brandName: {
+  greetingText: {
     fontFamily: 'SpaceGrotesk_700Bold',
-    fontSize: 16.5,
+    fontSize: 16,
     color: colors.ink,
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
   },
   locationPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 1,
+    marginTop: 1,
   },
   locationText: {
     fontFamily: 'Manrope_600SemiBold',
-    fontSize: 12,
+    fontSize: 11.5,
     color: colors.ink2,
   },
   topActionsRow: {
@@ -457,7 +429,7 @@ const styles = StyleSheet.create({
   activeVehicleChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -469,14 +441,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
-  },
-  vehicleIconCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.brand + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   vehicleChipText: {
     fontFamily: 'Manrope_700Bold',
@@ -509,63 +473,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand,
     borderWidth: 1,
     borderColor: colors.surface,
-  },
-
-  /* 2. Hero Greeting & Headline */
-  heroSection: {
-    marginBottom: spacing.md,
-  },
-  greetingText: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 13,
-    color: colors.ink2,
-    marginBottom: 4,
-    letterSpacing: 0.2,
-  },
-  heroHeading: {
-    fontFamily: 'SpaceGrotesk_700Bold',
-    fontSize: 24,
-    lineHeight: 30,
-    color: colors.ink,
-    letterSpacing: -0.6,
-  },
-  heroHeadingAccent: {
-    color: colors.brand,
-  },
-
-  /* 3. Renewable Grid Incentive Banner */
-  gridIncentiveBanner: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-    marginBottom: spacing.md,
-  },
-  gridIncentiveLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-  },
-  gridLeafBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gridIncentiveTitle: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 12,
-    color: '#166534',
-  },
-  gridIncentiveSubtitle: {
-    fontFamily: 'Manrope_500Medium',
-    fontSize: 10.5,
-    color: '#15803D',
-    marginTop: 1,
   },
 
   /* 4. Search Bar */
