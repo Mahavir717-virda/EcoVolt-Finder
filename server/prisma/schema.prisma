@@ -75,6 +75,8 @@ model User {
   passwordHash String
   name         String
   role         Role       @default(driver)
+  status       String     @default("active") // active, suspended
+  suspendReason String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -85,6 +87,7 @@ model User {
   reviews      Review[]
   favorites    Favorite[]
   notifications NotificationLog[]
+  auditLogs    AuditLog[]
 
   @@map("users")
 }
@@ -126,10 +129,12 @@ model GridZone {
 model Operator {
   id           String     @id @default(uuid())
   userId       String
-  name         String
-  contactEmail String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  name              String
+  contactEmail      String?
+  payoutBankDetails Json?
+  notificationPrefs Json?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   user         User       @relation(fields: [userId], references: [id], onDelete: Restrict)
   stations     Station[]
@@ -147,7 +152,8 @@ model Station {
   lng          Float
   address      String
   provider     PowerProvider
-  isActive     Boolean        @default(true)
+  isActive     Boolean        @default(true) // Manager toggled
+  platformStatus String       @default("active") // active, flagged, deactivated (Admin toggled)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -165,6 +171,8 @@ model Station {
   @@index([operatorId])
   @@index([zoneId])
   @@map("stations")
+  
+  maxTransformerKw Float @default(150.0)
 }
 
 model Connector {
@@ -264,6 +272,9 @@ model Session {
   cost            Float?         @default(0.0) // Billed at locked price
   avgRenewablePct Float?
   co2AvoidedKg    Float?
+  disputeReason   String?
+  refundStatus    String         @default("none") // none, processing, refunded, failed
+  resolutionNotes String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -337,4 +348,19 @@ model NotificationLog {
   @@index([userId, sentAt])
   @@index([stationId])
   @@map("notification_logs")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String   // e.g. "ROLE_CHANGE", "SUSPEND_USER", "DEACTIVATE_STATION"
+  targetId  String
+  adminId   String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  admin     User     @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([adminId])
+  @@index([targetId])
+  @@map("audit_logs")
 }

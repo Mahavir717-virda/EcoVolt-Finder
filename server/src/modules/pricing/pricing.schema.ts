@@ -17,6 +17,7 @@ export const quoteQuerySchema = z.object({
 });
 
 export const updatePricingRuleSchema = z.object({
+  connectorId: z.string().uuid().optional(),
   providerMarkup: z
     .number()
     .min(0, 'providerMarkup cannot be negative (Edge Case #24)')

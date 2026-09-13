@@ -5,6 +5,9 @@ export type NotificationType =
   | 'booking_reminder'
   | 'connector_offline'
   | 'session_completed'
+  | 'demand_charge_risk'
+  | 'refund_processing'
+  | 'refund_completed'
   | 'general_alert';
 
 export interface NotificationPayload {

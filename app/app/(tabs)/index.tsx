@@ -30,19 +30,38 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  evaluateNearbySavings,
-  getNotificationHistory,
-  AppNotification,
-} from '@/services/notifications.service';
 import { calculateDistance } from '@/utils/distance';
+import { getNotificationHistory } from '@/services/notifications.service';
 import { getGamificationProfile } from '@/services/gamification.service';
-
+import AdminConsoleScreen from '../admin';
+import ManagerHubScreen from '../manager/index';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { colors: themeColors, isDark } = useTheme();
+
+  const isAdmin =
+    (profile as any)?.role === 'admin' ||
+    (user as any)?.role === 'admin' ||
+    user?.email === 'admin@ecovolt.in' ||
+    profile?.email === 'admin@ecovolt.in' ||
+    user?.email === 'admin@ecovolt.com' ||
+    profile?.email === 'admin@ecovolt.com';
+
+  if (isAdmin) {
+    return <AdminConsoleScreen initialTab="overview" />;
+  }
+
+  const isManager =
+    (profile as any)?.role === 'manager' ||
+    (user as any)?.role === 'manager' ||
+    user?.email === 'mahavir@gmail.com' ||
+    profile?.email === 'mahavir@gmail.com';
+
+  if (isManager) {
+    return <ManagerHubScreen initialTab="analytics" />;
+  }
   const { t } = useLanguage();
   const { filters, activeFiltersCount } = useFilters();
   const { isFavorited, toggle: toggleFavorite } = useFavorites();

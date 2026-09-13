@@ -64,7 +64,6 @@ export async function apiRequest<T = any>(
     'Content-Type': 'application/json',
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
-    'Expires': '0',
     ...(options.headers as Record<string, string>),
   };
 
@@ -109,7 +108,11 @@ export async function apiRequest<T = any>(
       throw new Error(errMsg);
     }
 
-    const data = await response.json();
+    const text = await response.text();
+    if (!text || text.trim().length === 0) {
+      return {} as T;
+    }
+    const data = JSON.parse(text);
     return data?.data ?? data;
   } catch (error: any) {
     clearTimeout(timeoutId);

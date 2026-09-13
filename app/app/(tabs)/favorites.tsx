@@ -19,10 +19,37 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '@/hooks/useAuth';
+import AdminConsoleScreen from '../admin';
+import ManagerHubScreen from '../manager/index';
 
 export default function SavedScreen() {
   const router = useRouter();
+  const { profile, user } = useAuth();
   const { colors: themeColors, isDark } = useTheme();
+
+  const isAdmin =
+    (profile as any)?.role === 'admin' ||
+    (user as any)?.role === 'admin' ||
+    user?.email === 'admin@ecovolt.in' ||
+    profile?.email === 'admin@ecovolt.in' ||
+    user?.email === 'admin@ecovolt.com' ||
+    profile?.email === 'admin@ecovolt.com';
+
+  if (isAdmin) {
+    return <AdminConsoleScreen initialTab="users" />;
+  }
+
+  const isManager =
+    (profile as any)?.role === 'manager' ||
+    (user as any)?.role === 'manager' ||
+    user?.email === 'mahavir@gmail.com' ||
+    profile?.email === 'mahavir@gmail.com';
+
+  if (isManager) {
+    return <ManagerHubScreen initialTab="pricing" />;
+  }
+
   const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const { coords: userLocation, refreshLocation } = useUserLocation();

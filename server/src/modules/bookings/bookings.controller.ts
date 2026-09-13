@@ -135,4 +135,24 @@ export class BookingsController {
       next(err);
     }
   }
+
+  public static async getManagerUpcomingBookings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const bookings = await BookingsService.getManagerUpcomingBookings(req.user!.sub);
+      res.status(200).json(bookings);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async overrideStuckConnector(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const rawId = req.params.id;
+      const bookingId = Array.isArray(rawId) ? rawId[0] : rawId;
+      const result = await BookingsService.overrideStuckConnector(req.user!.sub, bookingId);
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }

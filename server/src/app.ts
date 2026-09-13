@@ -23,9 +23,14 @@ import { forecastRouter, gridRouter } from './modules/forecast/forecast.router';
 import { impactRouter, analyticsRouter } from './modules/analytics/analytics.router';
 import { gamificationRouter } from './modules/gamification/gamification.router';
 import { notificationsRouter } from './modules/notifications/notifications.router';
+import { adminRouter } from './modules/admin/admin.router';
+import { managerRouter } from './modules/manager/manager.router';
 
 export const createApp = (): Express => {
   const app = express();
+
+  // Disable ETag caching to ensure fresh JSON payloads on all API requests
+  app.disable('etag');
 
   // Response Compression (Gzip / Brotli for ultra-low latency over mobile networks)
   app.use(compression());
@@ -90,6 +95,8 @@ export const createApp = (): Express => {
     { path: '/gamification', router: gamificationRouter },
     { path: '/analytics', router: analyticsRouter },
     { path: '/notifications', router: notificationsRouter },
+    { path: '/admin', router: adminRouter },
+    { path: '/manager', router: managerRouter },
   ];
 
   for (const { path: routePath, router } of routeDefinitions) {

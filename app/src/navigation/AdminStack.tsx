@@ -1,7 +1,18 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AdminStackParamList } from './types';
-import { AdminOverviewScreen, ZoneDetailScreen } from '../screens/admin';
+import { 
+  AdminOverviewScreen,
+  ZoneDrilldownScreen,
+  OperatorOversightScreen,
+  DataQualityScreen,
+  AdminAnalyticsScreen,
+  UserManagementScreen,
+  StationRegistryScreen,
+  SystemHealthScreen,
+  AuditLogScreen,
+  ComplianceSecurityScreen
+} from '../screens/admin';
 import { colors } from '../theme/tokens';
 
 const Stack = createNativeStackNavigator<AdminStackParamList>();
@@ -24,13 +35,48 @@ export const AdminNavigator: React.FC = () => {
       />
       <Stack.Screen
         name="ZoneDetail"
-        component={ZoneDetailScreen}
+        component={ZoneDrilldownScreen}
         options={{ title: 'Zone Diagnostics' }}
       />
       <Stack.Screen
         name="NetworkAnalytics"
-        component={AdminOverviewScreen}
-        options={{ title: 'Network Load & Renewable Shift' }}
+        component={AdminAnalyticsScreen}
+        options={{ title: 'Network Load & Analytics' }}
+      />
+      <Stack.Screen
+        name="OperatorOversight"
+        component={OperatorOversightScreen}
+        options={{ title: 'Operator Oversight' }}
+      />
+      <Stack.Screen
+        name="DataQuality"
+        component={DataQualityScreen}
+        options={{ title: 'Data Quality Monitoring' }}
+      />
+      <Stack.Screen
+        name="UserManagement"
+        component={UserManagementScreen}
+        options={{ title: 'User & Role Management' }}
+      />
+      <Stack.Screen
+        name="StationRegistry"
+        component={StationRegistryScreen}
+        options={{ title: 'Station Registry Governance' }}
+      />
+      <Stack.Screen
+        name="SystemHealth"
+        component={SystemHealthScreen}
+        options={{ title: 'System Health / Ops' }}
+      />
+      <Stack.Screen
+        name="AuditLog"
+        component={AuditLogScreen}
+        options={{ title: 'Audit Log' }}
+      />
+      <Stack.Screen
+        name="ComplianceSecurity"
+        component={ComplianceSecurityScreen}
+        options={{ title: 'Compliance & Security' }}
       />
     </Stack.Navigator>
   );
