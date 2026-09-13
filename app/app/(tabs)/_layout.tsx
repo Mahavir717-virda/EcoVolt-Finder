@@ -46,16 +46,18 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="index"
-      tabBar={(props) => <CapsuleTabBar {...props} />}
+      tabBar={isAdmin ? () => null : (props) => <CapsuleTabBar {...props} />}
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: isDark ? colors.textMuted : colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: colors.tabBarBg,
-          borderTopColor: colors.tabBarBorder,
-          paddingTop: 8,
-          height: 88,
-        },
+        tabBarStyle: isAdmin
+          ? { display: 'none' }
+          : {
+              backgroundColor: colors.tabBarBg,
+              borderTopColor: colors.tabBarBorder,
+              paddingTop: 8,
+              height: 88,
+            },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
