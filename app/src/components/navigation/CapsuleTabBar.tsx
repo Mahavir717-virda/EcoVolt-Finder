@@ -159,7 +159,7 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
           <Ionicons
             name={isFocused ? config.iconActive : config.iconInactive}
             size={isCenterHome ? 22 : 21}
-            color={isFocused ? defaultTokens.brand : defaultTokens.ink3}
+            color={isFocused ? '#FFFFFF' : defaultTokens.ink3}
           />
         </Animated.View>
 
@@ -168,7 +168,7 @@ const CapsuleTabItem: React.FC<CapsuleTabItemProps> = ({
           style={[
             styles.tabLabel,
             {
-              color: isFocused ? defaultTokens.brand : defaultTokens.ink3,
+              color: isFocused ? '#FFFFFF' : defaultTokens.ink3,
               fontFamily: isFocused
                 ? 'Manrope_700Bold'
                 : 'Manrope_600SemiBold',
@@ -350,14 +350,19 @@ const styles = StyleSheet.create({
     left: 0,
     top: 4,
     bottom: 4,
-    backgroundColor: defaultTokens.brandTint, // #E7F7EC
+    backgroundColor: defaultTokens.ink, // Dark active state (#14181A)
     borderRadius: 14, // Reduced round shape to frame the tab cleanly
     borderWidth: 1,
-    borderColor: defaultTokens.brand + '30',
+    borderColor: defaultTokens.ink,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 4,
+    elevation: 3,
   },
   homePillIndicator: {
-    backgroundColor: defaultTokens.brandTint,
-    borderColor: defaultTokens.brand + '50',
+    backgroundColor: defaultTokens.ink,
+    borderColor: defaultTokens.ink,
   },
   tabsRow: {
     flex: 1,
