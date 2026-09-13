@@ -27,7 +27,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -226,11 +227,26 @@ export default function HomeScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
-        <View>
+        <View style={{ flex: 1 }}>
+          <View style={styles.topBrandRow}>
+            <Image
+              source={require('@/assets/images/ecovolt-logo.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+            <Text style={[styles.brandTitle, { color: themeColors.textPrimary }]}>
+              ecoVolt<Text style={{ color: colors.primary[500] }}>-finder</Text>
+            </Text>
+          </View>
           <Text style={[styles.greeting, { color: themeColors.textPrimary }]}>
             {t('home.greeting', 'Hello')}, {profile?.full_name?.split(' ')[0] || 'there'}! 👋
           </Text>
-          <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>{t('home.subtitle', 'Find your nearest charging station')}</Text>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-sharp" size={12} color={colors.primary[500]} />
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary, marginTop: 0 }]}>
+              Ahmedabad, Gujarat
+            </Text>
+          </View>
         </View>
         <View style={styles.headerRightActions}>
           <TouchableOpacity
@@ -250,7 +266,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/modal/notifications')}
             activeOpacity={0.7}
           >
-            <Ionicons name="notifications-outline" size={24} color={themeColors.textPrimary} />
+            <Ionicons name="notifications-outline" size={22} color={themeColors.textPrimary} />
             {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -410,15 +426,35 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     backgroundColor: colors.white,
   },
+  topBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  headerLogo: {
+    width: 22,
+    height: 25,
+  },
+  brandTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
   greeting: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: colors.neutral[900],
   },
-  subtitle: {
-    fontSize: 14,
-    color: colors.neutral[500],
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginTop: 2,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: colors.neutral[500],
   },
   notificationButton: {
     width: 44,

@@ -16,6 +16,8 @@ export interface SearchBarProps {
   placeholder?: string;
   /** Called when the dark filter icon button is pressed */
   onFilterPress?: () => void;
+  /** True if any non-default filters are active */
+  hasActiveFilters?: boolean;
   style?: ViewStyle;
 }
 
@@ -28,6 +30,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onChangeText,
   placeholder = 'Search charging stations…',
   onFilterPress,
+  hasActiveFilters = false,
   style,
 }) => {
   return (
@@ -35,7 +38,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       {/* Pill search input */}
       <View style={styles.inputPill}>
         {/* Leading search icon */}
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Ionicons name="search" size={18} color={colors.ink3} style={styles.searchIcon} />
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -45,6 +48,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           returnKeyType="search"
           clearButtonMode="while-editing"
         />
+        {value.length > 0 && (
+          <TouchableOpacity onPress={() => onChangeText('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close-circle" size={16} color={colors.ink3} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Filter toggle icon-button — dark square with white icon */}
@@ -55,6 +63,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           style={styles.filterBtn}
         >
           <Ionicons name="options" size={20} color="#FFFFFF" />
+          {hasActiveFilters && <View style={styles.activeFilterDot} />}
         </TouchableOpacity>
       )}
     </View>
@@ -98,5 +107,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  activeFilterDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.brand,
+    borderWidth: 1.5,
+    borderColor: colors.ink,
   },
 });
