@@ -22,6 +22,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -95,10 +96,14 @@ export default function LoginScreen() {
           <ScaleIn delay={100} duration={500}>
             <View style={styles.header}>
               <View style={styles.logoContainer}>
-                <Ionicons name="flash" size={48} color={colors.primary[500]} />
+                <Image
+                  source={require('@/assets/images/ecovolt-logo.png')}
+                  style={{ width: 56, height: 64 }}
+                  resizeMode="contain"
+                />
               </View>
               <Text style={styles.title}>Welcome Back</Text>
-              <Text style={styles.subtitle}>Sign in to continue to VoltSpot</Text>
+              <Text style={styles.subtitle}>Sign in to continue to ecoVolt-finder</Text>
             </View>
           </ScaleIn>
 

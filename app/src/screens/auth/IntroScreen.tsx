@@ -5,6 +5,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Dimensions,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -68,9 +69,16 @@ export const IntroScreen: React.FC = () => {
       <View style={styles.container}>
         {/* Top Header */}
         <View style={styles.topHeader}>
-          <Text variant="h2" style={styles.logoText}>
-            ecoVolt<Text variant="h2" color={colors.brand}>-finder</Text>
-          </Text>
+          <View style={styles.brandRow}>
+            <Image
+              source={require('../../../assets/images/ecovolt-logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+            <Text variant="h2" style={styles.logoText}>
+              ecoVolt<Text variant="h2" color={colors.brand}>-finder</Text>
+            </Text>
+          </View>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => navigation.navigate('Login')}
@@ -157,6 +165,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xs,
     paddingTop: spacing.xs,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  logoImage: {
+    width: 28,
+    height: 32,
   },
   logoText: {
     fontFamily: 'SpaceGrotesk_700Bold',

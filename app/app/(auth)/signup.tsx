@@ -21,6 +21,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -101,10 +102,14 @@ export default function SignUpScreen() {
           <ScaleIn delay={100} duration={500}>
             <View style={styles.header}>
               <View style={styles.logoContainer}>
-                <Ionicons name="flash" size={48} color={colors.primary[500]} />
+                <Image
+                  source={require('@/assets/images/ecovolt-logo.png')}
+                  style={{ width: 56, height: 64 }}
+                  resizeMode="contain"
+                />
               </View>
               <Text style={styles.title}>Create Account</Text>
-              <Text style={styles.subtitle}>Sign up to get started with VoltSpot</Text>
+              <Text style={styles.subtitle}>Sign up to get started with ecoVolt-finder</Text>
             </View>
           </ScaleIn>
 
@@ -211,10 +216,12 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 20,
-    backgroundColor: colors.primary[50],
+    backgroundColor: '#E7F7EC',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#1C9B4A20',
   },
   title: {
     fontSize: 28,

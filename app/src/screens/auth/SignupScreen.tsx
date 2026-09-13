@@ -4,6 +4,8 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  TouchableOpacity,
+  Image,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -71,6 +73,21 @@ export const SignupScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.header}>
+          <View style={styles.logoRow}>
+            <Image
+              source={require('../../../assets/images/ecovolt-logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+            <View>
+              <Text variant="h2" style={styles.brandTitle}>
+                ecoVolt<Text variant="h2" color={colors.brand}>-finder</Text>
+              </Text>
+              <Text variant="caption" color={colors.ink3}>
+                Clean Energy EV Network
+              </Text>
+            </View>
+          </View>
           <Text variant="h1" style={styles.title}>
             Create Account
           </Text>
@@ -195,6 +212,21 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: spacing.xs,
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
+  logoImage: {
+    width: 48,
+    height: 55,
+  },
+  brandTitle: {
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.5,
   },
   title: {
     fontFamily: 'SpaceGrotesk_700Bold',
